@@ -60,7 +60,7 @@ A private, Watch Dogs-style profiler of David's surroundings: a full-screen iPho
 
 ## Context
 
-- **User:** David, 20, Chem Eng at Monash, Melbourne. Solo developer; building over the summer holidays after exams (2–4 Nov 2026). Uses it anywhere in Melbourne (home Nunawading area, Monash, CBD).
+- **User:** David, 20, Chem Eng at Monash, Melbourne. Solo developer; building over the summer holidays after exams (2–4 Nov 2026). Uses it anywhere in Melbourne (home in Bulleen, Monash Clayton, Hammers Gym Nunawading, CBD).
 - **Origin:** detailed project brief written with another Claude agent (Oct 19 2026) — `.planning/references/project-brief.pdf`. Full 7-phase vision lives there: City mode → personal layers → first radio → house mode → dispatch transcription → sky/atmosphere → amateur licence.
 - **Home lab:** Proxmox server, 32 GB RAM, Quadro M4000 GPU (if used for CUDA later: pin CUDA 12, never 13). Tailscale for access.
 - **SPENCER 2.0:** David's existing assistant, already running on Proxmox. "Shinigami is the eyes, SPENCER is the voice" — Shinigami detects, SPENCER decides whether to interrupt. v1 doesn't depend on it; alert delivery via SPENCER comes later.
