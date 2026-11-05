@@ -1,11 +1,14 @@
 """FastAPI app factory: routers first, static files mounted last."""
 
 import logging
+import time
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
-from shinigami.api import health
+from shinigami.api import health, profile
+from shinigami.providers.base import ProviderContext
+from shinigami.providers.sun import SunProvider
 from shinigami.settings import Settings, get_settings
 
 log = logging.getLogger("shinigami")
@@ -22,6 +25,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     app = FastAPI(title="Shinigami Eyes", version=settings.version)
     app.state.settings = settings
+    app.state.ctx = ProviderContext(settings=settings, clock=time.time)
+    app.state.providers = [SunProvider()]
 
     @app.middleware("http")
     async def headers_mw(request: Request, call_next):
@@ -41,6 +46,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return response
 
     app.include_router(health.router)
+    app.include_router(profile.router)
 
     if settings.static_dir.is_dir():
         app.mount("/", StaticFiles(directory=settings.static_dir, html=True), name="static")
