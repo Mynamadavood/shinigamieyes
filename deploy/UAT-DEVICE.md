@@ -4,6 +4,11 @@ Record a result or note under each item.
 
 ## Gate 1: Skeleton go/no-go (plan 01-03)
 
+Automated pre-check (2026-11-05, dev PC over tailnet, FQDN `shinigami.<tailnet>.ts.net`):
+- `verify.sh --local` (in CT): `{"mode":"local","pass":13,"fail":0,"skip":1,"p95_ms":null}`
+- `verify.sh --remote`: `{"mode":"remote","pass":8,"fail":0,"skip":4,"p95_ms":null}` (sse_unbuffered PASS through tailscale serve, so SSE live fill-in stays; no polling fallback needed)
+- Deploy fixes applied during bring-up: template pinned to host arch (arm64 picked by mistake), uv installed to /usr/local/bin, PATH set for the service user in deploy.sh.
+
 - [ ] Safari opens `https://shinigami.<tailnet>.ts.net` with no TLS error (Pi-hole DNS and AdGuard present). Result / notes:
 - [ ] `/api/health` JSON shows. Result / notes:
 - [ ] Share, Add to Home Screen installs with the black/red icon. Result / notes:
