@@ -30,7 +30,7 @@ v1 = City mode: a private, Tailscale-only iPhone PWA that profiles Melbourne aro
   4. With the server unreachable, the app shows the last cached profile marked "OFF-GRID" instead of hanging
   5. David can use phone GPS or drop a manual pin when GPS is denied, and the service survives a Proxmox reboot and restarts on failure
 
-**Plans:** 4/11 plans executed
+**Plans:** 7/11 plans executed
 
 Plans:
 **Wave 1**
@@ -48,12 +48,12 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 01-05-PLAN.md — Countdown HUD: formatter/clock/ticker, styled next-list, tokens and fonts (wave 4)
-- [ ] 01-06-PLAN.md — UV slice: SQLite store, runtime/event bus, ARPANSA UV now, Open-Meteo UV protection window (wave 4)
+- [x] 01-05-PLAN.md — Countdown HUD: formatter/clock/ticker, styled next-list, tokens and fonts (wave 4)
+- [x] 01-06-PLAN.md — UV slice: SQLite store, runtime/event bus, ARPANSA UV now, Open-Meteo UV protection window (wave 4)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 01-07-PLAN.md — Freshness, stale dimming, urgent red, expiry pulse-dim-drop, empty states (wave 5)
+- [x] 01-07-PLAN.md — Freshness, stale dimming, urgent red, expiry pulse-dim-drop, empty states (wave 5)
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
@@ -175,7 +175,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation and Flat HUD Slice | 4/11 | In Progress|  |
+| 1. Foundation and Flat HUD Slice | 7/11 | In Progress|  |
 | 2. 3D Map, Hero and Surveillance | 0/0 | Not started | - |
 | 3. Transit | 0/0 | Not started | - |
 | 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
