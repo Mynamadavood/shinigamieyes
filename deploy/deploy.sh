@@ -12,7 +12,10 @@ chown -R shinigami:shinigami /opt/shinigami
 [ -x /usr/local/bin/uv ] || { echo "FATAL: /usr/local/bin/uv missing - re-run deploy/lxc-setup.sh" >&2; exit 1; }
 
 as_svc() {
+  # runuser resets PATH for the service user (no /usr/local/bin on Debian 13),
+  # so set it explicitly or `uv` is not found.
   runuser -u shinigami -- env \
+    PATH=/usr/local/bin:/usr/bin:/bin \
     UV_PYTHON_INSTALL_DIR=/opt/shinigami-python \
     UV_CACHE_DIR=/var/cache/shinigami-uv \
     HOME=/opt/shinigami "$@"
