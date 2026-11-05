@@ -2,3 +2,15 @@
 .env
 .env.*
 !.env.example
+
+# Python / build artefacts
+.venv/
+__pycache__/
+*.pyc
+var/
+web/node_modules/
+web/dist/
+places.toml
+!deploy/places.example.toml
+.pytest_cache/
+.ruff_cache/
