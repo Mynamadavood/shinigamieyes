@@ -492,16 +492,22 @@ Manifest: `id:"/"`, `start_url:"/"`, `scope:"/"`, `display:"standalone"`, `backg
 | A10 | iOS standalone geolocation prompt frequency | Pitfall 8 | Design is tolerant either way |
 | A11 | "UV protection" should use clear-sky UV, not cloud-adjusted | Pitfall 6 | Product copy; see Open Question 3 |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Is the Windows dev machine on the tailnet, and what is the tailnet name / does `shinigami` already exist as a machine?**
    - Unknown from here. If the dev machine is on the tailnet, Claude can verify `https://shinigami.<tailnet>.ts.net/api/health` directly (D-13); otherwise David pastes `verify.sh` output.
    - Recommendation: plan a `deploy/verify.sh` that prints one JSON blob David can paste, and a dev-machine curl step if reachable.
+   - **RESOLVED:** D-14 - yes, the dev PC is on the tailnet; Claude runs `deploy/verify.sh --remote` from the dev PC.
 2. **How does code reach the LXC?** Remote is `https://github.com/mynamadavood/shinigamieyes.git` (public/private unknown). Options: `git clone` in LXC (needs deploy key/PAT if private) + Node 22/24 for the build, or build `web/dist` on Windows and `scp` a tarball. Recommendation: tarball for `dist`, `git pull` for server code; decide at planning.
+   - **RESOLVED:** D-15 - `git pull` from GitHub on the LXC (read-only deploy key if private) + deploy script that installs deps, builds the PWA and restarts the service; Node >= 22.12 via NodeSource.
 3. **UV window source semantics.** Clear-sky (conservative, recommended) vs cloud-adjusted? And is approximate (±10 min, hourly interpolation) acceptable? Recommend clear-sky, label "approx".
+   - **RESOLVED:** D-16 - clear-sky UV (Open-Meteo `uv_index_clear_sky`, UV >= 3 window), ~±10 min precision acceptable.
 4. **Proxmox specifics:** storage name for rootfs, CTID, bridge, available Debian template. Script takes these as variables with defaults and prints what it detects.
+   - **RESOLVED:** handled as script variables with defaults (CTID, storage, bridge, template) in plan 01-02's `deploy/` scripts.
 5. **Does the iPhone currently run any DoH/VPN/DNS profile?** Directly relevant to Pitfall 1; ask David before the device checkpoint.
+   - **RESOLVED:** D-17 - Pi-hole on Proxmox, no VPN normally, AdGuard as a Safari extension; the Wave-1 device go/no-go checks MagicDNS `*.ts.net` resolution through Pi-hole and that AdGuard does not block the PWA origin.
 6. **Tailnet ACLs:** should only the phone reach `shinigami:443`? Optional hardening; default ACL permits all tailnet devices.
+   - **DEFERRED:** optional hardening, not Phase 1 scope; default tailnet ACL is accepted for now.
 
 ## Environment Availability
 

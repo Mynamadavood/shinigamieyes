@@ -37,14 +37,49 @@ created: 2026-11-05
 
 ## Per-Task Verification Map
 
-Filled in by the planner and executor as task IDs are assigned. The requirement → test mapping:
+Task-level map (task IDs = `{plan}-T{n}`; commands copied from each plan's `<automated>` verify):
+
+| Task ID | Wave | Requirement | Behavior | Test Type | Automated Command | Status |
+|---------|------|-------------|----------|-----------|-------------------|--------|
+| 01-01-T1 | 1 | (gate) | Package legitimacy checkpoint before first install | checkpoint | `test ! -f uv.lock && test ! -d web/node_modules` | ⬜ pending |
+| 01-01-T2 | 1 | PLAT-01 | FastAPI factory, /api/health, /api/_sse_probe, headers | pytest | `uv run pytest server/tests/test_health.py -q && uv run ruff check server` | ⬜ pending |
+| 01-01-T3 | 1 | PLAT-02 | Vite PWA shell, manifest, iOS meta, SW | vitest + build | `npm --prefix web run test -- --run manifest && npm --prefix web run build` | ⬜ pending |
+| 01-02-T1 | 1 | PLAT-01, PLAT-07 (+PLAT-04 host probe) | LXC/setup/deploy scripts, systemd unit, verify.sh incl. profile_p95 | static (bash -n + grep) | `bash -n deploy/*.sh && grep -q "Restart=always" deploy/shinigami.service` (full chain in 01-02 Task 1) | ⬜ pending |
+| 01-02-T2 | 1 | PLAT-01, PLAT-07 | CHECKLIST, UAT-DEVICE gates, config examples | static (grep) | `grep -q "Gate 1" deploy/UAT-DEVICE.md && grep -q "Gate 2" deploy/UAT-DEVICE.md` | ⬜ pending |
+| 01-03-T1 | 2 | PLAT-01, PLAT-07 | David provisions LXC + deploys skeleton | checkpoint + smoke | `bash deploy/verify.sh --remote "https://$SHINIGAMI_FQDN"` | ⬜ pending |
+| 01-03-T2 | 2 | PLAT-01, PLAT-07 | Remote verification of skeleton from dev PC | smoke | `bash deploy/verify.sh --remote "https://$SHINIGAMI_FQDN"` (fail 0) | ⬜ pending |
+| 01-03-T3 | 2 | PLAT-01, PLAT-02 | iPhone Gate 1 | manual + sign-off grep | `grep -A60 "Gate 1" deploy/UAT-DEVICE.md \| grep -qiE "signed"` | ⬜ pending |
+| 01-04-T1 | 3 | ENV-07 | Item/Layer/Profile contract, Provider base, Sun provider | pytest | `uv run pytest server/tests/test_schema.py server/tests/test_sun.py -q` | ⬜ pending |
+| 01-04-T2 | 3 | PLAT-04 | Read-only /api/profile, no outbound, no logging, in-process p95 | pytest + timing | `uv run pytest server/tests/test_profile_readonly.py server/tests/test_nologging.py -q` | ⬜ pending |
+| 01-05-T1 | 4 | HUD-01 | Formatter, clock offset, boundary-aligned ticker | vitest (fake timers) | `npm --prefix web run test -- --run format clock ticker` | ⬜ pending |
+| 01-05-T2 | 4 | HUD-01 | HUD shell + next-list wired to /api/profile | vitest + build | `npm --prefix web run test -- --run && npm --prefix web run build` | ⬜ pending |
+| 01-06-T1 | 4 | ENV-04 | SQLite store + ARPANSA provider | pytest (fixtures + respx) | `uv run pytest server/tests/test_store.py server/tests/test_arpansa.py -q` | ⬜ pending |
+| 01-06-T2 | 4 | ENV-04 | UV protection window (clear-sky, fallback) | pytest (respx) | `uv run pytest server/tests/test_uv_window.py -q` | ⬜ pending |
+| 01-06-T3 | 4 | PLAT-04, ENV-04 | Runtime, event bus, lifespan, read-only profile preserved | pytest | `uv run pytest -q` | ⬜ pending |
+| 01-07-T1 | 5 | HUD-02 | Freshness rules, view-model states | vitest | `npm --prefix web run test -- --run freshness model` | ⬜ pending |
+| 01-07-T2 | 5 | HUD-02, HUD-01 | Expiry pulse/dim/drop, stale/urgent, loading/empty | vitest (DOM) + build | `npm --prefix web run test -- --run list && npm --prefix web run build` | ⬜ pending |
+| 01-08-T1 | 6 | PLAT-03 (SSE) | /api/stream hello/layers/ping/shutdown | pytest-asyncio | `uv run pytest -k stream -q` | ⬜ pending |
+| 01-08-T2 | 6 | PLAT-03 | IndexedDB cache + stream client reconnect | vitest (fake-indexeddb) | `npm --prefix web run test -- --run store net` | ⬜ pending |
+| 01-08-T3 | 6 | PLAT-05, PLAT-03 | OFF-GRID banner + cached-first boot | vitest (fake timers) + build | `npm --prefix web run test -- --run offgrid && npm --prefix web run build` | ⬜ pending |
+| 01-09-T1 | 7 | PLAT-06 | places.toml, /api/places, place-aware profile/stream | pytest | `uv run pytest server/tests/test_places.py -q` | ⬜ pending |
+| 01-09-T2 | 7 | PLAT-06 | Location state machine, 100 m hysteresis | vitest | `npm --prefix web run test -- --run location` | ⬜ pending |
+| 01-09-T3 | 7 | PLAT-06 | Location strip + Set Location sheet | vitest + build | `npm --prefix web run test -- --run location && npm --prefix web run build` | ⬜ pending |
+| 01-10-T1 | 8 | PLAT-06 | Nominatim proxy /api/geocode (cache, 1 req/s, UA) | pytest (respx) | `uv run pytest -k geocode -q` | ⬜ pending |
+| 01-10-T2 | 8 | PLAT-06 | Address search in Set Location sheet | vitest + build | `npm --prefix web run test -- --run location && npm --prefix web run build` | ⬜ pending |
+| 01-11-T1 | 9 | PLAT-07 | Push + redeploy full app | full suite + checkpoint | `uv run pytest -q && npm --prefix web run test -- --run && npm --prefix web run build` | ⬜ pending |
+| 01-11-T2 | 9 | PLAT-01, PLAT-03, PLAT-04, PLAT-05, PLAT-06 | Remote verification incl. profile_p95 <= 300 ms on host | smoke | `bash deploy/verify.sh --remote "https://$SHINIGAMI_FQDN"` (fail 0, skip 0, PASS profile_p95) | ⬜ pending |
+| 01-11-T3 | 9 | all Phase 1 manual-only | iPhone Gate 2 + host reboot | manual + sign-off grep | `grep -A80 "Gate 2" deploy/UAT-DEVICE.md \| grep -qiE "signed"` | ⬜ pending |
+
+> `nyquist_compliant` and `wave_0_complete` stay `false` at planning time on purpose: the executor flips them to `true` after Wave 0 (01-01/01-02 test scaffolds + verify.sh) has run green and every row above has an existing test file.
+
+Requirement → test mapping:
 
 | Requirement | Behavior | Test Type | Automated Command | File Exists | Status |
 |-------------|----------|-----------|-------------------|-------------|--------|
 | PLAT-01 | Only reachable on the tailnet; app binds 127.0.0.1; funnel off; FQDN = `shinigami.<tailnet>.ts.net` | smoke | `deploy/verify.sh` | ❌ W0 | ⬜ pending |
 | PLAT-02 | Manifest valid (`display: standalone`, `start_url`, icons, apple meta tags) | unit | `npm --prefix web run test -- --run manifest` | ❌ W0 | ⬜ pending |
 | PLAT-03 | IndexedDB last profile renders before network; replaced after fetch; SSE replaces a layer without reload | vitest (mocked fetch/EventSource) | `npm --prefix web run test -- --run store net` | ❌ W0 | ⬜ pending |
-| PLAT-04 | `/profile` makes no outbound HTTP; in-process p95 ≤ 50 ms (budget 300 ms) | pytest + timing | `uv run pytest server/tests/test_profile_readonly.py` | ❌ W0 | ⬜ pending |
+| PLAT-04 | `/profile` makes no outbound HTTP; in-process p95 ≤ 50 ms (budget 300 ms); on-host p95 ≤ 300 ms over 20 requests | pytest + timing; smoke | `uv run pytest server/tests/test_profile_readonly.py` ; `deploy/verify.sh` (`profile_p95`) | ❌ W0 | ⬜ pending |
 | PLAT-05 | Fetch timeout ≤ 4 s → OFF-GRID banner, cache kept, ticking continues; recovery clears banner | vitest (fake timers) | `npm --prefix web run test -- --run offgrid` | ❌ W0 | ⬜ pending |
 | PLAT-06 | 100 m hysteresis; denied/timeout → pin path; places endpoint; geocode proxy cache + 1 req/s + UA | vitest + pytest (respx) | `npm --prefix web run test -- --run location` ; `uv run pytest -k geocode` | ❌ W0 | ⬜ pending |
 | PLAT-07 | systemd `Restart=always`, `WantedBy=multi-user.target`; CT `onboot: 1`; survives `systemctl kill` | smoke | `deploy/verify.sh` | ❌ W0 | ⬜ pending |
