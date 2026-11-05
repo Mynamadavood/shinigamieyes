@@ -1,5 +1,6 @@
 import "../styles/location.css";
 import type { LocationState, PlaceRef } from "../location";
+import { type GeoResult, searchAddress } from "../location-search";
 
 export const GPS_OFF_COPY =
   "Location is off. Pick a place below or enable it in Settings > Privacy > Location Services.";
@@ -7,7 +8,17 @@ export const GPS_OFF_COPY =
 export interface SheetHandlers {
   onGps(): void;
   onPlace(p: PlaceRef): void;
+  onSearch(r: { lat: number; lon: number; label: string }): void;
 }
+
+export const SEARCH_COPY = {
+  placeholder: "Search address",
+  searching: "Searching...",
+  empty: "No match. Try a street and suburb.",
+  error: "Search failed. Check your connection and try again.",
+};
+const MIN_QUERY = 3;
+const DOUBLE_SUBMIT_MS = 400;
 
 export class LocationSheet {
   readonly searchHost: HTMLElement;
@@ -37,6 +48,7 @@ export class LocationSheet {
     this.message.hidden = true;
     this.searchHost = document.createElement("div");
     this.searchHost.className = "sheet-search";
+    this.buildSearch();
     this.sheet.append(title, this.message, this.rows, this.searchHost);
     this.backdrop.append(this.sheet);
     host.append(this.backdrop);
@@ -46,6 +58,79 @@ export class LocationSheet {
     });
     this.backdrop.addEventListener("keydown", (e) => this.onKey(e));
     this.renderRows();
+  }
+
+  private input = document.createElement("input");
+  private results = document.createElement("div");
+  private lastSubmit = -Infinity;
+
+  private buildSearch(): void {
+    const i = this.input;
+    i.type = "search";
+    i.className = "search-input";
+    i.placeholder = SEARCH_COPY.placeholder;
+    i.setAttribute("aria-label", SEARCH_COPY.placeholder);
+    i.autocomplete = "off";
+    i.setAttribute("enterkeyhint", "search");
+    i.setAttribute("autocapitalize", "off");
+    i.spellcheck = false;
+    this.results.className = "search-results";
+    this.results.setAttribute("aria-live", "polite");
+    i.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        void this.submit();
+      }
+    });
+    this.searchHost.append(i, this.results);
+  }
+
+  private note(text: string): void {
+    const p = document.createElement("p");
+    p.className = "search-note";
+    p.textContent = text;
+    this.results.replaceChildren(p);
+  }
+
+  private async submit(): Promise<void> {
+    const q = this.input.value.trim();
+    const t = Date.now();
+    if (q.length < MIN_QUERY || t - this.lastSubmit < DOUBLE_SUBMIT_MS) return;
+    this.lastSubmit = t;
+    this.note(SEARCH_COPY.searching);
+    let found: GeoResult[];
+    try {
+      found = await searchAddress(q);
+    } catch {
+      this.note(SEARCH_COPY.error);
+      return;
+    }
+    if (found.length === 0) {
+      this.note(SEARCH_COPY.empty);
+      return;
+    }
+    this.results.replaceChildren(
+      ...found.slice(0, 5).map((r) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "search-row";
+        const l = document.createElement("span");
+        l.textContent = r.label;
+        b.append(l);
+        if (r.suburb) {
+          const sub = document.createElement("span");
+          sub.className = "search-suburb";
+          sub.textContent = r.suburb;
+          b.append(sub);
+        }
+        b.addEventListener("click", () => {
+          this.handlers.onSearch({ lat: r.lat, lon: r.lon, label: r.label });
+          this.close();
+        });
+        return b;
+      }),
+    );
   }
 
   isOpen(): boolean {

@@ -77,6 +77,7 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
   const sheet: LocationSheet = new LocationSheet(root, {
     onGps: () => loc.useGps(),
     onPlace: (pl) => loc.usePlace(pl),
+    onSearch: (r) => loc.useSearch(r),
   });
   const geo: Geolocation =
     deps.geolocation ??

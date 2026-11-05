@@ -18,10 +18,11 @@ function setup() {
   document.body.append(slot, host);
   const onGps = vi.fn();
   const onPlace = vi.fn();
-  const sheet = new LocationSheet(host, { onGps, onPlace });
+  const onSearch = vi.fn();
+  const sheet = new LocationSheet(host, { onGps, onPlace, onSearch });
   sheet.setPlaces(PLACES);
   const strip = new LocationStrip(slot, () => sheet.open());
-  return { slot, host, sheet, strip, onGps, onPlace };
+  return { slot, host, sheet, strip, onGps, onPlace, onSearch };
 }
 
 const rows = (host: HTMLElement) =>
@@ -98,20 +99,20 @@ describe("LocationSheet", () => {
   it("traps Tab inside the sheet", () => {
     const { host, sheet } = setup();
     sheet.open();
-    const r = rows(host);
-    r[r.length - 1]!.focus();
-    r[r.length - 1]!.dispatchEvent(
+    const last = host.querySelector<HTMLInputElement>(".search-input")!;
+    last.focus();
+    last.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }),
     );
-    expect(document.activeElement).toBe(r[0]);
+    expect(document.activeElement).toBe(rows(host)[0]);
   });
-  it("shows the GPS-denied copy and an empty searchHost", () => {
+  it("shows the GPS-denied copy and hosts the search input", () => {
     const { host, sheet } = setup();
     sheet.open(GPS_OFF_COPY);
     expect(host.querySelector(".sheet-message")!.textContent).toBe(
       "Location is off. Pick a place below or enable it in Settings > Privacy > Location Services.",
     );
-    expect(sheet.searchHost.childNodes).toHaveLength(0);
+    expect(sheet.searchHost.querySelector("input")).not.toBeNull();
     sheet.close();
     sheet.open();
     expect((host.querySelector(".sheet-message") as HTMLElement).hidden).toBe(true);

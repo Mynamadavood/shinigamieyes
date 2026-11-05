@@ -71,3 +71,48 @@
 @media (prefers-reduced-motion: reduce) {
   .sheet { animation: none; }
 }
+
+.sheet-search { border-top: var(--bw) solid var(--c-frame); }
+.search-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--s-2xl);
+  padding: 0 var(--s-md);
+  background: var(--c-surface);
+  border: 0;
+  border-bottom: var(--bw) solid var(--c-frame);
+  border-radius: 0;
+  color: var(--c-text);
+  font-family: var(--f-mono);
+  font-size: 16px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.search-input:focus { outline: var(--bw) solid var(--c-red); outline-offset: calc(var(--bw) * -1); }
+.search-note {
+  margin: 0;
+  padding: var(--s-md);
+  font-size: var(--fs-label);
+  line-height: var(--lh-label);
+  color: var(--c-dim);
+}
+.search-row {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  min-height: var(--s-2xl);
+  padding: var(--s-xs) var(--s-md);
+  background: transparent;
+  border: 0;
+  border-bottom: var(--bw) solid var(--c-frame);
+  color: var(--c-text);
+  font-family: var(--f-mono);
+  font-size: var(--fs-body);
+  text-align: left;
+  cursor: pointer;
+}
+.search-row:active { background: var(--c-surface); }
+.search-row:focus-visible { outline: 2px solid var(--c-blue); outline-offset: -2px; }
+.search-suburb { font-size: var(--fs-label); color: var(--c-dim); }
