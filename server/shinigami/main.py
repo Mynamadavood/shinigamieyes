@@ -8,7 +8,8 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
-from shinigami.api import health, profile, stream
+from shinigami.api import health, places, profile, stream
+from shinigami.places import load_places
 from shinigami.providers.arpansa import ArpansaUvProvider
 from shinigami.providers.base import ProviderContext
 from shinigami.providers.sun import SunProvider
@@ -63,6 +64,7 @@ def create_app(settings: Settings | None = None, start_runtime: bool = True) -> 
     app.state.settings = settings
     app.state.ctx = ctx
     app.state.providers = providers
+    app.state.places = {p.id: p for p in load_places(settings.places_path)}
 
     @app.middleware("http")
     async def headers_mw(request: Request, call_next):
@@ -83,6 +85,7 @@ def create_app(settings: Settings | None = None, start_runtime: bool = True) -> 
         return response
 
     app.include_router(health.router)
+    app.include_router(places.router)
     app.include_router(profile.router)
     app.include_router(stream.router)
 

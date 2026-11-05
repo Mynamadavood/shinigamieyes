@@ -7,6 +7,7 @@ import asyncio
 import json
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
+from typing import Literal
 
 from fastapi import APIRouter, Query, Request
 from sse_starlette import EventSourceResponse, ServerSentEvent
@@ -60,8 +61,11 @@ async def stream(
     request: Request,
     lat: float | None = Query(None, ge=-90, le=90),
     lon: float | None = Query(None, ge=-180, le=180),
+    place: str | None = Query(None, max_length=32, pattern="^[a-z0-9_-]+$"),
+    src: Literal["gps", "search"] = "gps",
+    label: str | None = Query(None, max_length=120),
 ):
-    location, lat, lon = resolve_location(request.app.state.settings, lat, lon)
+    location, lat, lon = resolve_location(request, lat, lon, place, src, label)
     gen = event_stream(
         request.app.state.ctx,
         request.app.state.providers,
