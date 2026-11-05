@@ -8,18 +8,23 @@ from shinigami.schema import Profile, ProfileLocation
 router = APIRouter()
 
 
+def resolve_location(
+    settings, lat: float | None, lon: float | None
+) -> tuple[ProfileLocation, float, float]:
+    """Shared lat/lon rule for /api/profile and /api/stream: both or neither."""
+    if (lat is None) != (lon is None):
+        raise HTTPException(status_code=422, detail="lat and lon must be given together")
+    if lat is None or lon is None:
+        lat, lon = settings.default_lat, settings.default_lon
+        return ProfileLocation(source="default", lat=lat, lon=lon, label="Melbourne CBD"), lat, lon
+    return ProfileLocation(source="gps", lat=lat, lon=lon), lat, lon
+
+
 @router.get("/api/profile")
 def get_profile(
     request: Request,
     lat: float | None = Query(None, ge=-90, le=90),
     lon: float | None = Query(None, ge=-180, le=180),
 ) -> Profile:
-    if (lat is None) != (lon is None):
-        raise HTTPException(status_code=422, detail="lat and lon must be given together")
-    settings = request.app.state.settings
-    if lat is None or lon is None:
-        lat, lon = settings.default_lat, settings.default_lon
-        location = ProfileLocation(source="default", lat=lat, lon=lon, label="Melbourne CBD")
-    else:
-        location = ProfileLocation(source="gps", lat=lat, lon=lon)
+    location, lat, lon = resolve_location(request.app.state.settings, lat, lon)
     return assemble_profile(request.app.state.ctx, request.app.state.providers, location, lat, lon)

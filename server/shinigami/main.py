@@ -8,7 +8,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
-from shinigami.api import health, profile
+from shinigami.api import health, profile, stream
 from shinigami.providers.arpansa import ArpansaUvProvider
 from shinigami.providers.base import ProviderContext
 from shinigami.providers.sun import SunProvider
@@ -74,7 +74,8 @@ def create_app(settings: Settings | None = None, start_runtime: bool = True) -> 
         h["Permissions-Policy"] = "geolocation=(self)"
         path = request.url.path
         if path.startswith("/api/"):
-            h["Cache-Control"] = "no-store"
+            if "cache-control" not in h:  # streams set their own no-cache
+                h["Cache-Control"] = "no-store"
         elif path.startswith("/assets/"):
             h["Cache-Control"] = "public, max-age=31536000, immutable"
         elif path in NO_CACHE_PATHS:
@@ -83,6 +84,7 @@ def create_app(settings: Settings | None = None, start_runtime: bool = True) -> 
 
     app.include_router(health.router)
     app.include_router(profile.router)
+    app.include_router(stream.router)
 
     if settings.static_dir.is_dir():
         app.mount("/", StaticFiles(directory=settings.static_dir, html=True), name="static")
