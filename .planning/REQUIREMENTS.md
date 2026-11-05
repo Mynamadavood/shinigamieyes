@@ -122,15 +122,60 @@ Deferred. Tracked but not in the current roadmap.
 
 ## Traceability
 
-Updated during roadmap creation.
+Set during roadmap creation (2026-11-05).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| PLAT-01 | Phase 1 | Pending |
+| PLAT-02 | Phase 1 | Pending |
+| PLAT-03 | Phase 1 | Pending |
+| PLAT-04 | Phase 1 | Pending |
+| PLAT-05 | Phase 1 | Pending |
+| PLAT-06 | Phase 1 | Pending |
+| PLAT-07 | Phase 1 | Pending |
+| HUD-01 | Phase 1 | Pending |
+| HUD-02 | Phase 1 | Pending |
+| ENV-04 | Phase 1 | Pending |
+| ENV-07 | Phase 1 | Pending |
+| HUD-03 | Phase 2 | Pending |
+| HUD-04 | Phase 2 | Pending |
+| HUD-05 | Phase 2 | Pending |
+| HUD-10 | Phase 2 | Pending |
+| SURV-01 | Phase 2 | Pending |
+| SURV-02 | Phase 2 | Pending |
+| TRAN-01 | Phase 3 | Pending |
+| TRAN-02 | Phase 3 | Pending |
+| TRAN-03 | Phase 3 | Pending |
+| TRAN-04 | Phase 3 | Pending |
+| ENV-01 | Phase 4 | Pending |
+| ENV-02 | Phase 4 | Pending |
+| ENV-03 | Phase 4 | Pending |
+| ENV-05 | Phase 4 | Pending |
+| ENV-06 | Phase 4 | Pending |
+| CTX-04 | Phase 4 | Pending |
+| CTX-05 | Phase 4 | Pending |
+| HUD-06 | Phase 4 | Pending |
+| HUD-07 | Phase 4 | Pending |
+| HUD-08 | Phase 4 | Pending |
+| HAZ-01 | Phase 5 | Pending |
+| HAZ-02 | Phase 5 | Pending |
+| HAZ-03 | Phase 5 | Pending |
+| SKY-01 | Phase 5 | Pending |
+| SKY-02 | Phase 5 | Pending |
+| SKY-03 | Phase 5 | Pending |
+| CTX-01 | Phase 6 | Pending |
+| CTX-02 | Phase 6 | Pending |
+| CTX-03 | Phase 6 | Pending |
+| CTX-06 | Phase 6 | Pending |
+| HUD-12 | Phase 6 | Pending |
+| PLAT-08 | Phase 7 | Pending |
+| HUD-09 | Phase 7 | Pending |
+| HUD-11 | Phase 7 | Pending |
 
 **Coverage:**
 - v1 requirements: 45 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 45 ⚠️
+- Mapped to phases: 45
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-11-05*
