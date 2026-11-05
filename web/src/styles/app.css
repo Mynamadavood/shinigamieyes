@@ -85,8 +85,9 @@ html, body {
   border-left: var(--marker-w) solid var(--c-blue);
   border-radius: 0;
   box-shadow: none;
-  animation: row-in var(--t-fade) ease-out;
+  overflow: hidden;
 }
+.row.entering { animation: row-in var(--t-fade) ease-out; }
 .row.first { min-height: var(--s-3xl); }
 .row-line { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-md); }
 .row-name { color: var(--c-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
@@ -108,5 +109,38 @@ html, body {
   line-height: var(--lh-body);
   color: var(--c-dim);
 }
+/* urgent: red marker; red countdown text only on the soonest urgent row */
+.row.urgent { border-left-color: var(--c-red); }
+.row.red-countdown .row-count { color: var(--c-red); }
+/* stale: dimmed, keeps counting */
+.row.stale { opacity: 0.55; border-left-color: var(--c-frame); }
+.row.stale .row-name, .row.stale .row-count { color: var(--c-dim); }
+/* expiry: red flash x2 (600 ms), dim (400 ms), collapse (200 ms) = 1.2 s */
+.row.expiring {
+  border-left-color: var(--c-red);
+  animation:
+    row-flash 600ms steps(2, jump-none) 1 both,
+    row-dim 400ms linear 600ms 1 both,
+    row-collapse 200ms linear 1000ms 1 both;
+}
+.row.expiring .row-name, .row.expiring .row-count { color: var(--c-dim); }
+.row.placeholder .row-name, .row.placeholder .row-count { color: var(--c-dim); }
+.list-state, .list-state-rows { display: flex; flex-direction: column; gap: var(--s-md); }
+.list-state { padding: var(--s-xl) var(--s-md); }
+.list-state-head { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--c-text); }
+.list-state-body { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--c-dim); }
 @keyframes row-in { from { opacity: 0; } to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .row { animation: none; } }
+@keyframes row-flash {
+  0%, 50% { background: var(--c-red-deep); }
+  25%, 75%, 100% { background: var(--c-bg); }
+}
+@keyframes row-dim { from { opacity: 1; } to { opacity: 0.35; } }
+@keyframes row-collapse {
+  from { max-height: var(--s-2xl); opacity: 0.35; }
+  to { max-height: 0; min-height: 0; padding-top: 0; padding-bottom: 0; border-width: 0; margin-top: calc(-1 * var(--s-md)); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .row.entering { animation: none; }
+  .row.expiring { animation: row-fill 300ms linear 1 both; }
+}
+@keyframes row-fill { from { background: var(--c-red-deep); } to { background: var(--c-red-deep); opacity: 0.35; } }
