@@ -2,6 +2,7 @@
 
 import logging
 
+from shinigami.geo import snap_cell
 from shinigami.providers.base import Provider, ProviderContext
 from shinigami.schema import Layer, Profile, ProfileLocation
 
@@ -32,5 +33,15 @@ def assemble_profile(
                 items=[],
             )
         layers[layer.id] = layer
+        if (
+            p.meta.tier == "on_demand"
+            and layer.status in ("pending", "stale")
+            and ctx.runtime is not None
+        ):
+            try:
+                # fire-and-forget; never awaited in the request path
+                ctx.runtime.request_cell(p.meta.id, snap_cell(lat, lon))
+            except Exception as exc:  # noqa: BLE001
+                log.warning("request failed provider=%s err=%s", p.meta.id, type(exc).__name__)
     rev = max((layer.rev for layer in layers.values()), default=int(now))
     return Profile(server_time=now, rev=rev, location=location, layers=layers)
