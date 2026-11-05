@@ -8,7 +8,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
-from shinigami.api import health, places, profile, stream
+from shinigami.api import geocode, health, places, profile, stream
 from shinigami.places import load_places
 from shinigami.providers.arpansa import ArpansaUvProvider
 from shinigami.providers.base import ProviderContext
@@ -19,6 +19,8 @@ from shinigami.settings import Settings, get_settings
 from shinigami.store import Store
 
 log = logging.getLogger("shinigami")
+# httpx logs full request URLs at INFO, which would leak geocode queries (privacy).
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
@@ -84,6 +86,7 @@ def create_app(settings: Settings | None = None, start_runtime: bool = True) -> 
             h["Cache-Control"] = "no-cache"
         return response
 
+    app.include_router(geocode.router)
     app.include_router(health.router)
     app.include_router(places.router)
     app.include_router(profile.router)
