@@ -30,13 +30,13 @@ v1 = City mode: a private, Tailscale-only iPhone PWA that profiles Melbourne aro
   4. With the server unreachable, the app shows the last cached profile marked "OFF-GRID" instead of hanging
   5. David can use phone GPS or drop a manual pin when GPS is denied, and the service survives a Proxmox reboot and restarts on failure
 
-**Plans:** 11 plans
+**Plans:** 2/11 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 01-01-PLAN.md — Skeleton: package audit checkpoint, FastAPI health + SSE probe, installable Vite PWA shell (wave 1)
-- [ ] 01-02-PLAN.md — Skeleton: deploy kit (pct create, lxc-setup, deploy.sh, systemd unit, verify.sh, checklists) (wave 1)
+- [x] 01-01-PLAN.md — Skeleton: package audit checkpoint, FastAPI health + SSE probe, installable Vite PWA shell (wave 1)
+- [x] 01-02-PLAN.md — Skeleton: deploy kit (pct create, lxc-setup, deploy.sh, systemd unit, verify.sh, checklists) (wave 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -175,7 +175,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation and Flat HUD Slice | 0/0 | Not started | - |
+| 1. Foundation and Flat HUD Slice | 2/11 | In Progress|  |
 | 2. 3D Map, Hero and Surveillance | 0/0 | Not started | - |
 | 3. Transit | 0/0 | Not started | - |
 | 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
