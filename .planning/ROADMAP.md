@@ -30,7 +30,7 @@ v1 = City mode: a private, Tailscale-only iPhone PWA that profiles Melbourne aro
   4. With the server unreachable, the app shows the last cached profile marked "OFF-GRID" instead of hanging
   5. David can use phone GPS or drop a manual pin when GPS is denied, and the service survives a Proxmox reboot and restarts on failure
 
-**Plans:** 9/11 plans executed
+**Plans:** 10/11 plans executed
 
 Plans:
 **Wave 1**
@@ -65,7 +65,7 @@ Plans:
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
-- [ ] 01-10-PLAN.md — Address search via server-side Nominatim proxy (wave 8)
+- [x] 01-10-PLAN.md — Address search via server-side Nominatim proxy (wave 8)
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
@@ -175,7 +175,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation and Flat HUD Slice | 9/11 | In Progress|  |
+| 1. Foundation and Flat HUD Slice | 10/11 | In Progress|  |
 | 2. 3D Map, Hero and Surveillance | 0/0 | Not started | - |
 | 3. Transit | 0/0 | Not started | - |
 | 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
