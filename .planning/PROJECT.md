@@ -37,7 +37,7 @@ A private, Watch Dogs-style profiler of David's surroundings: a full-screen iPho
 - [ ] Environment: air quality (EPA Vic), UV (ARPANSA), pollen + thunderstorm asthma (Melbourne Pollen), BOM weather + rain radar, fire danger (CFA)
 - [ ] City of Melbourne: pedestrian counts, parking bay sensors, street trees, development activity (CBD coverage only — degrade gracefully elsewhere)
 - [ ] Buildings: heritage (Victorian Heritage Database) + Wikipedia geosearch for what's in front of you
-- [ ] Hazards: fires, floods, incidents nearby (VicEmergency; no official feed yet)
+- [ ] Hazards: fires, floods, incidents nearby (VicEmergency public GeoJSON feeds — live but best-effort, no SLA; never show empty as "all clear")
 - [ ] Sky: planes overhead (OpenSky / adsb.lol), ISS and satellite passes (CelesTrak)
 - [ ] Bay: ships in Port Phillip (aisstream.io)
 - [ ] Towers: licensed transmitter sites and carriers nearby (ACMA RRL)
@@ -77,7 +77,8 @@ A private, Watch Dogs-style profiler of David's surroundings: a full-screen iPho
 - **Performance**: Cached data on screen in < 1 s, live data fills in after — "never the slow path"
 - **Tech stack**: Python + FastAPI backend; iOS PWA frontend with MapLibre 3D map — chosen for data/radio tooling fit
 - **Platform**: iOS Safari PWA limits (no background location) — use iOS Shortcuts automations as triggers
-- **Dependencies**: PTV API key pending (not yet applied) — build on GTFS-realtime first; VicEmergency has no official public feed
+- **Dependencies**: API keys not yet applied for — Vic GTFS-Realtime (KeyID), PTV Timetable v3, EPA Victoria, aisstream.io, OpenElectricity (waitlisted); build adapters against recorded fixtures until keys arrive. VicEmergency public feeds work today but have no SLA
+- **Tiles**: self-hosted Protomaps PMTiles (Melbourne extract) in production so location never leaks to a tile CDN; OpenFreeMap only for early dev
 - **Timeline**: Solo, summer holidays 2026–27; each phase must be usable on its own
 - **Resources**: Proxmox 32 GB RAM shared with SPENCER, LifeOS and other VMs
 
