@@ -1,0 +1,28 @@
+# Example place presets (D-09). Copy to /etc/shinigami/places.toml on the server.
+# Order is preserved. Required ids: home, monash, cbd, gym.
+
+[[place]]
+id = "home"
+label = "Home (Bulleen)"
+# REQUIRED on the server only: set real coordinates in /etc/shinigami/places.toml, never in git
+# lat = 0.0
+# lon = 0.0
+
+[[place]]
+id = "monash"
+label = "Monash Clayton"
+lat = -37.9105
+lon = 145.1340
+
+[[place]]
+id = "cbd"
+label = "Melbourne CBD"
+lat = -37.8136
+lon = 144.9631
+
+[[place]]
+id = "gym"
+label = "Hammers Gym Nunawading"
+# approximate public coordinates; adjust on the server
+lat = -37.8206
+lon = 145.1745

@@ -112,7 +112,7 @@ The URL will end up as `https://shinigami.<tailnet>.ts.net`. Phase 1 wires up `t
 
 ## Where the keys live
 
-Server only, in `/opt/shinigami/.env` (Phase 1 sets up the exact path):
+Server only, in `/etc/shinigami/.env` (mode 0640 root:shinigami, installed by deploy/lxc-setup.sh):
 
 ```
 GTFSR_KEY=
