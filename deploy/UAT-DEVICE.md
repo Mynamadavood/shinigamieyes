@@ -9,15 +9,15 @@ Automated pre-check (2026-11-05, dev PC over tailnet, FQDN `shinigami.<tailnet>.
 - `verify.sh --remote`: `{"mode":"remote","pass":8,"fail":0,"skip":4,"p95_ms":null}` (sse_unbuffered PASS through tailscale serve, so SSE live fill-in stays; no polling fallback needed)
 - Deploy fixes applied during bring-up: template pinned to host arch (arm64 picked by mistake), uv installed to /usr/local/bin, PATH set for the service user in deploy.sh.
 
-- [ ] Safari opens `https://shinigami.<tailnet>.ts.net` with no TLS error (Pi-hole DNS and AdGuard present). Result / notes:
-- [ ] `/api/health` JSON shows. Result / notes:
-- [ ] Share, Add to Home Screen installs with the black/red icon. Result / notes:
-- [ ] Launch is full-screen, status bar black-translucent, content not under the notch or home indicator. Result / notes:
-- [ ] SSE probe counter ticks once per second in standalone mode for at least 10 s. Result / notes:
-- [ ] With Tailscale toggled off the URL does not load. Result / notes:
-- [ ] `pct reboot <CTID>`, then the app works again without manual steps. Result / notes:
+- [x] Safari opens `https://shinigami.<tailnet>.ts.net` with no TLS error (Pi-hole DNS and AdGuard present). Result / notes: pass (David, iPhone, 2026-11-05)
+- [x] `/api/health` JSON shows. Result / notes: pass (David, iPhone, 2026-11-05)
+- [x] Share, Add to Home Screen installs with the black/red icon. Result / notes: pass (David, iPhone, 2026-11-05)
+- [x] Launch is full-screen, status bar black-translucent, content not under the notch or home indicator. Result / notes: pass (David, iPhone, 2026-11-05)
+- [x] SSE probe counter ticks once per second in standalone mode for at least 10 s. Result / notes: pass (David, iPhone, 2026-11-05)
+- [x] With Tailscale toggled off the URL does not load. Result / notes: pass (David, iPhone, 2026-11-05)
+- [x] `pct reboot <CTID>`, then the app works again without manual steps. Result / notes: pass (David, iPhone, 2026-11-05)
 
-Go / No-go: ______
+Go / No-go: GO. Sign-off: David, 2026-11-05 (all six steps passed)
 
 ## Gate 2: Phase acceptance (plan 01-11)
 
