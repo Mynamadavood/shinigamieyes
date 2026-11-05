@@ -60,10 +60,10 @@ Exactly 4 sizes, 2 weights (400 regular, 700 bold) across both families.
 | Label (age tag, kind tag, banner, footer) | JetBrains Mono | 12px | 400 | 1.5 (18px) |
 | Body (item name, input text, preset chips, buttons) | JetBrains Mono | 16px | 400 | 1.5 (24px) |
 | Heading (title bar, section header, banner lead word) | Silkscreen, UPPERCASE | 16px | 700 | 1.2 (rounded to 20px) |
-
-> Heading and Body deliberately share 16px (distinguished by font family and weight), so there are 4 distinct sizes across 5 roles. Verified contrast on `#000000`: `--c-dim #7E92A3` ≈ 6.5:1, `--c-blue #5E8AA8` ≈ 5.7:1 (≈ 5.1:1 on `--c-surface`), so both pass 4.5:1 at 12px.
 | Countdown | JetBrains Mono | 20px | 700 | 1.2 (24px) |
 | Display (countdown of the single most urgent item, row 1 only) | JetBrains Mono | 28px | 700 | 1.2 (34px, rounds to 36px) |
+
+> Heading and Body deliberately share 16px (distinguished by font family and weight), so there are 4 distinct sizes across 5 roles. Verified contrast on `#000000`: `--c-dim #7E92A3` ≈ 6.5:1, `--c-blue #5E8AA8` ≈ 5.7:1 (≈ 5.1:1 on `--c-surface`), so both pass 4.5:1 at 12px.
 
 Rules:
 - Silkscreen only appears in: title bar text, section headers ("NEXT", "SOURCES" later), and the word `OFF-GRID`. Never for item names, countdowns, or body copy. Letter-spacing 0.08em on Silkscreen.
