@@ -34,10 +34,16 @@ node -e 'const [a,b]=process.versions.node.split(".").map(Number); if(a<22||(a==
 echo "node $(node -v)"
 
 # uv
-if ! command -v uv >/dev/null 2>&1; then
-  curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin INSTALLER_NO_MODIFY_PATH=1 sh
+# Must land in /usr/local/bin: deploy.sh runs uv as the `shinigami` service user,
+# who cannot see root's ~/.local/bin. UV_UNMANAGED_INSTALL forces a fixed dir.
+if [ ! -x /usr/local/bin/uv ]; then
+  if [ -x /root/.local/bin/uv ]; then
+    install -m 0755 /root/.local/bin/uv /root/.local/bin/uvx /usr/local/bin/
+  else
+    curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL=/usr/local/bin sh
+  fi
 fi
-echo "$(uv --version)"
+/usr/local/bin/uv --version
 
 # service user and directories
 id shinigami >/dev/null 2>&1 || useradd --system --home-dir /opt/shinigami --shell /usr/sbin/nologin shinigami

@@ -9,6 +9,8 @@ cd /opt/shinigami
 git -c safe.directory=/opt/shinigami pull --ff-only
 chown -R shinigami:shinigami /opt/shinigami
 
+[ -x /usr/local/bin/uv ] || { echo "FATAL: /usr/local/bin/uv missing - re-run deploy/lxc-setup.sh" >&2; exit 1; }
+
 as_svc() {
   runuser -u shinigami -- env \
     UV_PYTHON_INSTALL_DIR=/opt/shinigami-python \
