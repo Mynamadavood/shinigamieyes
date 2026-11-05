@@ -1,0 +1,37 @@
+:root {
+  --c-bg: #000000;
+  --c-surface: #08131D;
+  --c-frame: #1C3A52;
+  --c-blue: #5E8AA8;
+  --c-red: #E0202A;
+  --c-red-deep: #7A0F15;
+  --c-text: #E8EEF4;
+  --c-dim: #7E92A3;
+  --c-on-red: #FFFFFF;
+
+  --s-xs: 4px;
+  --s-sm: 8px;
+  --s-md: 16px;
+  --s-lg: 24px;
+  --s-xl: 32px;
+  --s-2xl: 48px;
+  --s-3xl: 64px;
+
+  --bw: 1px;
+  --marker-w: 4px;
+  --close-box: 24px;
+
+  --fs-label: 12px;
+  --fs-body: 16px;
+  --fs-countdown: 20px;
+  --fs-display: 28px;
+  --lh-label: 18px;
+  --lh-body: 24px;
+  --lh-countdown: 24px;
+  --lh-display: 36px;
+
+  --f-title: "Silkscreen", ui-monospace, monospace;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  --t-fade: 120ms;
+}
