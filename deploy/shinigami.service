@@ -1,0 +1,21 @@
+[Unit]
+Description=Shinigami Eyes backend (FastAPI, loopback only; published by tailscale serve)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=shinigami
+WorkingDirectory=/opt/shinigami
+EnvironmentFile=/etc/shinigami/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/shinigami/.venv/bin/uvicorn shinigami.main:app --host 127.0.0.1 --port 8000 --workers 1 --no-access-log --timeout-graceful-shutdown 5
+Restart=always
+RestartSec=2
+TimeoutStopSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+StateDirectory=shinigami
+
+[Install]
+WantedBy=multi-user.target
