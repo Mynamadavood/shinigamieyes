@@ -51,4 +51,31 @@ describe("selectVisible", () => {
     expect(rows[1].countdownText).toBe("UV 7");
     expect(rows[1].isFirst).toBe(false);
   });
+
+  it("urgent under 15 min, only soonest gets red countdown", () => {
+    const p = prof([
+      item({ id: "u2", group: "u2", target_ts: NOW / 1000 + 600 }),
+      item({ id: "u1", group: "u1", target_ts: NOW / 1000 + 100 }),
+      item({ id: "far", group: "far", target_ts: NOW / 1000 + 901 }),
+      item({ id: "val", group: "val", detail: { display: "UV 3" } }),
+    ]);
+    const rows = selectVisible(p, NOW);
+    expect(rows.map((r) => r.urgent)).toEqual([true, true, false, false]);
+    expect(rows.map((r) => r.redCountdown)).toEqual([true, false, false, false]);
+  });
+
+  it("stale rows are never urgent and carry ageTag/stale", () => {
+    const p = prof([item({ id: "s", target_ts: NOW / 1000 + 60, computed: false, fetched_at: NOW / 1000 - 7300, stale_after_s: 1800 })]);
+    const [r] = selectVisible(p, NOW);
+    expect(r.stale).toBe(true);
+    expect(r.urgent).toBe(false);
+    expect(r.redCountdown).toBe(false);
+    expect(r.ageTag).toBe("2h old");
+  });
+
+  it("computed rows show 'computed'", () => {
+    const [r] = selectVisible(prof([item({ id: "c", target_ts: NOW / 1000 + 5000 })]), NOW);
+    expect(r.ageTag).toBe("computed");
+    expect(r.stale).toBe(false);
+  });
 });
