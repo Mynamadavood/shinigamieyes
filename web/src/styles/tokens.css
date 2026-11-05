@@ -35,3 +35,6 @@
 
   --t-fade: 120ms;
 }
+:root {
+  --c-backdrop: rgba(0, 0, 0, 0.72);
+}
