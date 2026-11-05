@@ -25,9 +25,12 @@ CORES="${CORES:-2}"
 echo "CTID=$CTID STORAGE=$STORAGE BRIDGE=$BRIDGE MEMORY=$MEMORY SWAP=$SWAP DISK_GB=$DISK_GB CORES=$CORES"
 
 pveam update
-TEMPLATE="$(pveam available --section system | awk '{print $2}' | grep -E '^debian-13-standard' | sort -V | tail -n1 || true)"
+# Pin the host architecture: newer pveam indexes also list arm64 templates, and
+# `sort -V` ranks "_arm64" after "_amd64", which yields "Exec format error" on start.
+ARCH="$(dpkg --print-architecture)"
+TEMPLATE="$(pveam available --section system | awk '{print $2}' | grep -E "^debian-13-standard_.*_${ARCH}\." | sort -V | tail -n1 || true)"
 if [ -z "$TEMPLATE" ]; then
-  TEMPLATE="$(pveam available --section system | awk '{print $2}' | grep -E '^debian-12-standard' | sort -V | tail -n1 || true)"
+  TEMPLATE="$(pveam available --section system | awk '{print $2}' | grep -E "^debian-12-standard_.*_${ARCH}\." | sort -V | tail -n1 || true)"
 fi
 [ -n "$TEMPLATE" ] || { echo "FATAL: no debian-13/12 standard template found." >&2; exit 1; }
 echo "Template: $TEMPLATE"
