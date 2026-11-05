@@ -1,0 +1,4 @@
+# Secrets — API keys live only on the server
+.env
+.env.*
+!.env.example
