@@ -41,6 +41,12 @@ Not in this phase: 3D map, hero activation screen, map tags/cards (Phase 2); ran
 - **D-12:** Tailscale is already on the Proxmox host. The LXC joins the tailnet as **its own node** named **`shinigami`** (needs `/dev/net/tun` passthrough). The hostname is **frozen**: `https://shinigami.<tailnet>.ts.net`. Disable key expiry on the node. HTTPS via `tailscale serve`, never Funnel.
 - **D-13:** Setup is delivered as **scripts David runs**: the repo ships a setup script plus a short checklist, David pastes a few commands into the Proxmox shell, and Claude verifies afterwards. Claude gets no SSH access.
 
+### Post-research decisions (2026-11-05)
+- **D-14:** The dev PC (Windows) **is on the tailnet**, so Claude can verify deploys directly against `https://shinigami.<tailnet>.ts.net` (e.g. `deploy/verify.sh` run from the dev PC).
+- **D-15:** Deploy = **git pull from GitHub on the LXC** (read-only deploy key if the repo is private), then a deploy script that installs deps, builds the PWA and restarts the service. The LXC therefore needs Node ≥ 22.12 (NodeSource), not Debian's packaged Node.
+- **D-16:** "UV protection until" uses **clear-sky UV** (Open-Meteo `uv_index_clear_sky`, UV ≥ 3 window, ~±10 min precision is fine). ARPANSA provides the live current reading.
+- **D-17:** iPhone DNS environment: **Pi-hole runs on Proxmox**, there's **no VPN normally**, and **AdGuard is a Safari extension**. The Wave-1 device go/no-go must check that MagicDNS `*.ts.net` resolves when Pi-hole is the tailnet/LAN DNS (Pi-hole must not swallow `ts.net` or `100.100.100.100`), and that AdGuard doesn't block the PWA origin. Relevant to tailscale#19147.
+
 ### Claude's Discretion
 - Exact pixel and monospace font choices (must be self-hosted), sizes and spacing.
 - Precise stale thresholds per layer, pulse/fade timings, list ordering within Phase 1 (a simple urgency sort is fine until Phase 4 ranking).
