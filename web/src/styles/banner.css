@@ -1,0 +1,21 @@
+.offgrid-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--s-xs);
+  width: 100%;
+  height: 48px;
+  padding: 0 var(--s-md);
+  background: var(--c-red);
+  color: var(--c-on-red);
+  font-weight: 700;
+  opacity: 1;
+  transition: opacity 200ms linear;
+}
+.offgrid-banner.clearing { opacity: 0; }
+.offgrid-banner[hidden] { display: none; }
+.offgrid-banner .og-label { font-family: var(--f-title); font-size: 16px; }
+.offgrid-banner .og-age { font-family: var(--f-mono); font-size: 12px; font-weight: 700; }
+@media (prefers-reduced-motion: reduce) {
+  .offgrid-banner { transition: none; }
+}
+.banner-slot.has-banner { height: auto; }

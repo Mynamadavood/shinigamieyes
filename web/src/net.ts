@@ -12,7 +12,11 @@ export async function fetchProfile(
     const qs = params && params.toString() ? `?${params.toString()}` : "";
     const tSend = Date.now();
     const f = opts.fetchImpl ?? fetch;
-    const res = await f(`/api/profile${qs}`, { signal: ctl.signal });
+    // race the timeout too: some fetch impls ignore the abort signal
+    const timeout = new Promise<never>((_, rej) =>
+      ctl.signal.addEventListener("abort", () => rej(new Error("profile timeout"))),
+    );
+    const res = await Promise.race([f(`/api/profile${qs}`, { signal: ctl.signal }), timeout]);
     const tRecv = Date.now();
     if (!res.ok) throw new Error(`profile HTTP ${res.status}`);
     const profile = (await res.json()) as Profile;
