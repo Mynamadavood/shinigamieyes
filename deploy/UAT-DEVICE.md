@@ -21,6 +21,12 @@ Go / No-go: GO. Sign-off: David, 2026-11-05 (all six steps passed)
 
 ## Gate 2: Phase acceptance (plan 01-11)
 
+Automated pre-check (2026-11-06, after redeploy of 540b9e4):
+- `verify.sh --local` (in CT): `{"mode":"local","pass":14,"fail":0,"skip":0,"p95_ms":2}`
+- `verify.sh --remote` (dev PC over tailnet): `{"mode":"remote","pass":12,"fail":0,"skip":0,"p95_ms":84}`. First run failed `stream_hello` falsely (pipefail: curl's timeout exit masked the grep match); check fixed, server unchanged.
+- `/api/profile?place=monash`: `source:"pin"`, `lat:null`, label `Monash Clayton`.
+- `/api/geocode?q=flinders street melbourne`: HTTP 200, 4 results.
+
 - [ ] Cold open from the home screen shows the cached profile in under 1 s (Safari Web Inspector or stopwatch). Result / notes:
 - [ ] Golden/blue hour and UV rows tick every second. Result / notes:
 - [ ] Background the app 10+ minutes (10-minute background), reopen: countdowns match expected times. Result / notes:

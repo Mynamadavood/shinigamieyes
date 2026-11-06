@@ -146,7 +146,8 @@ verify_remote() {
 
   code="$(http_code "$url/api/stream")"
   if [ "$code" = "404" ]; then skip stream_hello "01-08"
-  elif curl -sN --max-time 4 "$url/api/stream" 2>/dev/null | grep -q '^event: hello'; then pass stream_hello
+  # capture first: under pipefail, curl's timeout/SIGPIPE exit would mask a grep match
+  elif sse="$(curl -sN --max-time 4 "$url/api/stream" 2>/dev/null || true)"; printf '%s' "$sse" | grep -q '^event: hello'; then pass stream_hello
   else fail stream_hello; fi
 
   code="$(http_code "$url/api/places")"
