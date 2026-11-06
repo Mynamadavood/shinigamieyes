@@ -85,6 +85,10 @@ verify_local() {
   done
   if [ "$ok" -eq 1 ]; then pass restart_after_sigkill; else fail restart_after_sigkill; fi
 
+  # upstream DNS: address search needs nominatim to resolve from the CT
+  if getent ahostsv4 nominatim.openstreetmap.org >/dev/null 2>&1; then pass dns_upstream
+  else fail dns_upstream "nominatim.openstreetmap.org does not resolve (tailscale set --accept-dns=false)"; fi
+
   # journald hygiene: no coordinates logged
   if journalctl -u shinigami --since "-24h" --no-pager 2>/dev/null | grep -qE 'lat=|lon=|-3[0-9]\.[0-9]{4,}'; then
     fail journald_no_coords

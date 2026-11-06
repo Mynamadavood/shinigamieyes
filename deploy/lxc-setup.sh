@@ -67,8 +67,11 @@ fi
 systemctl enable --now tailscaled
 if ! tailscale status >/dev/null 2>&1; then
   echo "Tailscale is logged out. Open the URL below to approve this node."
-  tailscale up --hostname=shinigami
+  tailscale up --hostname=shinigami --accept-dns=false
 fi
+# The CT only serves; it never resolves tailnet names. MagicDNS here failed to
+# resolve public hosts (nominatim, openstreetmap.org), so use the CT's normal DNS.
+tailscale set --accept-dns=false
 tailscale serve --bg --https=443 http://127.0.0.1:8000
 tailscale serve status
 

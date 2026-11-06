@@ -5,7 +5,8 @@ export interface GeoResult {
   lon: number;
 }
 
-export const SEARCH_TIMEOUT_MS = 4000;
+// Server worst case: up to 3 s queued for the 1 req/s Nominatim slot + 4 s upstream.
+export const SEARCH_TIMEOUT_MS = 9000;
 
 export async function searchAddress(
   q: string,

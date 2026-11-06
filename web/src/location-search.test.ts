@@ -21,7 +21,7 @@ describe("searchAddress", () => {
     const f = vi.fn().mockResolvedValue(new Response("x", { status: 502 }));
     await expect(searchAddress("abc", f)).rejects.toThrow();
   });
-  it("aborts after 4000 ms", async () => {
+  it("aborts after 9000 ms", async () => {
     vi.useFakeTimers();
     const f = vi.fn(
       (_u: string, init?: RequestInit) =>
@@ -31,7 +31,7 @@ describe("searchAddress", () => {
     );
     const p = searchAddress("abc", f as unknown as typeof fetch);
     const assertion = expect(p).rejects.toThrow("aborted");
-    await vi.advanceTimersByTimeAsync(3999);
+    await vi.advanceTimersByTimeAsync(8999);
     expect(f.mock.calls[0]![1]!.signal!.aborted).toBe(false);
     await vi.advanceTimersByTimeAsync(2);
     await assertion;
