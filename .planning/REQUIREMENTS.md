@@ -9,19 +9,19 @@ Milestone v1 = City mode (no hardware). Each maps to one roadmap phase.
 
 ### Platform (PLAT)
 
-- [ ] **PLAT-01**: David can open the app on his iPhone over Tailscale at a fixed HTTPS `*.ts.net` address; nothing is reachable from the public internet
-- [ ] **PLAT-02**: David can install the app to the iPhone home screen and it launches full-screen (standalone, safe-area aware)
-- [ ] **PLAT-03**: When David opens the app, the last profile for his location is on screen in under 1 s (from device cache, then server cache), and live data fills in afterwards without a reload
-- [ ] **PLAT-04**: The backend answers the profile request only from local caches/stores (never waits on an upstream API); p95 `/profile` ≤ 300 ms on the Proxmox host
-- [ ] **PLAT-05**: When the server is unreachable (off-tailnet, offline), the app shows the last cached profile with an explicit "OFF-GRID" state instead of hanging
-- [ ] **PLAT-06**: The app uses the phone's GPS location, and David can drop a manual pin when GPS is unavailable or denied
-- [ ] **PLAT-07**: The backend runs as a service on Proxmox (unprivileged LXC) that restarts on failure and survives host reboots
+- [x] **PLAT-01**: David can open the app on his iPhone over Tailscale at a fixed HTTPS `*.ts.net` address; nothing is reachable from the public internet
+- [x] **PLAT-02**: David can install the app to the iPhone home screen and it launches full-screen (standalone, safe-area aware)
+- [x] **PLAT-03**: When David opens the app, the last profile for his location is on screen in under 1 s (from device cache, then server cache), and live data fills in afterwards without a reload
+- [x] **PLAT-04**: The backend answers the profile request only from local caches/stores (never waits on an upstream API); p95 `/profile` ≤ 300 ms on the Proxmox host
+- [x] **PLAT-05**: When the server is unreachable (off-tailnet, offline), the app shows the last cached profile with an explicit "OFF-GRID" state instead of hanging
+- [x] **PLAT-06**: The app uses the phone's GPS location, and David can drop a manual pin when GPS is unavailable or denied
+- [x] **PLAT-07**: The backend runs as a service on Proxmox (unprivileged LXC) that restarts on failure and survives host reboots
 - [ ] **PLAT-08**: An iOS Shortcut can call a prewarm endpoint (e.g. on arrival somewhere) so the profile for that location is already cached when David opens the app
 
 ### HUD (HUD)
 
-- [ ] **HUD-01**: Every item on screen shows a name and a live countdown that ticks every second, computed from an absolute target time (stays correct on cached data and after the app was backgrounded)
-- [ ] **HUD-02**: Expired or stale items are visibly dimmed or removed, and each item shows how fresh its data is
+- [x] **HUD-01**: Every item on screen shows a name and a live countdown that ticks every second, computed from an absolute target time (stays correct on cached data and after the app was backgrounded)
+- [x] **HUD-02**: Expired or stale items are visibly dimmed or removed, and each item shows how fresh its data is
 - [ ] **HUD-03**: On cold open, a hero "activation" screen shows the Shinigami eyes in blood red on black (≤1.5 s, skippable, plays over real loading, never delays data)
 - [ ] **HUD-04**: The main view is a dark, tilted 3D map of David's surroundings in the Watch Dogs NetHack style (desaturated blue world, thin frame, extruded buildings)
 - [ ] **HUD-05**: Items appear as floating icon + label tags on the map; tapping one opens an info card with its details
@@ -45,10 +45,10 @@ Milestone v1 = City mode (no hardware). Each maps to one roadmap phase.
 - [ ] **ENV-01**: David can see current weather and a "rain in N min" / "rain ends in N min" countdown
 - [ ] **ENV-02**: David can see a rain radar overlay on the map (or a link-out if the radar source proves too costly)
 - [ ] **ENV-03**: David can see current air quality from the nearest EPA Victoria monitoring site
-- [ ] **ENV-04**: David can see the current UV index and a countdown to when UV protection is no longer needed
+- [x] **ENV-04**: David can see the current UV index and a countdown to when UV protection is no longer needed
 - [ ] **ENV-05**: David can see today's fire danger rating for his district
 - [ ] **ENV-06**: David can see pollen level and thunderstorm asthma risk (best-effort source; falls back to VicEmergency thunderstorm-asthma warnings)
-- [ ] **ENV-07**: David can see golden hour and blue hour countdowns for his location
+- [x] **ENV-07**: David can see golden hour and blue hour countdowns for his location
 
 ### Hazards (HAZ)
 
@@ -126,17 +126,17 @@ Set during roadmap creation (2026-11-05).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PLAT-01 | Phase 1 | Pending |
-| PLAT-02 | Phase 1 | Pending |
-| PLAT-03 | Phase 1 | Pending |
-| PLAT-04 | Phase 1 | Pending |
-| PLAT-05 | Phase 1 | Pending |
-| PLAT-06 | Phase 1 | Pending |
-| PLAT-07 | Phase 1 | Pending |
-| HUD-01 | Phase 1 | Pending |
-| HUD-02 | Phase 1 | Pending |
-| ENV-04 | Phase 1 | Pending |
-| ENV-07 | Phase 1 | Pending |
+| PLAT-01 | Phase 1 | Complete |
+| PLAT-02 | Phase 1 | Complete |
+| PLAT-03 | Phase 1 | Complete |
+| PLAT-04 | Phase 1 | Complete |
+| PLAT-05 | Phase 1 | Complete |
+| PLAT-06 | Phase 1 | Complete |
+| PLAT-07 | Phase 1 | Complete |
+| HUD-01 | Phase 1 | Complete |
+| HUD-02 | Phase 1 | Complete |
+| ENV-04 | Phase 1 | Complete |
+| ENV-07 | Phase 1 | Complete |
 | HUD-03 | Phase 2 | Pending |
 | HUD-04 | Phase 2 | Pending |
 | HUD-05 | Phase 2 | Pending |
