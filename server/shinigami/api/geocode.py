@@ -1,6 +1,6 @@
 """GET /api/geocode: user-initiated Nominatim proxy (D-08).
 
-Cache-first (forever), slot-based 1 req/s limiter, identifying User-Agent, no autocomplete.
+Cache-first (30-day TTL, capped; see store.py), slot-based 1 req/s limiter, identifying User-Agent, no autocomplete.
 Never logs the query text or coordinates.
 """
 
@@ -68,7 +68,7 @@ async def geocode(request: Request, q: str = Query(..., min_length=3, max_length
     ctx = request.app.state.ctx
     settings = request.app.state.settings
 
-    cached = ctx.store.get_geocode(q_norm)
+    cached = ctx.store.get_geocode(q_norm, ctx.clock())
     if cached is not None:
         return cached
 

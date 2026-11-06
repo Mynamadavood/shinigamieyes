@@ -3,7 +3,7 @@
 Nominatim's policy forbids autocomplete, so type-ahead goes to Photon, which is built
 for it. Server-side proxy only: the phone never talks to Photon. Results are biased to
 the Melbourne CBD (a fixed point, never the user's location) and bounded to Greater
-Melbourne. Cache-first (forever), polite spacing, never logs the query text.
+Melbourne. Cache-first (30-day TTL, capped), polite spacing, never logs the query text.
 The Search key still goes to /api/geocode (Nominatim) as the fallback.
 """
 
@@ -89,7 +89,7 @@ async def suggest(request: Request, q: str = Query(..., min_length=3, max_length
     ctx = request.app.state.ctx
     settings = request.app.state.settings
 
-    cached = ctx.store.get_geocode(key)
+    cached = ctx.store.get_geocode(key, ctx.clock())
     if cached is not None:
         return cached
 

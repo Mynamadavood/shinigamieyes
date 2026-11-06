@@ -10,6 +10,11 @@ import sqlite3
 import threading
 from pathlib import Path
 
+# Search privacy (review WR-01): cached geocode/suggest queries are a history of
+# addresses searched, so they expire and are capped instead of living forever.
+GEOCODE_TTL_S = 30 * 86400
+GEOCODE_MAX_ROWS = 500
+
 
 class Store:
     def __init__(self, path: Path) -> None:
@@ -17,7 +22,7 @@ class Store:
         self._lock = threading.RLock()
         self._conn: sqlite3.Connection | None = None
         self._layers: dict[tuple[str, str], tuple[dict, float]] = {}
-        self._geo: dict[str, list[dict]] = {}
+        self._geo: dict[str, tuple[list[dict], float]] = {}
 
     def _db(self) -> sqlite3.Connection:
         if self._conn is None:
@@ -69,20 +74,25 @@ class Store:
             db.commit()
             self._layers[(provider_id, cell_id)] = (payload, fetched_at)
 
-    def get_geocode(self, q_norm: str) -> list[dict] | None:
+    def get_geocode(self, q_norm: str, now: float | None = None) -> list[dict] | None:
+        """Cached results, or None if absent or (when `now` is given) older than the TTL."""
         with self._lock:
-            if q_norm in self._geo:
-                return self._geo[q_norm]
-            row = (
-                self._db()
-                .execute("SELECT payload FROM geocode_cache WHERE q_norm=?", (q_norm,))
-                .fetchone()
-            )
-            if row is None:
+            hit = self._geo.get(q_norm)
+            if hit is None:
+                row = (
+                    self._db()
+                    .execute(
+                        "SELECT payload, created_at FROM geocode_cache WHERE q_norm=?", (q_norm,)
+                    )
+                    .fetchone()
+                )
+                if row is None:
+                    return None
+                hit = (json.loads(row[0]), float(row[1]))
+                self._geo[q_norm] = hit
+            if now is not None and now - hit[1] > GEOCODE_TTL_S:
                 return None
-            val = json.loads(row[0])
-            self._geo[q_norm] = val
-            return val
+            return hit[0]
 
     def put_geocode(self, q_norm: str, results: list[dict], created_at: float) -> None:
         with self._lock:
@@ -92,8 +102,23 @@ class Store:
                 "VALUES (?,?,?)",
                 (q_norm, json.dumps(results), created_at),
             )
+            self._geo[q_norm] = (results, created_at)
+            self._prune_geocode(db, created_at)
             db.commit()
-            self._geo[q_norm] = results
+
+    def _prune_geocode(self, db: sqlite3.Connection, now: float) -> None:
+        cutoff = now - GEOCODE_TTL_S
+        db.execute("DELETE FROM geocode_cache WHERE created_at < ?", (cutoff,))
+        db.execute(
+            "DELETE FROM geocode_cache WHERE q_norm NOT IN ("
+            "SELECT q_norm FROM geocode_cache ORDER BY created_at DESC LIMIT ?)",
+            (GEOCODE_MAX_ROWS,),
+        )
+        keep = {
+            r[0]
+            for r in db.execute("SELECT q_norm FROM geocode_cache").fetchall()
+        }
+        self._geo = {k: v for k, v in self._geo.items() if k in keep}
 
     def journal_mode(self) -> str:
         with self._lock:
