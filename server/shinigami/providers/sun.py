@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from astral import LocationInfo, SunDirection
 from astral.sun import blue_hour, golden_hour
 
+from shinigami.geo import snap_cell
 from shinigami.providers.base import Provider, ProviderContext, ProviderMeta
 from shinigami.schema import Item, Layer
 
@@ -34,6 +35,9 @@ def sun_boundaries(lat: float, lon: float, now: float, horizon_s: int = HORIZON_
                     continue
                 group = f"{label}_{part}"
                 for verb, when in (("starts", start), ("ends", end)):
+                    # Whole minutes: sub-second times computed for one exact point could be
+                    # inverted back to that point (privacy; see query()).
+                    when = (when + timedelta(seconds=30)).replace(second=0, microsecond=0)
                     iid = f"sun:{group}:{verb}:{when.astimezone(TZ).date().isoformat()}"
                     items[iid] = Item(
                         id=iid,
@@ -64,11 +68,14 @@ class SunProvider(Provider):
     )
 
     def query(self, ctx: ProviderContext, lat: float, lon: float, now: float) -> Layer:
+        # Compute for the ~10 km grid cell, never the exact point: pinned places (home)
+        # must not be recoverable from the times sent to the client. Shifts times < 30 s.
+        cell = snap_cell(lat, lon)
         return Layer(
             id="sun",
             status="fresh",
             rev=int(now),
             as_of=now,
             attribution=self.meta.attribution,
-            items=sun_boundaries(lat, lon, now),
+            items=sun_boundaries(cell.lat, cell.lon, now),
         )

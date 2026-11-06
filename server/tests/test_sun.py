@@ -68,3 +68,21 @@ def test_stable_ids(frozen_now):
     a = {i.id for i in sun_boundaries(LAT, LON, frozen_now)}
     b = {i.id for i in sun_boundaries(LAT, LON, frozen_now + 10)}
     assert a == b
+
+
+def test_times_are_whole_minutes():
+    from shinigami.providers.sun import sun_boundaries
+
+    items = sun_boundaries(LAT, LON, 1793900000.0)
+    assert items and all(i.target_ts % 60 == 0 for i in items)
+
+
+def test_provider_output_is_cell_level_not_point_level():
+    # Two points ~3 km apart in the same 0.1° cell must yield identical items, so the
+    # times sent to the client cannot be inverted back to an exact (home) point.
+    from shinigami.providers.sun import SunProvider
+
+    now = 1793900000.0
+    a = SunProvider().query(None, -37.8136, 144.9631, now)  # type: ignore[arg-type]
+    b = SunProvider().query(None, -37.7900, 144.9800, now)  # type: ignore[arg-type]
+    assert [(i.id, i.target_ts) for i in a.items] == [(i.id, i.target_ts) for i in b.items]
