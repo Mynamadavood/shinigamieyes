@@ -14,17 +14,17 @@ A private, Watch Dogs-style profiler of David's surroundings: a full-screen iPho
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Python + FastAPI backend running on Proxmox (LXC CT 110), with a cache layer so the HUD never waits on upstream APIs — Validated in Phase 1: Foundation and Flat HUD Slice
+- [x] Phone reaches the backend only over Tailscale (`tailscale serve`, no funnel, loopback bind); nothing exposed publicly — Validated in Phase 1
+- [x] Location-driven profile endpoint: GPS, saved-place pins (coordinates server-side only) or address search; cached first, live refresh over SSE — Validated in Phase 1 (sun + UV layers)
+- [x] Installable full-screen iOS PWA (home-screen app, offline shell, last profile cached on device, OFF-GRID banner) — Validated in Phase 1 on David's iPhone
+- [x] Every item rendered with a name and a live countdown (flat list; map HUD comes in Phase 2) — Validated in Phase 1
 
 ### Active
 
 <!-- v1 milestone = City mode (brief Phase 1, no hardware). Hypotheses until shipped. -->
 
 **Platform & backend**
-- [ ] Python + FastAPI backend running on Proxmox (own VM/container), with a cache layer so the HUD never waits on upstream APIs
-- [ ] Phone reaches the backend only over Tailscale; nothing exposed publicly
-- [ ] Location-driven profile endpoint: given GPS, returns all nearby layers in one fast response (cached first, live refresh after)
-- [ ] Installable full-screen iOS PWA (home-screen app, offline shell, last profile cached on device)
 
 **HUD / look**
 - [ ] Hero "activation" screen: anime Shinigami eyes in blood red on pure black, pixel-font title bar (ref: `.planning/references/hero-eyes.png`)
@@ -87,12 +87,14 @@ A private, Watch Dogs-style profiler of David's surroundings: a full-screen iPho
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | v1 milestone = City mode only | Needs no hardware; hardware arrives after exams | — Pending |
-| Python + FastAPI backend | Best fit for data/GTFS libs and later radio/whisper.cpp work | — Pending |
-| iOS PWA, not native app | Fast to build solo, home-screen full-screen, Tailscale-reachable | — Pending |
+| Python + FastAPI backend | Best fit for data/GTFS libs and later radio/whisper.cpp work | ✓ Good (Phase 1; custom asyncio runtime + stdlib sqlite instead of APScheduler/aiosqlite) |
+| iOS PWA, not native app | Fast to build solo, home-screen full-screen, Tailscale-reachable | ✓ Good (Phase 1: installs, updates in place, GPS prompts once) |
 | 3D dark map (MapLibre) as HUD canvas now, AR camera later | Reliable indoors and on iOS; AR camera + compass is harder | — Pending |
 | Hero = red Shinigami eyes; main view = Watch Dogs NetHack style | David's visual references | — Pending |
 | LifeOS integration both directions, deferred to milestone 2 | LifeOS internals unknown | — Pending |
 | Profiles places/infrastructure/self, never other people | Legal + ethical hard rule | — Pending |
+| Address type-ahead via Photon, full search via Nominatim, both server-side | Nominatim forbids autocomplete; phone never contacts geocoders | ✓ Good (Phase 1) |
+| Pinned-place layers computed for a 0.1° cell, never the exact point | Home coordinates must not be recoverable from client data | ✓ Good (Phase 1 review fix) |
 
 ## Evolution
 
@@ -112,4 +114,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-11-05 after initialization*
+*Last updated: 2026-11-06 after Phase 1 completion*
