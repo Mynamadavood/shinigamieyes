@@ -6,7 +6,7 @@ v1 = City mode: a private, Tailscale-only iPhone PWA that profiles Melbourne aro
 
 ## Phases
 
-- [ ] **Phase 1: Foundation and Flat HUD Slice** - Installable Tailscale-only PWA showing a cached-first, ticking list of sun and UV items at your location
+- [x] **Phase 1: Foundation and Flat HUD Slice** - Installable Tailscale-only PWA showing a cached-first, ticking list of sun and UV items at your location (completed 2026-11-06)
 - [ ] **Phase 2: 3D Map, Hero and Surveillance** - Dark tilted 3D map with floating tags, info cards, hero activation, and CCTV/road-camera layer
 - [ ] **Phase 3: Transit** - Nearest PTV stops, live departures, approaching vehicles and disruptions
 - [ ] **Phase 4: Environment, Grid/Water and Ranking** - Weather/rain, air, fire danger, pollen, grid and water, plus the ranked "next" strip, chips and layer toggles
@@ -30,7 +30,7 @@ v1 = City mode: a private, Tailscale-only iPhone PWA that profiles Melbourne aro
   4. With the server unreachable, the app shows the last cached profile marked "OFF-GRID" instead of hanging
   5. David can use phone GPS or drop a manual pin when GPS is denied, and the service survives a Proxmox reboot and restarts on failure
 
-**Plans:** 10/11 plans executed
+**Plans:** 11/11 plans complete
 
 Plans:
 **Wave 1**
@@ -69,7 +69,7 @@ Plans:
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
-- [ ] 01-11-PLAN.md — Deploy and iPhone phase acceptance Gate 2 incl. host reboot (wave 9)
+- [x] 01-11-PLAN.md — Deploy and iPhone phase acceptance Gate 2 incl. host reboot (wave 9)
 
 **UI hint**: yes
 
@@ -175,7 +175,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation and Flat HUD Slice | 10/11 | In Progress|  |
+| 1. Foundation and Flat HUD Slice | 11/11 | Complete   | 2026-11-06 |
 | 2. 3D Map, Hero and Surveillance | 0/0 | Not started | - |
 | 3. Transit | 0/0 | Not started | - |
 | 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
