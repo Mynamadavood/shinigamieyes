@@ -1,6 +1,6 @@
 import "../styles/location.css";
 import type { LocationState, PlaceRef } from "../location";
-import { type GeoResult, searchAddress } from "../location-search";
+import { type GeoResult, searchAddress, suggestAddress } from "../location-search";
 
 export const GPS_OFF_COPY =
   "Location is off. Pick a place below or enable it in Settings > Privacy > Location Services.";
@@ -19,6 +19,7 @@ export const SEARCH_COPY = {
 };
 const MIN_QUERY = 3;
 const DOUBLE_SUBMIT_MS = 400;
+export const SUGGEST_DEBOUNCE_MS = 400;
 
 export class LocationSheet {
   readonly searchHost: HTMLElement;
@@ -63,6 +64,9 @@ export class LocationSheet {
   private input = document.createElement("input");
   private results = document.createElement("div");
   private lastSubmit = -Infinity;
+  private debounce: ReturnType<typeof setTimeout> | undefined;
+  private inflight: AbortController | null = null;
+  private seq = 0;
 
   private buildSearch(): void {
     const i = this.input;
@@ -83,6 +87,8 @@ export class LocationSheet {
         void this.submit();
       }
     });
+    // Type-ahead (Photon via /api/suggest); the Search key still runs a full Nominatim search.
+    i.addEventListener("input", () => this.onType());
     this.searchHost.append(i, this.results);
   }
 
@@ -93,19 +99,63 @@ export class LocationSheet {
     this.results.replaceChildren(p);
   }
 
+  private cancelSuggest(): void {
+    clearTimeout(this.debounce);
+    this.inflight?.abort();
+    this.inflight = null;
+  }
+
+  private onType(): void {
+    this.cancelSuggest();
+    const q = this.input.value.trim();
+    const my = ++this.seq;
+    if (q.length < MIN_QUERY) {
+      this.results.replaceChildren();
+      return;
+    }
+    this.debounce = setTimeout(() => void this.runSuggest(q, my), SUGGEST_DEBOUNCE_MS);
+  }
+
+  private async runSuggest(q: string, my: number): Promise<void> {
+    const ctl = new AbortController();
+    this.inflight = ctl;
+    if (!this.results.querySelector(".search-row")) this.note(SEARCH_COPY.searching);
+    let found: GeoResult[];
+    try {
+      found = await suggestAddress(q, ctl.signal);
+    } catch {
+      // Superseded or failed: a newer keystroke or the Search key takes over. Show the
+      // error only if this is still the latest query and nothing useful is on screen.
+      if (my === this.seq && !this.results.querySelector(".search-row")) {
+        this.note(SEARCH_COPY.error);
+      }
+      return;
+    }
+    if (my !== this.seq) return;
+    this.inflight = null;
+    this.render(found);
+  }
+
   private async submit(): Promise<void> {
     const q = this.input.value.trim();
     const t = Date.now();
     if (q.length < MIN_QUERY || t - this.lastSubmit < DOUBLE_SUBMIT_MS) return;
     this.lastSubmit = t;
+    this.cancelSuggest();
+    const my = ++this.seq;
     this.note(SEARCH_COPY.searching);
     let found: GeoResult[];
     try {
       found = await searchAddress(q);
     } catch {
-      this.note(SEARCH_COPY.error);
+      if (my === this.seq) this.note(SEARCH_COPY.error);
       return;
     }
+    if (my !== this.seq) return;
+    this.render(found);
+  }
+
+  private render(found: GeoResult[]): void {
     if (found.length === 0) {
       this.note(SEARCH_COPY.empty);
       return;
@@ -148,6 +198,7 @@ export class LocationSheet {
 
   close(): void {
     if (this.backdrop.hidden) return;
+    this.cancelSuggest();
     this.backdrop.hidden = true;
     this.returnFocus?.focus();
     this.returnFocus = null;

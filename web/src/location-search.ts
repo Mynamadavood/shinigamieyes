@@ -25,3 +25,28 @@ export async function searchAddress(
     clearTimeout(timer);
   }
 }
+
+export const SUGGEST_TIMEOUT_MS = 4000;
+
+/** Type-ahead suggestions (server proxies Photon). `signal` cancels a superseded query. */
+export async function suggestAddress(
+  q: string,
+  signal?: AbortSignal,
+  fetchImpl: typeof fetch = fetch,
+): Promise<GeoResult[]> {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), SUGGEST_TIMEOUT_MS);
+  const onAbort = () => ctl.abort();
+  signal?.addEventListener("abort", onAbort);
+  try {
+    const res = await fetchImpl(`/api/suggest?q=${encodeURIComponent(q)}`, {
+      signal: ctl.signal,
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`suggest ${res.status}`);
+    return (await res.json()) as GeoResult[];
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
+  }
+}

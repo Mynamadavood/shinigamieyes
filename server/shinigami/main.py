@@ -8,7 +8,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
-from shinigami.api import geocode, health, places, profile, stream
+from shinigami.api import geocode, health, places, profile, stream, suggest
 from shinigami.places import load_places
 from shinigami.providers.arpansa import ArpansaUvProvider
 from shinigami.providers.base import ProviderContext
@@ -91,6 +91,7 @@ def create_app(settings: Settings | None = None, start_runtime: bool = True) -> 
     app.include_router(places.router)
     app.include_router(profile.router)
     app.include_router(stream.router)
+    app.include_router(suggest.router)
 
     if settings.static_dir.is_dir():
         app.mount("/", StaticFiles(directory=settings.static_dir, html=True), name="static")

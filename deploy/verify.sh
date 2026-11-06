@@ -161,6 +161,12 @@ verify_remote() {
     if printf '%s' "$body" | grep -q '"lat"'; then fail places_no_coords; else pass places_no_coords; fi
   else fail places_no_coords "HTTP $code"; fi
 
+  # type-ahead proxy (Photon); fixed query so the server cache absorbs repeat runs
+  code="$(http_code "$url/api/suggest?q=flinders%20street")"
+  if [ "$code" = "404" ]; then skip suggest_photon "not deployed"
+  elif [ "$code" = "200" ]; then pass suggest_photon
+  else fail suggest_photon "HTTP $code"; fi
+
   profile_p95 "$url"
 }
 
