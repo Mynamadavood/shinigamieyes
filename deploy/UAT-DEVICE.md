@@ -34,8 +34,8 @@ Automated pre-check (2026-11-06, after redeploy of 540b9e4):
 - [x] Tailscale off: `OFF-GRID · last sync Xm ago` banner shows, rows keep ticking. Result / notes: pass (David, iPhone, 2026-11-06)
 - [x] Tailscale back on: banner clears without reload. Result / notes: pass (David, iPhone, 2026-11-06)
 - [x] GPS prompt behaviour in standalone mode recorded (prompts on every cold launch? after 24 h? on resume?). Result / notes: prompts once on first launch, never again (cold launch or resume) (David, iPhone, 2026-11-06)
-- [ ] Deny GPS: `GPS off` shows and the Place Sheet opens once. Result / notes:
-- [ ] Pick `Monash Clayton`: profile changes. Result / notes:
+- [x] Deny GPS: `GPS off` shows and the Place Sheet opens once. Result / notes: pass (David, iPhone, 2026-11-06) (Safari Websites location set to Never)
+- [x] Pick `Monash Clayton`: profile changes. Result / notes: pass (David, iPhone, 2026-11-06); strip shows `PIN · Monash Clayton`
 - [x] Address search for a street returns results. Result / notes: pass (David, iPhone, 2026-11-06) after two fixes: (1) MagicDNS in the CT could not resolve public hosts, every uncached search hit ConnectTimeout; CT now runs `tailscale set --accept-dns=false` and verify has `dns_upstream`; (2) added type-ahead suggestions via Photon (`/api/suggest`, 400 ms debounce, 3+ chars), Search key still runs Nominatim
 - [x] The home-screen app installed at Gate 1 updates to the new build after force-quit and reopen, without reinstalling. Result / notes: pass (David, iPhone, 2026-11-06)
 - [x] Full Proxmox host reboot: app reachable again with no manual steps (PLAT-07). Result / notes: pass (David, iPhone, 2026-11-06)
