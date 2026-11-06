@@ -261,3 +261,15 @@ LockPersonality=true
 _Reviewed: 2026-11-06T01:36:11Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
+
+## Fixes applied (2026-11-06, approved by David: criticals + privacy warning)
+
+| Finding | Status | Commit |
+|---------|--------|--------|
+| CR-01 service user to root via deploy | Fixed: root-owned checkout/.git/deploy, service owns only build outputs, no safe.directory override; verify `repo_root_owned` | 3667b8b |
+| CR-02 home coords recoverable from sun times | Fixed: sun computed for the 0.1° snap_cell, times rounded to the minute; tests prove cell-level output | 80afc51 |
+| WR-01 search history kept forever | Fixed: 30-day TTL, 500-row cap, in-memory cache pruned | 835cdee |
+| WR-09 no systemd sandbox | Fixed: ProtectSystem=strict and related hardening; verify `sandbox_protect_system` | 3667b8b |
+| WR-02..WR-08, IN-01..IN-07 | Deferred to Phase 2 backlog (robustness, not Phase 1 promises) | - |
+
+Deployed and verified: `verify.sh --local` `{"pass":17,"fail":0,"skip":0,"p95_ms":2}`; `--remote` 13/0/0.
