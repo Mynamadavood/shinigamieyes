@@ -39,6 +39,6 @@ Automated pre-check (2026-11-06, after redeploy of 540b9e4):
 - [x] Address search for a street returns results. Result / notes: pass (David, iPhone, 2026-11-06) after two fixes: (1) MagicDNS in the CT could not resolve public hosts, every uncached search hit ConnectTimeout; CT now runs `tailscale set --accept-dns=false` and verify has `dns_upstream`; (2) added type-ahead suggestions via Photon (`/api/suggest`, 400 ms debounce, 3+ chars), Search key still runs Nominatim
 - [x] The home-screen app installed at Gate 1 updates to the new build after force-quit and reopen, without reinstalling. Result / notes: pass (David, iPhone, 2026-11-06)
 - [x] Full Proxmox host reboot: app reachable again with no manual steps (PLAT-07). Result / notes: pass (David, iPhone, 2026-11-06)
-- [ ] Stale/expired rows dim/pulse as specified. Result / notes:
+- [~] Stale/expired rows dim/pulse as specified. Result / notes: DEFERRED by David (2026-11-06): needs 30+ min with Tailscale off to age the UV layer. Logic covered by `web/src/freshness.test.ts` and the next-list expiry tests; on-device look still to confirm
 
-Sign-off (David): ______________________  Date: __________
+Go / No-go: GO (11 of 12 pass, 1 deferred). Sign-off: David, 2026-11-06
