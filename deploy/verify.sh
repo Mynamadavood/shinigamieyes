@@ -89,6 +89,19 @@ verify_local() {
   if getent ahostsv4 nominatim.openstreetmap.org >/dev/null 2>&1; then pass dns_upstream
   else fail dns_upstream "nominatim.openstreetmap.org does not resolve (tailscale set --accept-dns=false)"; fi
 
+  # privilege boundary (review CR-01): root runs git + deploy scripts, so they must not
+  # be writable by the service user; the running service sees /opt read-only.
+  owner_ok=1
+  for p in /opt/shinigami /opt/shinigami/.git /opt/shinigami/deploy /opt/shinigami/deploy/deploy.sh; do
+    [ "$(stat -c '%U' "$p" 2>/dev/null)" = "root" ] || owner_ok=0
+  done
+  if [ "$owner_ok" -eq 1 ]; then pass repo_root_owned; else fail repo_root_owned "re-run deploy.sh"; fi
+  if [ "$(systemctl show -p ProtectSystem --value shinigami 2>/dev/null)" = "strict" ]; then
+    pass sandbox_protect_system
+  else
+    fail sandbox_protect_system
+  fi
+
   # journald hygiene: no coordinates logged
   if journalctl -u shinigami --since "-24h" --no-pager 2>/dev/null | grep -qE 'lat=|lon=|-3[0-9]\.[0-9]{4,}'; then
     fail journald_no_coords

@@ -47,7 +47,7 @@ fi
 
 # service user and directories
 id shinigami >/dev/null 2>&1 || useradd --system --home-dir /opt/shinigami --shell /usr/sbin/nologin shinigami
-install -d -o shinigami -g shinigami /opt/shinigami-python /var/cache/shinigami-uv
+install -d -o shinigami -g shinigami /opt/shinigami-python /var/cache/shinigami-uv /var/cache/shinigami-npm
 install -d -m 0750 -o root -g shinigami /etc/shinigami
 
 if [ ! -f /etc/shinigami/.env ]; then

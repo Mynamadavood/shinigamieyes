@@ -16,6 +16,22 @@ TimeoutStopSec=15
 NoNewPrivileges=true
 PrivateTmp=true
 StateDirectory=shinigami
+StateDirectoryMode=0750
+UMask=0027
+# Sandbox (review CR-01/WR-09): the service can write only its StateDirectory
+# (/var/lib/shinigami, the SQLite db) and its private /tmp. Code, venv and the PWA it
+# serves are read-only to it. Kept to options that work in an unprivileged LXC.
+ProtectSystem=strict
+ProtectHome=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+SystemCallArchitectures=native
 
 [Install]
 WantedBy=multi-user.target

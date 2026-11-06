@@ -6,8 +6,25 @@ set -euo pipefail
 
 cd /opt/shinigami
 
-git -c safe.directory=/opt/shinigami pull --ff-only
-chown -R shinigami:shinigami /opt/shinigami
+# Ownership (review CR-01): root owns the checkout, .git and deploy/ because root runs
+# git and these scripts. The service user owns only build outputs that root never
+# executes (.venv, web/ for `npm ci`, web/node_modules, web/dist). The unit's
+# ProtectSystem=strict also makes /opt read-only to the running service.
+lock_down() {
+  chown -R root:root /opt/shinigami
+  chmod -R go-w /opt/shinigami
+  install -d -o shinigami -g shinigami /opt/shinigami/.venv /var/cache/shinigami-npm
+  chown shinigami:shinigami /opt/shinigami/web
+  for d in /opt/shinigami/.venv /opt/shinigami/web/node_modules /opt/shinigami/web/dist; do
+    if [ -e "$d" ]; then chown -R shinigami:shinigami "$d"; fi
+  done
+}
+
+lock_down
+# Root-owned repo now, so no safe.directory override (that override disables git's
+# protection against running hooks/config from a repo another user can write).
+git pull --ff-only
+lock_down
 
 [ -x /usr/local/bin/uv ] || { echo "FATAL: /usr/local/bin/uv missing - re-run deploy/lxc-setup.sh" >&2; exit 1; }
 
@@ -18,7 +35,8 @@ as_svc() {
     PATH=/usr/local/bin:/usr/bin:/bin \
     UV_PYTHON_INSTALL_DIR=/opt/shinigami-python \
     UV_CACHE_DIR=/var/cache/shinigami-uv \
-    HOME=/opt/shinigami "$@"
+    npm_config_cache=/var/cache/shinigami-npm \
+    HOME=/var/cache/shinigami-npm "$@"
 }
 
 as_svc uv sync --frozen --no-dev
