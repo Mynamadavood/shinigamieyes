@@ -31,3 +31,39 @@
   color: var(--c-dim);
 }
 .map-offline-hint[hidden] { display: none; }
+
+/* markers (D-17): 48px hit wrappers around 32px original SVGs */
+.marker-hit {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: auto;
+}
+.marker-hit svg { width: 32px; height: 32px; display: block; overflow: visible; }
+.marker-figure { fill: var(--c-red); stroke: var(--c-bg); stroke-width: 1px; }
+.marker-figure .marker-tie { fill: var(--c-bg); stroke: none; }
+.marker-pin .pin-body { fill: var(--c-blue); stroke: var(--c-bg); stroke-width: 1px; }
+.marker-pin .pin-hole { fill: var(--c-bg); }
+
+/* recenter button (D-07) */
+.recenter {
+  position: absolute;
+  right: var(--sp-md, 16px);
+  bottom: calc(var(--drawer-h, var(--drawer-peek)) + env(safe-area-inset-bottom) + var(--sp-md, 16px));
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-panel);
+  border: 1px solid var(--c-frame);
+  color: var(--c-blue);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.recenter:active { background: var(--c-surface); }
+.recenter svg { width: 24px; height: 24px; }
+.recenter.is-hidden { display: none; }

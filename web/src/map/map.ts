@@ -1,4 +1,4 @@
-import { Map as MlMap, setWorkerUrl } from "maplibre-gl";
+import { Map as MlMap, Marker, setWorkerUrl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "../styles/map.css";
@@ -6,11 +6,15 @@ import { withTimeout } from "../timeout";
 import type { Profile } from "../types";
 import { DEFAULT_FONT, buildStyle, readStyleTokens } from "./style";
 import type { MapDeps, MapHandle, MapView } from "./types";
-import { CBD_DEFAULT, FOLLOW } from "./view";
+import { readRingTokens, syncRing, type RingMap } from "./accuracy-ring";
+import { createFollow } from "./follow";
+import { createFigureElement, createPinElement, setFigureAccuracy } from "./marker-figure";
+import { CBD_DEFAULT, FOLLOW, PIN_AREA_ZOOM } from "./view";
 
 const META_KEY = "tiles:meta";
 const META_TIMEOUT_MS = 2000;
 const EASE_MS = 400;
+const FLY_MS = 600;
 const OFFLINE_COPY = "Map tiles unavailable offline";
 const DEFAULT_PEEK_PX = 144;
 
@@ -141,24 +145,156 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
   let profile: Profile | null = null;
   void profile; // consumed by 02-10 (tags)
 
+  const follow = createFollow();
+  const recenterBtn = document.createElement("button");
+  recenterBtn.type = "button";
+  recenterBtn.className = "recenter is-hidden";
+  recenterBtn.setAttribute("aria-label", "Recenter on me");
+  const ns = "http://www.w3.org/2000/svg";
+  const icon = document.createElementNS(ns, "svg");
+  const use = document.createElementNS(ns, "use");
+  use.setAttribute("href", "/icons.svg#recenter");
+  icon.appendChild(use);
+  recenterBtn.appendChild(icon);
+  deps.controls.appendChild(recenterBtn);
+  const showRecenter = (on: boolean) => recenterBtn.classList.toggle("is-hidden", !on);
+
+  const markerOpts = (element: HTMLElement) => ({
+    element,
+    anchor: "bottom" as const,
+    pitchAlignment: "viewport" as const,
+    rotationAlignment: "viewport" as const,
+  });
+  const figureEl = createFigureElement();
+  const pinEl = createPinElement();
+  const figureMarker = new Marker(markerOpts(figureEl));
+  const pinMarker = new Marker(markerOpts(pinEl));
+  let figureOn = false;
+  let pinOn = false;
+  const setFigure = (on: boolean, v?: { lat: number; lon: number }) => {
+    if (on && v) {
+      figureMarker.setLngLat([v.lon, v.lat]);
+      if (!figureOn) figureMarker.addTo(map);
+    } else if (figureOn) figureMarker.remove();
+    figureOn = on;
+  };
+  const setPin = (on: boolean, v?: { lat: number; lon: number }) => {
+    if (on && v) {
+      pinMarker.setLngLat([v.lon, v.lat]);
+      if (!pinOn) pinMarker.addTo(map);
+    } else if (pinOn) pinMarker.remove();
+    pinOn = on;
+  };
+
+  const ringTokens = readRingTokens();
+  const ringMap = map as unknown as RingMap;
+  let ringPending: MapView | null = null;
+  const applyRing = (v: MapView) => {
+    if (!map.isStyleLoaded()) {
+      ringPending = v;
+      return;
+    }
+    ringPending = null;
+    syncRing(ringMap, v, ringTokens);
+  };
+  map.on("load", () => {
+    if (ringPending) applyRing(ringPending);
+  });
+
+  let current: MapView = { kind: "none" };
+  let lastKind: MapView["kind"] = "none";
+  let lastPinKey = "";
+
+  const framing = (v: { lat: number; lon: number }) => ({
+    center: [v.lon, v.lat] as [number, number],
+    zoom: FOLLOW.zoom,
+    pitch: FOLLOW.pitch,
+    bearing: FOLLOW.bearing,
+    padding: { top: 0, left: 0, right: 0, bottom: bottomPadding() },
+  });
+  const areaFraming = (v: { lat: number; lon: number }) => ({
+    center: [v.lon, v.lat] as [number, number],
+    zoom: PIN_AREA_ZOOM,
+    pitch: 0,
+    bearing: 0,
+    padding: { top: 0, left: 0, right: 0, bottom: 0 },
+  });
+
+  // user gestures only (originalEvent set); programmatic moves carry none
+  for (const ev of ["dragstart", "zoomstart", "rotatestart", "pitchstart"] as const) {
+    map.on(ev, (e: { originalEvent?: unknown }) => {
+      if (!e.originalEvent) return;
+      if (current.kind === "none") return;
+      showRecenter(follow.on("userGesture").showRecenter);
+    });
+  }
+
+  recenterBtn.addEventListener("click", () => {
+    const v = current;
+    if (v.kind === "none") return;
+    const res = follow.on("recenter");
+    showRecenter(res.showRecenter);
+    const opts = v.kind === "pin" ? areaFraming(v) : framing(v);
+    if (deps.reducedMotion) map.jumpTo(opts);
+    else map.flyTo({ ...opts, duration: FLY_MS, essential: true });
+  });
+
   function setView(v: MapView): void {
+    current = v;
     if (v.kind === "none") {
+      setFigure(false);
+      setPin(false);
+      applyRing(v);
       if (!positioned) {
         map.jumpTo({ center: [CBD_DEFAULT.lon, CBD_DEFAULT.lat], zoom: CBD_DEFAULT.zoom, pitch: CBD_DEFAULT.pitch, bearing: 0 });
         positioned = true;
       }
+      lastKind = "none";
       return;
     }
-    const opts = {
-      center: [v.lon, v.lat] as [number, number],
-      zoom: FOLLOW.zoom,
-      pitch: FOLLOW.pitch,
-      bearing: FOLLOW.bearing,
-      padding: { top: 0, left: 0, right: 0, bottom: bottomPadding() },
-    };
-    if (!positioned || deps.reducedMotion) map.jumpTo(opts);
-    else map.easeTo({ ...opts, duration: EASE_MS });
-    positioned = true;
+    if (v.kind === "pin") {
+      // saved place: area level on the cell centre, no marker (CR-02)
+      setFigure(false);
+      setPin(false);
+      applyRing(v);
+      const key = `${v.lat},${v.lon}`;
+      if (lastKind !== "pin" || key !== lastPinKey) {
+        map.jumpTo(areaFraming(v));
+        follow.on("recenter");
+        showRecenter(false);
+      }
+      lastPinKey = key;
+      lastKind = "pin";
+      positioned = true;
+      return;
+    }
+    if (v.kind === "gps") {
+      setFigure(true, v);
+      setFigureAccuracy(figureEl, v.accuracy);
+      setPin(false);
+    } else {
+      setFigure(false);
+      setPin(true, v);
+    }
+    applyRing(v);
+    const kindChanged = lastKind !== v.kind;
+    lastKind = v.kind;
+    if (!positioned || kindChanged) {
+      // first fix or a different source: full framing, follow resets to on
+      follow.on("recenter");
+      showRecenter(false);
+      const opts = framing(v);
+      if (!positioned || deps.reducedMotion) map.jumpTo(opts);
+      else map.easeTo({ ...opts, duration: EASE_MS });
+      positioned = true;
+      return;
+    }
+    const res = follow.on("viewChanged");
+    showRecenter(res.showRecenter);
+    if (res.action === "none") return;
+    const centre = { center: [v.lon, v.lat] as [number, number], padding: { top: 0, left: 0, right: 0, bottom: bottomPadding() } };
+    if (deps.reducedMotion) map.jumpTo(centre);
+    else map.easeTo({ ...centre, duration: EASE_MS });
   }
 
   return {
@@ -172,6 +308,9 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
     destroy() {
       document.removeEventListener("visibilitychange", onVisible);
       hint.remove();
+      recenterBtn.remove();
+      figureMarker.remove();
+      pinMarker.remove();
       map.remove();
     },
   };
