@@ -128,6 +128,48 @@ systemctl stop shinigami
 pct stop <CTID>          # on the host
 ```
 
+## 11. Phase 2 provisioning (map tiles + camera data)
+
+Run in order. Paste back the numbers marked **report**.
+
+1. Proxmox host: check free disk in the CT. **Report** the Avail column.
+   ```
+   pct exec <CTID> -- df -h /
+   ```
+   If less than 4 GB is free, grow the disk, then check again:
+   ```
+   pct resize <CTID> rootfs +8G
+   ```
+2. Redeploy (pulls Phase 2, installs the data timer). Run it twice if the first run pulls a new deploy.sh:
+   ```
+   pct exec <CTID> -- bash /opt/shinigami/deploy/deploy.sh
+   ```
+3. Install the checksum-pinned `pmtiles` CLI (as root in the CT). The sha256 is hard-coded; no `PMTILES_SHA256` needed:
+   ```
+   pct exec <CTID> -- bash /opt/shinigami/deploy/install-pmtiles.sh
+   ```
+4. Size check only (downloads nothing big). **Report** the size it prints. Stop here if it is bigger than free space minus 2 GB:
+   ```
+   pct exec <CTID> -- runuser -u shinigami -- bash /opt/shinigami/deploy/refresh-tiles.sh --dry-run
+   ```
+5. Real extract (can take a while; it streams only the Melbourne part of the planet build):
+   ```
+   pct exec <CTID> -- runuser -u shinigami -- bash /opt/shinigami/deploy/refresh-tiles.sh
+   ```
+6. First camera refresh (downloads the ~244 MB Victoria OSM extract, builds cameras.json, deletes the download). **Report** the `cctv= speed= redlight=` line:
+   ```
+   pct exec <CTID> -- systemctl start shinigami-data.service
+   pct exec <CTID> -- journalctl -u shinigami-data -n 20 --no-pager
+   ```
+7. **Report** file sizes and free disk:
+   ```
+   pct exec <CTID> -- bash -c 'ls -lh /var/lib/shinigami/tiles /var/lib/shinigami/data; df -h /'
+   ```
+8. **Report** the last JSON line:
+   ```
+   pct exec <CTID> -- bash /opt/shinigami/deploy/verify.sh --local
+   ```
+
 ## Notes
 
 The setup scripts run vendor installers (NodeSource, astral uv, Tailscale) as root over HTTPS, once. This is an accepted risk for a single-user homelab.

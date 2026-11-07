@@ -42,3 +42,30 @@ Automated pre-check (2026-11-06, after redeploy of 540b9e4):
 - [~] Stale/expired rows dim/pulse as specified. Result / notes: DEFERRED by David (2026-11-06): needs 30+ min with Tailscale off to age the UV layer. Logic covered by `web/src/freshness.test.ts` and the next-list expiry tests; on-device look still to confirm
 
 Go / No-go: GO (11 of 12 pass, 1 deferred). Sign-off: David, 2026-11-06
+
+## Gate 3: Phase 2 acceptance (plan 02-14)
+
+Automated pre-check:
+- (filled in by plan 02-06 Task 3 and 02-14)
+
+- [ ] Hero on cold open: force-quit, launch from the home screen; red eyes play for 1.5 s or less (stopwatch) with cached rows already visible underneath. Result / notes:
+- [ ] Tapping anywhere (or the x box) during the hero skips straight to the map. Result / notes:
+- [ ] Hero does not replay when returning to the app from the background. Result / notes:
+- [ ] Reduced motion (Settings > Accessibility > Motion > Reduce Motion on): hero is a still frame of about 0.7 s, no flash, still skippable. Result / notes:
+- [ ] 3D map look: tilted about 60 degrees, dark land, blue extruded buildings, street labels at zoom 16 and closer. Result / notes:
+- [ ] Smoothness: pan and zoom over the CBD with tags on; no visible stutter, labelled tags capped (about 20, rest as small icons). Result / notes:
+- [ ] Offline: view an area, turn Tailscale off, force-quit, reopen; tiles already seen still draw, unseen areas show the dark grid, OFF-GRID banner shows. Result / notes:
+- [ ] Zero third-party requests: Safari Web Inspector Network tab (from the PC/Mac) on a cold open; every request host is the ts.net origin. Result / notes:
+- [ ] Camera count readout reads like `6 cameras · 150 m · mapped, not exhaustive` and a CCTV card says `Mapped, not exhaustive.`. Result / notes:
+- [ ] Speed/red-light camera card says `Static info only.` and `Source: OpenStreetMap`. Result / notes:
+- [ ] Camera tags are blue, and turn red within about 30 m (at most 3 red at once). Result / notes:
+- [ ] Long-press (half a second) drops a blue pin; the strip reads `PIN · Dropped pin`; `Use GPS` on its card returns to GPS. Result / notes:
+- [ ] Drawer: drag the handle, flick, and tap the handle to move between peek, half and full. Result / notes:
+- [ ] Recenter button appears after panning and snaps the map back to you. Result / notes:
+- [ ] Tapping a building turns it solid red with a `BUILDING` card; everything else stays blue. Result / notes:
+- [ ] Your position shows as the small red suited-figure marker with a faint accuracy ring. Result / notes:
+- [ ] Saved place (e.g. Home): map shows the area, no Home marker, readout says cameras are not shown for saved places. Result / notes:
+- [ ] CBD buildings with parts do not show doubled or flickering extrusions (building_part check). Result / notes:
+- [ ] Provisional decisions confirmed or changed: saved places show no cameras; guard cameras excluded and private operator names dropped; `Source: OpenStreetMap` / colour-only building highlight / `BUILDING` title; server-side map tiles. Result / notes:
+
+Sign-off (David): ______________________  Date: __________
