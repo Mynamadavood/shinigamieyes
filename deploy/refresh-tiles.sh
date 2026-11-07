@@ -4,6 +4,8 @@
 #                         refresh-tiles.sh             (real extract, atomic swap)
 # The server notices the new file within 30 s (TileStore.reload_if_changed).
 set -euo pipefail
+# pct exec and runuser use a minimal PATH without /usr/local/bin (where pmtiles lives).
+export PATH="/usr/local/bin:$PATH"
 
 TILES_DIR=/var/lib/shinigami/tiles
 BBOX=144.2,-38.55,145.75,-37.45   # Greater Melbourne incl. Geelong, Mornington Pen., Dandenongs

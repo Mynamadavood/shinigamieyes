@@ -3,6 +3,8 @@
 # sha256 source: GitHub release v1.31.2 asset "digest" field (API), read 2026-11-07.
 # Override with PMTILES_SHA256=... if you pin a different version.
 set -euo pipefail
+# pct exec and runuser use a minimal PATH without /usr/local/bin (where pmtiles lives).
+export PATH="/usr/local/bin:$PATH"
 
 PMTILES_VERSION=1.31.2
 ASSET="go-pmtiles_${PMTILES_VERSION}_Linux_x86_64.tar.gz"
