@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" shape-rendering="crispEdges">
+  <symbol id="cctv" viewBox="0 0 24 24">
+    <path d="M2 3v6M2 6h4"/>
+    <path d="M6 4h12v8H6z"/>
+    <path d="M18 7h4v2h-4"/>
+    <path d="M10 12v4M14 12v4M8 20h8"/>
+  </symbol>
+  <symbol id="speed-cam" viewBox="0 0 24 24">
+    <path d="M4 22V3M4 6h4"/>
+    <path d="M8 4h10v7H8z"/>
+    <path d="M18 6h3v3h-3"/>
+    <path d="M10 15h10M12 18h8M14 21h6"/>
+  </symbol>
+  <symbol id="redlight-cam" viewBox="0 0 24 24">
+    <path d="M2 6h10v7H2z"/>
+    <path d="M12 8h2v3h-2M7 13v4M3 21h8M7 17v4"/>
+    <path d="M16 2h6v20h-6z"/>
+    <path d="M18 5h2M18 11h2M18 17h2"/>
+  </symbol>
+  <symbol id="building" viewBox="0 0 24 24">
+    <path d="M5 21V3h10v18M15 9h4v12M3 21h18"/>
+    <path d="M8 7h4M8 11h4M8 15h4"/>
+  </symbol>
+  <symbol id="recenter" viewBox="0 0 24 24">
+    <path d="M12 2v5M12 17v5M2 12h5M17 12h5"/>
+    <path d="M9 9h6v6H9z"/>
+  </symbol>
+  <symbol id="pin" viewBox="0 0 24 24">
+    <path d="M12 22L6 12V4h12v8z"/>
+    <path d="M10 8h4v4h-4z"/>
+  </symbol>
+</svg>
