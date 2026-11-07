@@ -11,10 +11,19 @@ export default defineConfig({
       registerType: "autoUpdate",
       injectRegister: false,
       manifest,
-      injectManifest: { globPatterns: ["**/*.{js,css,html,woff2,png,webmanifest}"] },
+      injectManifest: {
+        globPatterns: [
+          "**/*.{js,css,html,woff2,png,webmanifest,svg}",
+          "glyphs/*/0-255.pbf",
+          "glyphs/*/8192-8447.pbf",
+        ],
+      },
     }),
   ],
   server: {
-    proxy: { "/api": { target: "http://127.0.0.1:8000", changeOrigin: false } },
+    proxy: {
+      "/api": { target: "http://127.0.0.1:8000", changeOrigin: false },
+      "/tiles": { target: "http://127.0.0.1:8000", changeOrigin: false },
+    },
   },
 });
