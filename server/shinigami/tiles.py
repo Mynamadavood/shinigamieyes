@@ -55,7 +55,7 @@ class TileStore:
         self._sig = (st.st_mtime_ns, st.st_ino)
         self.build = str(int(st.st_mtime))
         try:
-            f = open(self._path, "rb")
+            f = open(self._path, "rb")  # noqa: SIM115 - held open for the reader lifetime
             flock = threading.Lock()
 
             def get_bytes(offset: int, length: int) -> bytes:
@@ -73,7 +73,7 @@ class TileStore:
                 self.status = "unsupported"
                 log.warning("tiles file has unsupported tile type or compression")
                 return
-        except Exception:  # corrupt/truncated file
+        except Exception:  # noqa: BLE001 - corrupt/truncated file
             self.status = "unsupported"
             log.warning("tiles file could not be read")
             return

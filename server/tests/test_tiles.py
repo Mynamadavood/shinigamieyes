@@ -1,5 +1,6 @@
 import gzip
 import os
+import sys
 
 import httpx
 import pytest
@@ -99,6 +100,7 @@ async def test_unsupported(settings, kw):
     assert (await c.get(url(TILE_A))).status_code == 204
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="cannot replace an open file on Windows; prod is Linux")
 def test_reload_on_change(tmp_path, monkeypatch):
     p = tmp_path / "t.pmtiles"
     write_pmtiles(p, {TILE_A: DATA_A})
