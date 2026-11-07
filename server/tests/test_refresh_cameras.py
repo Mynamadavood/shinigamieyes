@@ -2,9 +2,12 @@ import json
 from pathlib import Path
 
 import pytest
-
 from shinigami.data.refresh_cameras import (
-    cctv_record, direction_words, enforcement_kind, main, public_operator,
+    cctv_record,
+    direction_words,
+    enforcement_kind,
+    main,
+    public_operator,
 )
 
 FIX = Path(__file__).parent / "fixtures" / "enforcement.osm"

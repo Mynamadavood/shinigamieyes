@@ -40,7 +40,7 @@ def direction_words(raw):
             deg = float(token)
         except ValueError:
             return None
-    return _WORDS[int(round((deg % 360) / 45)) % 8]
+    return _WORDS[round((deg % 360) / 45) % 8]
 
 
 def public_operator(tags):
