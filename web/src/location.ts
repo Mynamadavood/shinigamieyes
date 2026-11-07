@@ -1,4 +1,5 @@
 import { get, set } from "idb-keyval";
+import { withTimeout } from "./timeout";
 
 // Location state machine (D-08, D-10): GPS on open and on return to the app, accepted only
 // after moving ~100 m; manual pin via saved places. Render never waits on GPS. No continuous
@@ -10,6 +11,8 @@ export interface LocationState {
   pin?: { id: string; label: string };
   search?: { lat: number; lon: number; label: string };
   lastAccepted?: { lat: number; lon: number; ts: number };
+  /** Every successful fix (not gated by the 100 m hysteresis); accuracy in metres. */
+  lastFix?: { lat: number; lon: number; ts: number; accuracy: number };
   gps: GpsStatus;
 }
 export interface PlaceRef {
@@ -35,6 +38,7 @@ export interface LocationController {
 const STATE_KEY = "location:state";
 const PLACES_KEY = "places:list";
 export const HYSTERESIS_M = 100;
+const STATE_READ_TIMEOUT_MS = 300;
 const EARTH_R = 6371008.8;
 const GEO_OPTS: PositionOptions = { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 };
 
@@ -95,7 +99,7 @@ export function createLocation(deps: LocationDeps): LocationController {
         const { latitude: lat, longitude: lon } = pos.coords;
         const last = s.lastAccepted;
         const moved = !last || haversineM(last.lat, last.lon, lat, lon) >= HYSTERESIS_M;
-        s = { ...s, gps: "live" };
+        s = { ...s, gps: "live", lastFix: { lat, lon, ts: clock(), accuracy: pos.coords.accuracy } };
         if (force || moved) {
           s.lastAccepted = { lat, lon, ts: clock() };
           changed();
@@ -104,9 +108,14 @@ export function createLocation(deps: LocationDeps): LocationController {
           deps.onState?.(s);
         }
       },
-      () => {
+      (err) => {
         pending = false;
         if (s.mode !== "gps") return;
+        // TIMEOUT / POSITION_UNAVAILABLE are transient: keep "locating"/"live", retry on next foreground
+        if (err.code !== 1) {
+          deps.onState?.(s);
+          return;
+        }
         s = { ...s, gps: "off" };
         void persist(s);
         deps.onState?.(s);
@@ -126,7 +135,9 @@ export function createLocation(deps: LocationDeps): LocationController {
   return {
     async start() {
       try {
-        const saved = (await get(STATE_KEY)) as LocationState | undefined;
+        const saved = (await withTimeout(get(STATE_KEY), STATE_READ_TIMEOUT_MS, undefined)) as
+          | LocationState
+          | undefined;
         if (saved && (saved.mode === "gps" || saved.mode === "pin" || saved.mode === "search")) {
           s = { ...saved, gps: "locating" };
         }

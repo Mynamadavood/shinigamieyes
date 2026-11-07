@@ -101,19 +101,41 @@ describe("createLocation", () => {
     expect(t.calls).toHaveLength(2);
   });
 
-  it.each([
-    ["denied", 1],
-    ["unavailable", 2],
-    ["timeout", 3],
-  ])("GPS %s turns gps off and warns only once", async (_n, code) => {
+  it("permission denial turns gps off and warns only once", async () => {
     const t = setup();
     await t.loc.start();
-    t.calls[0]!.err({ code } as GeolocationPositionError);
+    t.calls[0]!.err({ code: 1 } as GeolocationPositionError);
     expect(t.loc.state().gps).toBe("off");
     expect(t.onGpsOff).toHaveBeenCalledTimes(1);
     t.loc.requestFix();
-    t.calls[1]!.err({ code } as GeolocationPositionError);
+    t.calls[1]!.err({ code: 1 } as GeolocationPositionError);
     expect(t.onGpsOff).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["unavailable", 2],
+    ["timeout", 3],
+  ])("GPS %s keeps locating and never warns (WR-08)", async (_n, code) => {
+    const t = setup();
+    await t.loc.start();
+    t.calls[0]!.err({ code } as GeolocationPositionError);
+    expect(t.loc.state().gps).toBe("locating");
+    expect(t.onGpsOff).not.toHaveBeenCalled();
+    t.loc.requestFix();
+    expect(t.calls).toHaveLength(2);
+  });
+
+  it("records lastFix accuracy even when movement is under the hysteresis", async () => {
+    const t = setup();
+    await t.loc.start();
+    const at = (lat: number, lon: number, accuracy: number) =>
+      ({ coords: { latitude: lat, longitude: lon, accuracy } }) as GeolocationPosition;
+    t.calls[0]!.ok(at(A[0], A[1], 30));
+    t.loc.requestFix();
+    t.calls[1]!.ok(at(NEAR[0], NEAR[1], 12));
+    const s = t.loc.state();
+    expect(s.lastFix).toEqual({ lat: NEAR[0], lon: NEAR[1], ts: 1000, accuracy: 12 });
+    expect(s.lastAccepted).toEqual({ lat: A[0], lon: A[1], ts: 1000 });
   });
 
   it("pin mode persists and stops geolocation; useGps returns to gps", async () => {
