@@ -13,9 +13,13 @@ dependencies = [
   "sse-starlette==3.6.0",
   "astral==3.2",
   "tzdata",
+  "pmtiles==3.8.1",
 ]
 
 [dependency-groups]
+data = [
+    "osmium==4.3.2",
+]
 dev = ["pytest", "pytest-asyncio", "respx", "ruff"]
 
 [build-system]
@@ -33,3 +37,6 @@ pythonpath = ["server"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.uv]
+default-groups = ["dev", "data"]
