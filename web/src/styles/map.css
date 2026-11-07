@@ -1,3 +1,10 @@
+/* maplibre-gl.css (loaded with the lazy map chunk, after hud.css) sets
+   .maplibregl-map { position: relative }, which collapsed the full-screen host to 0 px.
+   Two classes outrank it, so the host stays fixed full-screen. */
+.map-host.maplibregl-map {
+  position: fixed;
+  inset: 0;
+}
 /* the map canvas stays transparent so the CSS grid shows through missing tiles */
 .map-host .maplibregl-canvas-container,
 .map-host .maplibregl-canvas {
