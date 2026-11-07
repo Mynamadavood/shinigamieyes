@@ -9,6 +9,7 @@ User=shinigami
 WorkingDirectory=/opt/shinigami
 EnvironmentFile=/etc/shinigami/.env
 Environment=PYTHONUNBUFFERED=1
+Environment=SHINIGAMI_TILES_PATH=/var/lib/shinigami/tiles/greater-melbourne.pmtiles
 ExecStart=/opt/shinigami/.venv/bin/uvicorn shinigami.main:app --host 127.0.0.1 --port 8000 --workers 1 --no-access-log --timeout-graceful-shutdown 5
 Restart=always
 RestartSec=2

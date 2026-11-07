@@ -53,6 +53,25 @@ profile_p95() {
   if [ "$p95" -le 300 ]; then pass "profile_p95 ${p95}ms"; else fail "profile_p95 ${p95}ms > 300ms"; fi
 }
 
+# HUD-10: own vector tiles. SKIP while the extract is not provisioned (02-06).
+TILES_STATE=skip
+tiles_checks() {
+  local base="$1" body hdrs code x y
+  body="$(curl -s --max-time 10 "$base/api/health" 2>/dev/null || true)"
+  if printf '%s' "$body" | grep -q '"tiles" *: *"ok"'; then TILES_STATE=ok; pass tiles_health
+  elif printf '%s' "$body" | grep -q '"tiles" *: *"missing"'; then skip tiles_health "tiles not provisioned (02-06)"
+  elif printf '%s' "$body" | grep -q '"tiles"'; then TILES_STATE=bad; fail tiles_health
+  else skip tiles_health "health has no tiles field yet"; fi
+
+  # z15 tile of the public default point (Melbourne CBD), slippy-map maths
+  read -r x y < <(python3 -c 'import math; la,lo=math.radians(-37.8136),144.9631; n=2**15; print(int((lo+180)/360*n), int((1-math.asinh(math.tan(la))/math.pi)/2*n))' 2>/dev/null || echo "0 0")
+  hdrs="$(curl -sI --max-time 10 "$base/tiles/15/$x/$y.mvt" 2>/dev/null | tr -d '' || true)"
+  code="$(printf '%s' "$hdrs" | head -n1 | awk '{print $2}')"
+  if [ "$code" = "200" ] && printf '%s' "$hdrs" | grep -qi '^content-encoding: *gzip'; then pass tile_cbd
+  elif [ "$TILES_STATE" = "skip" ]; then skip tile_cbd "tiles not provisioned"
+  else fail tile_cbd "HTTP ${code:-none}"; fi
+}
+
 verify_local() {
   local base=http://127.0.0.1:8000 listeners fqdn out i ok
 
@@ -113,6 +132,7 @@ verify_local() {
     if [ "$(stat -c '%a' "$f" 2>/dev/null || echo none)" = "640" ]; then pass "mode640 $f"; else fail "mode640 $f"; fi
   done
 
+  tiles_checks "$base"
   profile_p95 "$base"
 }
 
@@ -180,6 +200,7 @@ verify_remote() {
   elif [ "$code" = "200" ]; then pass suggest_photon
   else fail suggest_photon "HTTP $code"; fi
 
+  tiles_checks "$url"
   profile_p95 "$url"
 }
 
