@@ -3,6 +3,11 @@ import { VitePWA } from "vite-plugin-pwa";
 import { manifest } from "./pwa-manifest";
 
 export default defineConfig({
+  build: {
+    // Never inline fonts as data: URLs; the CSP has font-src 'self' (no data:), so small
+    // @fontsource subsets were blocked. Other small assets keep the default rule.
+    assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
+  },
   plugins: [
     VitePWA({
       strategies: "injectManifest",

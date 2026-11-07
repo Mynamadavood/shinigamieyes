@@ -66,7 +66,8 @@ tiles_checks() {
   # z15 tile of the public default point (Melbourne CBD), slippy-map maths
   read -r x y < <(python3 -c 'import math; la,lo=math.radians(-37.8136),144.9631; n=2**15; print(int((lo+180)/360*n), int((1-math.asinh(math.tan(la))/math.pi)/2*n))' 2>/dev/null || echo "0 0")
   x="${x//[^0-9]/}"; y="${y//[^0-9]/}"   # Windows Python ends lines with CR
-  hdrs="$(curl -s -D - -o /dev/null -H "Accept-Encoding: gzip" --max-time 10 "$base/tiles/15/$x/$y.mvt" 2>/dev/null | tr -d '' || true)"
+  hdrs="$(curl -s -D - -o /dev/null -H "Accept-Encoding: gzip" --max-time 10 "$base/tiles/15/$x/$y.mvt" 2>/dev/null | tr -d '
+' || true)"
   code="$(printf '%s' "$hdrs" | head -n1 | awk '{print $2}')"
   if [ "$code" = "200" ] && printf '%s' "$hdrs" | grep -qi '^content-encoding: *gzip'; then pass tile_cbd
   elif [ "$TILES_STATE" = "skip" ]; then skip tile_cbd "tiles not provisioned"
@@ -81,6 +82,9 @@ dist_grep() {
   local name="$1" dir="$2" hits
   hits="$(grep -rEl "$CDN_HOSTS" "$dir" 2>/dev/null || true)"
   if [ -z "$hits" ]; then pass "$name"; else fail "$name" "CDN host referenced in $(printf '%s' "$hits" | head -n1)"; fi
+  # CSP font-src is 'self' only: a font inlined as a data: URL is silently blocked.
+  hits="$(grep -rl 'data:font/' "$dir" 2>/dev/null || true)"
+  if [ -z "$hits" ]; then pass dist_no_inline_fonts; else fail dist_no_inline_fonts "data: font in $(printf '%s' "$hits" | head -n1)"; fi
 }
 
 hud10_checks() {
