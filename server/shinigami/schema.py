@@ -44,6 +44,8 @@ class ProfileLocation(BaseModel):
     lon: float | None
     place_id: str | None = None
     label: str | None = None
+    cell_lat: float | None = None
+    cell_lon: float | None = None
 
 
 class Profile(BaseModel):

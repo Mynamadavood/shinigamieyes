@@ -9,7 +9,7 @@ import uvicorn
 from shinigami.main import create_app
 from shinigami.places import load_places
 
-HOME = (-37.7000, 145.0900)  # test-only fake coordinates
+HOME = (-37.7234, 145.0912)  # test-only fake coordinates (off the 0.1 degree cell centre)
 
 TOML = f"""
 [[place]]
@@ -174,3 +174,46 @@ def test_stream_accepts_place(settings):
     finally:
         server.should_exit = True
         t.join(10)
+
+
+async def test_place_pin_has_no_camera_layers(settings):
+    import json as _json
+
+    from shinigami.geo import snap_cell
+
+    # camera right next to the CBD place; must never be reflected for the pin
+    settings.cameras_path.write_text(
+        _json.dumps(
+            {
+                "version": 1,
+                "built_at": 1.0,
+                "source": "t",
+                "cameras": [{"id": "c1", "k": "cctv", "lat": -37.8137, "lon": 144.9631}],
+            }
+        )
+    )
+    settings.places_path.write_text(TOML)
+    app = create_app(settings, start_runtime=False)
+    c = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
+    r = await c.get("/api/profile", params={"place": "cbd"})
+    body = r.json()
+    assert not [k for k in body["layers"] if k.startswith("cameras_")]
+    assert "distance_m" not in r.text
+    loc = body["location"]
+    cell = snap_cell(-37.8136, 144.9631)
+    assert loc["lat"] is None and loc["lon"] is None
+    assert (loc["cell_lat"], loc["cell_lon"]) == (cell.lat, cell.lon)
+    # same assemble path as the stream hello
+    from shinigami.api.profile import resolve_location
+    from shinigami.assemble import assemble_profile
+
+    class Req:
+        pass
+
+    req = Req()
+    req.app = app
+    location, la, lo = resolve_location(req, None, None, "cbd")
+    prof = assemble_profile(app.state.ctx, app.state.providers, location, la, lo)
+    assert not [k for k in prof.layers if k.startswith("cameras_")]
+    g = await c.get("/api/profile", params={"lat": -37.8136, "lon": 144.9631})
+    assert "cameras_cctv" in g.json()["layers"]

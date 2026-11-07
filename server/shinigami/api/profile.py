@@ -5,7 +5,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from shinigami.assemble import assemble_profile
-from shinigami.geo import haversine_m
+from shinigami.geo import haversine_m, snap_cell
 from shinigami.schema import Profile, ProfileLocation
 
 router = APIRouter()
@@ -31,7 +31,16 @@ def resolve_location(
         p = request.app.state.places.get(place)
         if p is None:
             raise HTTPException(status_code=422, detail="unknown place")
-        loc = ProfileLocation(source="pin", lat=None, lon=None, place_id=p.id, label=p.label)
+        cell = snap_cell(p.lat, p.lon)  # 0.1 degree centre only (already implied by sun times)
+        loc = ProfileLocation(
+            source="pin",
+            lat=None,
+            lon=None,
+            place_id=p.id,
+            label=p.label,
+            cell_lat=cell.lat,
+            cell_lon=cell.lon,
+        )
         return loc, p.lat, p.lon
     if lat is None or lon is None:
         lat, lon = settings.default_lat, settings.default_lon

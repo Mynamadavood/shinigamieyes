@@ -19,6 +19,10 @@ def assemble_profile(
     now = ctx.clock()
     layers: dict[str, Layer] = {}
     for p in providers:
+        # PROVISIONAL (02-07, decision 1): no camera layers for saved places; David to confirm.
+        # Flip: remove this skip and add a per-place opt-in.
+        if p.meta.exact_location_only and location.source == "pin":
+            continue
         try:
             layer = p.query(ctx, lat, lon, now)
         except Exception as exc:  # noqa: BLE001 - a failing provider must not break the profile
