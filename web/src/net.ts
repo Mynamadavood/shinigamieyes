@@ -1,6 +1,13 @@
 import { measureOffset } from "./clock";
 import type { Layer, Profile } from "./types";
 
+export class HttpError extends Error {
+  constructor(readonly status: number) {
+    super(`profile HTTP ${status}`);
+    this.name = "HttpError";
+  }
+}
+
 export async function fetchProfile(
   params: URLSearchParams | null,
   opts: { timeoutMs?: number; fetchImpl?: typeof fetch } = {},
@@ -18,7 +25,7 @@ export async function fetchProfile(
     );
     const res = await Promise.race([f(`/api/profile${qs}`, { signal: ctl.signal }), timeout]);
     const tRecv = Date.now();
-    if (!res.ok) throw new Error(`profile HTTP ${res.status}`);
+    if (!res.ok) throw new HttpError(res.status);
     const profile = (await res.json()) as Profile;
     return { profile, offsetMs: measureOffset(profile.server_time, tSend, tRecv) };
   } finally {

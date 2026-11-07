@@ -28,6 +28,7 @@ function reducedMotion(): boolean {
 export class NextList {
   private rows = new Map<string, RowEls>();
   private stateEl: HTMLElement | null = null;
+  private lastState: ListState | null = null;
 
   constructor(private host: HTMLElement) {
     host.setAttribute("role", "list");
@@ -78,6 +79,8 @@ export class NextList {
   }
 
   setState(state: ListState): void {
+    if (state === this.lastState) return;
+    this.lastState = state;
     if (state === "ready") {
       this.clearState();
       return;
@@ -112,7 +115,10 @@ export class NextList {
   }
 
   update(rows: RowVM[], nowMs: number): void {
-    if (rows.length > 0) this.clearState();
+    if (rows.length > 0) {
+      this.clearState();
+      this.lastState = "ready";
+    }
     const seen = new Set<string>();
     const minute = Math.floor(nowMs / 60000);
     let cursor: Element | null = this.host.firstElementChild;

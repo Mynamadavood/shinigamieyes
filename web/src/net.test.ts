@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { applyLayer, fetchProfile, openStream as rawOpen } from "./net";
+import { HttpError, applyLayer, fetchProfile, openStream as rawOpen } from "./net";
 import type { StreamHandle } from "./net";
 import type { Layer, Profile } from "./types";
 
@@ -108,5 +108,20 @@ describe("fetchProfile", () => {
     const assertion = expect(p).rejects.toThrow();
     await vi.advanceTimersByTimeAsync(4001);
     await assertion;
+  });
+
+  it("rejects with HttpError carrying the status on non-2xx", async () => {
+    const fetchImpl = (async () => ({ ok: false, status: 422 })) as unknown as typeof fetch;
+    const err = await fetchProfile(null, { fetchImpl }).catch((e) => e);
+    expect(err).toBeInstanceOf(HttpError);
+    expect((err as HttpError).status).toBe(422);
+  });
+
+  it("keeps network failures as plain errors", async () => {
+    const fetchImpl = (async () => {
+      throw new TypeError("network");
+    }) as unknown as typeof fetch;
+    const err = await fetchProfile(null, { fetchImpl }).catch((e) => e);
+    expect(err).not.toBeInstanceOf(HttpError);
   });
 });

@@ -110,3 +110,21 @@ describe("NextList states", () => {
     expect(host.querySelector(".placeholder")).toBeNull();
   });
 });
+
+describe("NextList.setState idempotence", () => {
+  it("does not rebuild the DOM when the state is unchanged", () => {
+    list.setState("loading");
+    const node = host.querySelector(".list-state-rows");
+    expect(node).not.toBeNull();
+    list.setState("loading");
+    expect(host.querySelector(".list-state-rows")).toBe(node);
+  });
+  it("re-shows empty after rows came and went", () => {
+    list.setState("empty");
+    list.update([vm({ id: "a" })], NOW);
+    expect(host.querySelector(".list-state")).toBeNull();
+    list.update([], NOW + 100_000);
+    list.setState("empty");
+    expect(host.querySelector(".list-state")).not.toBeNull();
+  });
+});
