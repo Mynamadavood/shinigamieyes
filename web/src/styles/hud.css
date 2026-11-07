@@ -60,6 +60,14 @@
   font-variant-numeric: tabular-nums;
 }
 .readout.urgent .readout-countdown { color: var(--c-red); }
+.readout-cameras {
+  font-size: var(--fs-label);
+  line-height: var(--lh-label);
+  color: var(--c-dim);
+  display: block;
+}
+.readout-cameras .count-num { color: var(--c-text); font-weight: 700; }
+.readout-cameras .count-rest { color: var(--c-dim); }
 .map-controls {
   position: fixed;
   right: var(--s-md);

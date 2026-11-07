@@ -11,6 +11,21 @@ export function cornerRows(rows: RowVM[]): RowVM[] {
   return [...timed, ...valued].slice(0, MAX_CORNER);
 }
 
+export function cameraCountText(profile: Profile | null): { num: string | null; rest: string } {
+  if (profile && profile.location.source === "pin") {
+    return { num: null, rest: "Cameras · not shown for saved places" };
+  }
+  const layer = profile?.layers["cameras_cctv"];
+  const summary = layer?.items.find((i) => i.detail?.["summary"] === true);
+  if (!layer || layer.status === "pending" || !summary) {
+    return { num: null, rest: "Cameras · not loaded yet" };
+  }
+  const n = Number(summary.detail?.["count"] ?? 0);
+  const radius = Number(summary.detail?.["radius_m"] ?? 150);
+  if (n === 0) return { num: "0", rest: ` mapped cameras · ${radius} m · not exhaustive` };
+  return { num: String(n), rest: ` ${n === 1 ? "camera" : "cameras"} · ${radius} m · mapped, not exhaustive` };
+}
+
 interface ReadoutEls {
   root: HTMLElement;
   name: HTMLElement;
@@ -20,6 +35,9 @@ interface ReadoutEls {
 
 export class Readouts {
   private els = new Map<string, ReadoutEls>();
+  private camRoot: HTMLElement | null = null;
+  private camNum: HTMLElement | null = null;
+  private camRest: HTMLElement | null = null;
 
   constructor(
     private left: HTMLElement,
@@ -27,7 +45,8 @@ export class Readouts {
     readonly right: HTMLElement,
   ) {}
 
-  update(rows: RowVM[], _profile: Profile | null, now: number): void {
+  update(rows: RowVM[], profile: Profile | null, now: number): void {
+    this.updateCameras(profile);
     const want = cornerRows(rows);
     const ids = new Set(want.map((r) => r.id));
     for (const [id, e] of this.els) {
@@ -62,5 +81,27 @@ export class Readouts {
       const e = this.els.get(r.id) as ReadoutEls;
       if (this.left.children[i] !== e.root) this.left.insertBefore(e.root, this.left.children[i] ?? null);
     });
+  }
+
+  private updateCameras(profile: Profile | null): void {
+    if (!this.camRoot) {
+      const root = document.createElement("div");
+      root.className = "readout readout-cameras";
+      const num = document.createElement("span");
+      num.className = "count-num";
+      const rest = document.createElement("span");
+      rest.className = "count-rest";
+      root.append(num, rest);
+      this.right.append(root);
+      this.camRoot = root;
+      this.camNum = num;
+      this.camRest = rest;
+    }
+    const t = cameraCountText(profile);
+    const num = t.num ?? "";
+    if (this.camNum && this.camNum.textContent !== num) this.camNum.textContent = num;
+    if (this.camRest && this.camRest.textContent !== t.rest) this.camRest.textContent = t.rest;
+    const label = `${num}${t.rest}`;
+    if (this.camRoot && this.camRoot.getAttribute("aria-label") !== label) this.camRoot.setAttribute("aria-label", label);
   }
 }

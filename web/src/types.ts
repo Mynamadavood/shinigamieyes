@@ -40,6 +40,8 @@ export interface ProfileLocation {
   lon: number | null;
   place_id?: string | null;
   label?: string | null;
+  cell_lat?: number | null;
+  cell_lon?: number | null;
 }
 
 export interface Profile {
