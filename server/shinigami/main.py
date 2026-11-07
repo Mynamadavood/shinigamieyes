@@ -8,7 +8,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
-from shinigami.api import geocode, health, places, profile, stream, suggest
+from shinigami.api import geocode, health, places, profile, stream, suggest, tiles
 from shinigami.places import load_places
 from shinigami.providers.arpansa import ArpansaUvProvider
 from shinigami.providers.base import ProviderContext
@@ -17,6 +17,7 @@ from shinigami.providers.uv_window import UvWindowProvider
 from shinigami.runtime import EventBus, Runtime
 from shinigami.settings import Settings, get_settings
 from shinigami.store import Store
+from shinigami.tiles import TileStore
 
 log = logging.getLogger("shinigami")
 # httpx logs full request URLs at INFO, which would leak geocode queries (privacy).
@@ -66,6 +67,7 @@ def create_app(settings: Settings | None = None, start_runtime: bool = True) -> 
     app.state.settings = settings
     app.state.ctx = ctx
     app.state.providers = providers
+    app.state.tiles = TileStore(settings.tiles_path)
     app.state.places = {p.id: p for p in load_places(settings.places_path)}
 
     @app.middleware("http")
@@ -92,6 +94,7 @@ def create_app(settings: Settings | None = None, start_runtime: bool = True) -> 
     app.include_router(profile.router)
     app.include_router(stream.router)
     app.include_router(suggest.router)
+    app.include_router(tiles.router)
 
     if settings.static_dir.is_dir():
         app.mount("/", StaticFiles(directory=settings.static_dir, html=True), name="static")

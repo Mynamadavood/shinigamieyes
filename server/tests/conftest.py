@@ -18,6 +18,7 @@ def settings(tmp_path) -> Settings:
         static_dir=tmp_path / "dist",
         db_path=tmp_path / "t.db",
         places_path=tmp_path / "places.toml",
+        tiles_path=tmp_path / "tiles" / "t.pmtiles",
     )
 
 

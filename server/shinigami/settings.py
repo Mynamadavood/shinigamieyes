@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     static_dir: Path = REPO_ROOT / "web" / "dist"
     db_path: Path = REPO_ROOT / "var" / "shinigami.db"
     places_path: Path = REPO_ROOT / "var" / "places.toml"
+    tiles_path: Path = REPO_ROOT / "var" / "tiles" / "greater-melbourne.pmtiles"
     contact_email: str = ""
     default_lat: float = -37.8136
     default_lon: float = 144.9631
