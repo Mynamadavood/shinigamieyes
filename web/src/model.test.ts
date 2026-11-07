@@ -18,6 +18,15 @@ function prof(items: Item[]): Profile {
 const NOW = 1_000_000;
 
 describe("selectVisible", () => {
+  it("skips positioned and summary items", () => {
+    const p = prof([
+      item({ id: "cam", geom: { type: "Point", coordinates: [144.9, -37.8] }, target_ts: NOW / 1000 + 60 }),
+      item({ id: "sum", detail: { summary: true }, target_ts: NOW / 1000 + 60 }),
+      item({ id: "sun", group: "s", target_ts: NOW / 1000 + 90 }),
+    ]);
+    expect(selectVisible(p, NOW).map((r) => r.id)).toEqual(["sun"]);
+  });
+
   it("null -> []", () => expect(selectVisible(null, NOW)).toEqual([]));
 
   it("keeps earliest unexpired per group, sorted, one isFirst", () => {

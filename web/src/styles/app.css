@@ -11,16 +11,14 @@ html, body {
 }
 #app {
   height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
-    env(safe-area-inset-left);
+  position: relative;
+  overflow: hidden;
 }
 .title-bar {
   flex: none;
   height: var(--s-2xl);
   background: var(--c-red);
-  color: var(--c-bg);
+  color: var(--c-on-red);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -34,11 +32,11 @@ html, body {
 .close-box {
   width: var(--close-box);
   height: var(--close-box);
-  border: var(--bw) solid var(--c-bg);
+  border: var(--bw) solid var(--c-on-red);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--c-bg);
+  color: var(--c-on-red);
 }
 .banner-slot { flex: none; height: 0; overflow: hidden; }
 .location-strip {
@@ -48,6 +46,7 @@ html, body {
   align-items: center;
   gap: var(--s-sm);
   padding: 0 var(--s-md);
+  background: var(--c-panel);
   border-bottom: var(--bw) solid var(--c-frame);
 }
 .loc-source { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--c-dim); }
@@ -70,7 +69,7 @@ html, body {
   flex-direction: column;
   gap: var(--s-md);
   padding: var(--s-md);
-  overflow-y: auto;
+  overflow-y: hidden;
   overscroll-behavior: contain;
 }
 .row {

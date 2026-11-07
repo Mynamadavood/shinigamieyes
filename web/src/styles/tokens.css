@@ -38,3 +38,26 @@
 :root {
   --c-backdrop: rgba(0, 0, 0, 0.72);
 }
+:root {
+  --c-land: #05070D;
+  --c-water: #0A1424;
+  --c-park: #07141C;
+  --c-road-minor: #12283A;
+  --c-road-major: #24465F;
+  --c-rail: #1C3A52;
+  --c-building: #1B3A56;
+  --c-building-hot: #E0202A;
+  --c-grid: #0B1C2B;
+  --c-map-label: #4F6A80;
+  --c-acc-fill: rgba(94,138,168,0.12);
+  --c-acc-line: rgba(94,138,168,0.60);
+  --c-panel: rgba(0,0,0,0.88);
+
+  --drawer-handle: 24px;
+  --drawer-peek: 144px;
+  --tag-icon: 32px;
+  --tag-icon-compact: 24px;
+  --tag-hit: 48px;
+  --card-w: 224px;
+  --card-gap: 16px;
+}
