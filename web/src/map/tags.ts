@@ -1,3 +1,8 @@
+import { haversineM } from "../location";
+import type { Item } from "../types";
+import type { Card } from "./card";
+import { cameraCardContent, spokenDistance } from "./camera-card";
+
 export const MAX_FULL = 20;
 export const MAX_TOTAL = 60;
 export const NEAR_M = 30;
@@ -63,4 +68,223 @@ export function assignTags(
     kept.push(c);
   }
   return { full, red, rendered: kept.slice(0, MAX_TOTAL) };
+}
+
+const NS = "http://www.w3.org/2000/svg";
+const DEBOUNCE_MS = 100;
+
+export interface MarkerLike {
+  setLngLat(l: [number, number]): MarkerLike;
+  addTo(map: never): MarkerLike;
+  remove(): MarkerLike;
+}
+
+export interface TagMapLike {
+  project(l: [number, number]): { x: number; y: number };
+  getZoom(): number;
+  on(ev: string, fn: () => void): unknown;
+}
+
+export interface TagLayerDeps {
+  map: TagMapLike;
+  card: Card;
+  createMarker(el: HTMLElement): MarkerLike;
+}
+
+interface Entry {
+  item: Item;
+  el: HTMLElement;
+  marker: MarkerLike;
+  lngLat: [number, number];
+  dist: number;
+  added: boolean;
+}
+
+interface Located {
+  item: Item;
+  lngLat: [number, number];
+}
+
+function iconFor(group: string): TagIcon {
+  return group === "speed" ? "speed-cam" : group === "redlight" ? "redlight-cam" : "cctv";
+}
+
+function spokenType(group: string): string {
+  return group === "speed" ? "Speed camera" : group === "redlight" ? "Red-light camera" : "CCTV camera";
+}
+
+function pointOf(item: Item): [number, number] | null {
+  const g = item.geom as { type?: unknown; coordinates?: unknown } | null;
+  if (!g || g.type !== "Point" || !Array.isArray(g.coordinates)) return null;
+  const [lon, lat] = g.coordinates as unknown[];
+  if (typeof lon !== "number" || typeof lat !== "number" || !Number.isFinite(lon) || !Number.isFinite(lat)) {
+    return null;
+  }
+  return [lon, lat];
+}
+
+/** Floating icon + label tags for positioned items; re-ranks on profile/view change and moveend only. */
+export class TagLayer {
+  private readonly entries = new Map<string, Entry>();
+  private located: Located[] = [];
+  private origin: { lat: number; lon: number } | null = null;
+  private selectedId: string | null = null;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private raf = 0;
+  private groupMarked = false;
+
+  constructor(private readonly deps: TagLayerDeps) {
+    deps.map.on("moveend", () => {
+      if (this.timer !== null) clearTimeout(this.timer);
+      this.timer = setTimeout(() => {
+        this.timer = null;
+        this.reconcile();
+      }, DEBOUNCE_MS);
+    });
+    deps.map.on("move", () => {
+      if (!deps.card.isOpen() || this.raf) return;
+      this.raf = requestAnimationFrame(() => {
+        this.raf = 0;
+        deps.card.update();
+      });
+    });
+  }
+
+  /** Positioned (non-summary) camera items; replaces the previous set. */
+  update(items: Item[]): void {
+    const next: Located[] = [];
+    for (const item of items) {
+      if (item.detail && item.detail["summary"] === true) continue;
+      const lngLat = pointOf(item);
+      if (lngLat) next.push({ item, lngLat });
+    }
+    this.located = next;
+    this.reconcile();
+  }
+
+  /** The active location distances are measured from (gps or search); null hides all tags. */
+  setOrigin(o: { lat: number; lon: number } | null): void {
+    this.origin = o;
+    this.reconcile();
+  }
+
+  private makeEl(item: Item): HTMLElement {
+    const el = document.createElement("div");
+    el.className = "map-tag";
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "0");
+    const icon = document.createElement("div");
+    icon.className = "tag-icon";
+    const svg = document.createElementNS(NS, "svg");
+    const use = document.createElementNS(NS, "use");
+    use.setAttribute("href", `/icons.svg#${iconFor(item.group)}`);
+    svg.appendChild(use);
+    icon.appendChild(svg);
+    const chip = document.createElement("div");
+    chip.className = "tag-label";
+    chip.textContent = item.name;
+    const tick = document.createElement("div");
+    tick.className = "tag-tick";
+    el.append(icon, chip, tick);
+    const id = item.id;
+    el.addEventListener("click", () => this.select(id));
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        this.select(id);
+      }
+    });
+    return el;
+  }
+
+  private reconcile(): void {
+    const { map } = this.deps;
+    const o = this.origin;
+    if (!o || this.located.length === 0) {
+      this.clearAll();
+      return;
+    }
+    const byId = new Map<string, Located>();
+    const cands: TagCand[] = [];
+    for (const l of this.located) {
+      byId.set(l.item.id, l);
+      const p = map.project(l.lngLat);
+      cands.push({
+        id: l.item.id,
+        x: p.x,
+        y: p.y,
+        dist: haversineM(o.lat, o.lon, l.lngLat[1], l.lngLat[0]),
+        label: l.item.name,
+        icon: iconFor(l.item.group),
+      });
+    }
+    const { full, red, rendered } = assignTags(rankTags(cands), map.getZoom());
+    const keep = new Set<string>();
+    for (const c of rendered) {
+      const l = byId.get(c.id);
+      if (!l) continue;
+      keep.add(c.id);
+      let e = this.entries.get(c.id);
+      if (!e) {
+        const el = this.makeEl(l.item);
+        const marker = this.deps.createMarker(el).setLngLat(l.lngLat);
+        e = { item: l.item, el, marker, lngLat: l.lngLat, dist: c.dist, added: false };
+        this.entries.set(c.id, e);
+      }
+      e.item = l.item;
+      e.dist = c.dist;
+      if (!e.added) {
+        e.marker.addTo(map as never);
+        e.added = true;
+        this.markGroup(e.el);
+      }
+      const isFull = full.has(c.id);
+      e.el.classList.toggle("full", isFull);
+      e.el.classList.toggle("compact", !isFull);
+      e.el.classList.toggle("near", red.has(c.id));
+      e.el.setAttribute("aria-label", `${spokenType(l.item.group)}, ${spokenDistance(c.dist)} away`);
+    }
+    for (const [id, e] of this.entries) {
+      if (keep.has(id)) continue;
+      if (id === this.selectedId) this.deps.card.close();
+      e.marker.remove();
+      this.entries.delete(id);
+    }
+  }
+
+  private markGroup(el: HTMLElement): void {
+    if (this.groupMarked) return;
+    const parent = el.parentElement;
+    if (!parent) return;
+    parent.setAttribute("role", "group");
+    parent.setAttribute("aria-label", "Map tags");
+    this.groupMarked = true;
+  }
+
+  private clearAll(): void {
+    this.deps.card.close();
+    for (const e of this.entries.values()) e.marker.remove();
+    this.entries.clear();
+  }
+
+  private select(id: string): void {
+    const e = this.entries.get(id);
+    if (!e) return;
+    const { card } = this.deps;
+    card.open(e.el, cameraCardContent(e.item, e.dist), {
+      near: e.dist <= NEAR_M,
+      onClose: () => {
+        e.el.classList.remove("selected");
+        if (this.selectedId === id) this.selectedId = null;
+      },
+    });
+    this.selectedId = id;
+    e.el.classList.add("selected");
+  }
+
+  destroy(): void {
+    if (this.timer !== null) clearTimeout(this.timer);
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.clearAll();
+  }
 }

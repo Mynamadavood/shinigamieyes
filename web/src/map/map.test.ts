@@ -32,6 +32,12 @@ vi.mock("maplibre-gl", () => {
     getCanvas() {
       return this.canvas;
     }
+    project(l: [number, number]) {
+      return { x: (l[0] - 144.9) * 100000, y: (l[1] + 37.8) * 100000 };
+    }
+    getZoom() {
+      return 17.5;
+    }
   }
   class FakeMarker {
     static all: FakeMarker[] = [];
@@ -45,8 +51,8 @@ vi.mock("maplibre-gl", () => {
       FakeMarker.all.push(this);
     }
     setLngLat(l: unknown) { this.lngLat = l; return this; }
-    addTo() { this.added = true; return this; }
-    remove() { this.added = false; return this; }
+    addTo() { this.added = true; document.body.appendChild(this.el); return this; }
+    remove() { this.added = false; this.el.remove(); return this; }
   }
   return { Map: FakeMap, Marker: FakeMarker, setWorkerUrl: setWorkerUrlMock };
 });
@@ -80,6 +86,7 @@ beforeEach(() => {
   h.throwOnNew = false;
   h.opts = undefined;
   markers().length = 0;
+  document.body.replaceChildren();
   localStorage.clear();
   vi.stubGlobal("fetch", okMeta("77"));
 });
@@ -233,5 +240,110 @@ describe("createMap", () => {
     deps.controls.querySelector<HTMLButtonElement>("button.recenter")!.click();
     expect(h.instance.flyTo).not.toHaveBeenCalled();
     expect(h.instance.jumpTo).toHaveBeenCalledWith(expect.objectContaining({ zoom: 17, pitch: 60, bearing: 0 }));
+  });
+});
+
+function camItem(id: string, lon: number, lat: number, extra: Record<string, unknown> = {}, group = "cctv"): any {
+  return {
+    id, layer: "cameras_cctv", group, name: group === "cctv" ? "Camera" : "Speed camera", verb: "", target_ts: null,
+    kind: "static", severity: 0, detail: { distance_m: 1, ...extra }, geom: { type: "Point", coordinates: [lon, lat] },
+    fetched_at: 0, stale_after_s: null, computed: true,
+  };
+}
+function profileWith(items: any[], roadItems: any[] = []): any {
+  const layer = (id: string, its: any[]) => ({ id, status: "fresh", rev: 1, as_of: 0, attribution: "", items: its });
+  const layers: Record<string, any> = {};
+  if (items.length) layers.cameras_cctv = layer("cameras_cctv", items);
+  if (roadItems.length) layers.cameras_road = layer("cameras_road", roadItems);
+  return { server_time: 0, rev: 1, location: { source: "gps", lat: null, lon: null }, layers };
+}
+const tagEls = () => markers().filter((m) => m.el.classList.contains("map-tag"));
+
+describe("camera tags", () => {
+  const ORIGIN = { kind: "gps" as const, lat: -37.8, lon: 144.9, accuracy: 10 };
+  // made-up points: ~20 m, ~150 m and ~330 m north of the made-up origin
+  const items = () => [
+    camItem("a", 144.9, -37.79982),
+    camItem("b", 144.9, -37.79865, { operator: "Test Council" }),
+    camItem("c", 144.9, -37.797, {}),
+  ];
+
+  it("creates accessible button markers for positioned items only", async () => {
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView(ORIGIN);
+    const summary = camItem("s", 0, 0, { summary: true });
+    summary.geom = null;
+    handle.setProfile(profileWith([...items(), summary]));
+    const tags = tagEls();
+    expect(tags).toHaveLength(3);
+    for (const t of tags) {
+      expect(t.el.getAttribute("role")).toBe("button");
+      expect(t.el.getAttribute("tabindex")).toBe("0");
+      expect(t.el.getAttribute("aria-label")).toMatch(/^CCTV camera, \d+ metres away$/);
+      expect(t.opts.anchor).toBe("center");
+    }
+    expect(tags.find((t) => t.el.getAttribute("aria-label")!.includes("20 metres"))).toBeDefined();
+  });
+
+  it("marks tags within 30 m as near and the rest as blue", async () => {
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView(ORIGIN);
+    handle.setProfile(profileWith(items()));
+    const near = tagEls().filter((t) => t.el.classList.contains("near"));
+    expect(near).toHaveLength(1);
+  });
+
+  it("removes every camera marker when the profile has no camera layers", async () => {
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView(ORIGIN);
+    handle.setProfile(profileWith(items()));
+    expect(document.querySelectorAll(".map-tag")).toHaveLength(3);
+    handle.setProfile(profileWith([]));
+    expect(document.querySelectorAll(".map-tag")).toHaveLength(0);
+  });
+
+  it("shows no tags without a gps or search origin", async () => {
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A" });
+    handle.setProfile(profileWith(items()));
+    expect(document.querySelectorAll(".map-tag")).toHaveLength(0);
+  });
+
+  it("a click opens the card; a canvas click closes it; Enter also opens", async () => {
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView(ORIGIN);
+    handle.setProfile(profileWith(items(), [camItem("r", 144.9, -37.795, { road: "Test Rd", suburb: "Testville" }, "speed")]));
+    const el = tagEls()[0].el;
+    el.click();
+    const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]:not(.is-hidden)');
+    expect(dialog()).not.toBeNull();
+    expect(dialog()!.textContent).toContain("Mapped, not exhaustive.");
+    expect(el.classList.contains("selected")).toBe(true);
+    h.instance.emit("click", { originalEvent: { target: document.createElement("canvas") } });
+    expect(dialog()).toBeNull();
+    expect(el.classList.contains("selected")).toBe(false);
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(dialog()).not.toBeNull();
+    const road = tagEls().find((t) => t.el.getAttribute("aria-label")!.startsWith("Speed camera"))!;
+    road.el.click();
+    expect(dialog()!.textContent).toContain("Static info only.");
+    expect(dialog()!.textContent).toContain("Source: OpenStreetMap");
+  });
+
+  it("re-ranks on moveend debounced 100 ms, not on move", async () => {
+    vi.useFakeTimers();
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView(ORIGIN);
+    handle.setProfile(profileWith(items()));
+    const spy = vi.spyOn(h.instance, "project");
+    h.instance.emit("move");
+    h.instance.emit("moveend");
+    h.instance.emit("moveend");
+    expect(spy).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(99);
+    expect(spy).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(2);
+    expect(spy).toHaveBeenCalledTimes(3);
+    vi.useRealTimers();
   });
 });

@@ -2,12 +2,15 @@ import { Map as MlMap, Marker, setWorkerUrl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "../styles/map.css";
+import "../styles/tags.css";
 import { withTimeout } from "../timeout";
-import type { Profile } from "../types";
+import type { Item } from "../types";
 import { DEFAULT_FONT, buildStyle, readStyleTokens } from "./style";
 import type { MapDeps, MapHandle, MapView } from "./types";
 import { readRingTokens, syncRing, type RingMap } from "./accuracy-ring";
 import { createFollow } from "./follow";
+import { Card } from "./card";
+import { TagLayer } from "./tags";
 import { createFigureElement, createPinElement, setFigureAccuracy } from "./marker-figure";
 import { CBD_DEFAULT, FOLLOW, PIN_AREA_ZOOM } from "./view";
 
@@ -17,6 +20,7 @@ const EASE_MS = 400;
 const FLY_MS = 600;
 const OFFLINE_COPY = "Map tiles unavailable offline";
 const DEFAULT_PEEK_PX = 144;
+const CAMERA_LAYERS = ["cameras_cctv", "cameras_road"] as const;
 
 let workerSet = false;
 
@@ -121,9 +125,14 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
     if (tileErrors >= 1 && tileLoads === 0) hint.hidden = false;
   });
 
+  const card = new Card(document.body, () => {
+    const r = document.querySelector(".readouts")?.getBoundingClientRect();
+    return { top: r && r.bottom > 0 ? r.bottom + 8 : 64, bottom: bottomPadding() };
+  });
   map.on("click", (e: { originalEvent?: MouseEvent }) => {
     const t = e.originalEvent?.target;
     if (t instanceof Element && t.closest(".map-tag")) return;
+    card.close();
     deps.onMapTap();
   });
 
@@ -142,8 +151,6 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
   document.addEventListener("visibilitychange", onVisible);
 
   let positioned = false;
-  let profile: Profile | null = null;
-  void profile; // consumed by 02-10 (tags)
 
   const follow = createFollow();
   const recenterBtn = document.createElement("button");
@@ -201,6 +208,18 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
     if (ringPending) applyRing(ringPending);
   });
 
+  const tags = new TagLayer({
+    map: map as unknown as ConstructorParameters<typeof TagLayer>[0]["map"],
+    card,
+    createMarker: (element) =>
+      new Marker({
+        element,
+        anchor: "center",
+        pitchAlignment: "viewport",
+        rotationAlignment: "viewport",
+      }) as unknown as ReturnType<ConstructorParameters<typeof TagLayer>[0]["createMarker"]>,
+  });
+
   let current: MapView = { kind: "none" };
   let lastKind: MapView["kind"] = "none";
   let lastPinKey = "";
@@ -241,6 +260,8 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
 
   function setView(v: MapView): void {
     current = v;
+    // camera distances are measured from the live fix or searched point, never a saved place
+    tags.setOrigin(v.kind === "gps" || v.kind === "search" ? { lat: v.lat, lon: v.lon } : null);
     if (v.kind === "none") {
       setFigure(false);
       setPin(false);
@@ -300,7 +321,11 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
   return {
     setView,
     setProfile(p) {
-      profile = p;
+      const items: Item[] = [];
+      for (const id of CAMERA_LAYERS) {
+        for (const it of p?.layers[id]?.items ?? []) items.push(it);
+      }
+      tags.update(items);
     },
     resize() {
       map.resize();
@@ -309,6 +334,8 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
       document.removeEventListener("visibilitychange", onVisible);
       hint.remove();
       recenterBtn.remove();
+      tags.destroy();
+      card.destroy();
       figureMarker.remove();
       pinMarker.remove();
       map.remove();

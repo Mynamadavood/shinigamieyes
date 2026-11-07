@@ -1,0 +1,166 @@
+/* floating tags (HUD-05, D-11, D-13): 48px hit wrapper around a 32px icon box and a joined label chip */
+.map-tag {
+  width: var(--tag-hit);
+  height: var(--tag-hit);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: pointer;
+  background: transparent;
+  color: var(--c-blue);
+  outline: none;
+  animation: tag-in var(--t-fade) linear both;
+}
+.map-tag:focus-visible .tag-icon { outline: 1px solid var(--c-text); outline-offset: 2px; }
+.tag-icon {
+  box-sizing: border-box;
+  width: var(--tag-icon);
+  height: var(--tag-icon);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-panel);
+  border: var(--bw) solid var(--c-blue);
+  color: var(--c-blue);
+}
+.tag-icon svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  display: block;
+}
+.map-tag.compact .tag-icon {
+  width: var(--tag-icon-compact);
+  height: var(--tag-icon-compact);
+}
+.map-tag.compact .tag-icon svg { width: 16px; height: 16px; }
+
+.tag-label {
+  position: absolute;
+  left: calc(50% + var(--tag-icon) / 2 - var(--bw));
+  top: calc(50% - var(--tag-icon) / 2);
+  box-sizing: border-box;
+  height: var(--tag-icon);
+  max-width: 144px;
+  padding: 0 var(--s-sm);
+  display: none;
+  align-items: center;
+  background: var(--c-panel);
+  border: var(--bw) solid var(--c-blue);
+  color: var(--c-text);
+  font-family: var(--f-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-label);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.map-tag.full .tag-label { display: flex; }
+
+.tag-tick {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + var(--tag-icon) / 2);
+  width: var(--bw);
+  height: var(--s-sm);
+  background: var(--c-blue);
+}
+.map-tag.compact .tag-tick { top: calc(50% + var(--tag-icon-compact) / 2); }
+
+/* near state: red frame, glyph and tick; chip fill red-deep with bold white text */
+.map-tag.near .tag-icon { border-color: var(--c-red); color: var(--c-red); }
+.map-tag.near .tag-tick { background: var(--c-red); }
+.map-tag.near .tag-label {
+  background: var(--c-red-deep);
+  border-color: var(--c-red);
+  color: var(--c-on-red);
+  font-weight: 700;
+}
+
+.map-tag:active .tag-icon,
+.map-tag:active .tag-label { background: var(--c-surface); }
+
+/* selected: 4px bar under the icon box and chip */
+.map-tag.selected .tag-icon,
+.map-tag.selected .tag-label { box-shadow: 0 var(--s-xs) 0 0 var(--c-blue); }
+.map-tag.selected.near .tag-icon,
+.map-tag.selected.near .tag-label { box-shadow: 0 var(--s-xs) 0 0 var(--c-red); }
+
+@keyframes tag-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .map-tag, .card { animation: none; }
+}
+
+/* floating info card (D-10, D-12) */
+.card {
+  position: fixed;
+  z-index: 8;
+  box-sizing: border-box;
+  width: var(--card-w);
+  padding: var(--s-md);
+  background: var(--c-panel);
+  border: var(--bw) solid var(--c-blue);
+  color: var(--c-text);
+  font-family: var(--f-mono);
+  outline: none;
+  animation: tag-in var(--t-fade) linear both;
+}
+.card.is-hidden { display: none; }
+.card.near { border-color: var(--c-red); }
+.card-title {
+  font-family: var(--f-title);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  text-transform: uppercase;
+  color: var(--c-blue);
+}
+.card.near .card-title { color: var(--c-red); }
+.card-primary {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  color: var(--c-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.card-row,
+.card-caveat {
+  font-size: var(--fs-label);
+  line-height: var(--lh-label);
+}
+.card-key,
+.card-caveat { color: var(--c-dim); }
+.card-val { color: var(--c-text); }
+.card-title + * { margin-top: var(--s-xs); }
+.card-action {
+  margin-top: var(--s-sm);
+  min-height: var(--s-2xl);
+  width: 100%;
+  background: var(--c-surface);
+  border: var(--bw) solid var(--c-frame);
+  color: var(--c-text);
+  font-family: var(--f-mono);
+  font-size: var(--fs-label);
+  cursor: pointer;
+}
+
+/* leader line overlay: one SVG, never intercepts pointers */
+svg.leader {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 7;
+  pointer-events: none;
+  overflow: visible;
+}
+svg.leader.is-hidden { display: none; }
+svg.leader line { stroke: var(--c-blue); stroke-width: var(--bw); }
+svg.leader rect { fill: var(--c-blue); }
+svg.leader.near line { stroke: var(--c-red); }
+svg.leader.near rect { fill: var(--c-red); }
