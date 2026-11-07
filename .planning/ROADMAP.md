@@ -87,7 +87,7 @@ Plans:
   4. David sees mapped CCTV within about 150 m labelled "mapped, not exhaustive", and fixed speed/red-light cameras as static info only
   5. The map stays smooth on the real iPhone with tags capped to a budget
 
-**Plans:** 5/14 plans executed
+**Plans:** 7/14 plans executed
 
 Plans:
 **Wave 1**
@@ -104,8 +104,8 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [ ] 02-06-PLAN.md — CT provisioning: disk check, extract dry-run + extract, first camera run, Gate 3 checklist (wave 3)
-- [ ] 02-07-PLAN.md — Camera providers (150 m / 1 km), saved-place privacy, camera count readout (wave 3)
-- [ ] 02-08-PLAN.md — 3D map: token-driven Protomaps style, lazy MapLibre, self-hosted glyphs, offline grid hint (wave 3)
+- [x] 02-07-PLAN.md — Camera providers (150 m / 1 km), saved-place privacy, camera count readout (wave 3)
+- [x] 02-08-PLAN.md — 3D map: token-driven Protomaps style, lazy MapLibre, self-hosted glyphs, offline grid hint (wave 3)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -213,7 +213,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation and Flat HUD Slice | 11/11 | Complete    | 2026-11-06 |
-| 2. 3D Map, Hero and Surveillance | 5/14 | In Progress|  |
+| 2. 3D Map, Hero and Surveillance | 7/14 | In Progress|  |
 | 3. Transit | 0/0 | Not started | - |
 | 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
 | 5. Hazards, Sky and Bay | 0/0 | Not started | - |
