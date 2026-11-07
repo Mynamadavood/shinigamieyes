@@ -1,0 +1,29 @@
+[Unit]
+Description=Shinigami Eyes weekly camera dataset refresh (OSM -> cameras.json)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=shinigami
+WorkingDirectory=/opt/shinigami
+ExecStart=/opt/shinigami/deploy/refresh-data.sh
+StateDirectory=shinigami
+StateDirectoryMode=0750
+UMask=0027
+Nice=10
+IOSchedulingClass=idle
+MemoryMax=900M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+SystemCallArchitectures=native

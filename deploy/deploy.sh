@@ -39,7 +39,7 @@ as_svc() {
     HOME=/var/cache/shinigami-npm "$@"
 }
 
-as_svc uv sync --frozen --no-dev
+as_svc uv sync --frozen --no-dev --group data
 as_svc npm --prefix web ci
 as_svc npm --prefix web run build
 
@@ -47,6 +47,17 @@ if ! cmp -s deploy/shinigami.service /etc/systemd/system/shinigami.service; then
   install -m 0644 deploy/shinigami.service /etc/systemd/system/shinigami.service
   systemctl daemon-reload
 fi
+
+# Weekly camera refresh (never started from here; David runs the first one, see 02-06).
+units_changed=0
+for u in shinigami-data.service shinigami-data.timer; do
+  if ! cmp -s "deploy/$u" "/etc/systemd/system/$u"; then
+    install -m 0644 "deploy/$u" "/etc/systemd/system/$u"
+    units_changed=1
+  fi
+done
+if [ "$units_changed" -eq 1 ]; then systemctl daemon-reload; fi
+systemctl enable --now shinigami-data.timer
 
 systemctl restart shinigami
 
