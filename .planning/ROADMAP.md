@@ -87,12 +87,12 @@ Plans:
   4. David sees mapped CCTV within about 150 m labelled "mapped, not exhaustive", and fixed speed/red-light cameras as static info only
   5. The map stays smooth on the real iPhone with tags capped to a budget
 
-**Plans:** 1/14 plans executed
+**Plans:** 2/14 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 02-01-PLAN.md — Human gate: approve maplibre-gl/workbox/pmtiles/osmium, generate JetBrains Mono glyphs, install once (wave 1)
+- [x] 02-01-PLAN.md — Human gate: approve maplibre-gl/workbox/pmtiles/osmium, generate JetBrains Mono glyphs, install once (wave 1)
 - [x] 02-02-PLAN.md — Robustness: IDB first-paint timeout, location-keyed profile, derived list state, GPS error codes, HttpError, GPS accuracy (wave 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -213,7 +213,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation and Flat HUD Slice | 11/11 | Complete    | 2026-11-06 |
-| 2. 3D Map, Hero and Surveillance | 1/14 | In Progress|  |
+| 2. 3D Map, Hero and Surveillance | 2/14 | In Progress|  |
 | 3. Transit | 0/0 | Not started | - |
 | 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
 | 5. Hazards, Sky and Bay | 0/0 | Not started | - |
