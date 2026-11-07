@@ -46,7 +46,14 @@ Go / No-go: GO (11 of 12 pass, 1 deferred). Sign-off: David, 2026-11-06
 ## Gate 3: Phase 2 acceptance (plan 02-14)
 
 Automated pre-check:
-- (filled in by plan 02-06 Task 3 and 02-14)
+- 02-06 provisioning (2026-11-07, deployed 1dad315, run by Claude over SSH to the CT with David's key):
+  - `verify.sh --remote` (dev PC over tailnet): `{"mode":"remote","pass":15,"fail":0,"skip":0,"p95_ms":249}` (tiles_health, tile_cbd PASS)
+  - `verify.sh --local` (in CT): `{"mode":"local","pass":19,"fail":0,"skip":0,"p95_ms":2}`
+  - `/api/tiles/meta`: `status ok`, minzoom 0, maxzoom 15, bounds 144.2,-38.55,145.75,-37.45
+  - Extract: `greater-melbourne.pmtiles` 125 MB (dry-run estimate 130 MB); CT root 7.8 G, 5.6 G free after provisioning
+  - Camera job (`shinigami-data.service`, 3 min, 249 MB peak): `cctv=674 speed=189 redlight=136`; cameras.json 82 KB; server picked it up on its 5-minute re-read with no restart; weekly timer armed
+  - Bring-up fixes: pmtiles PATH under `pct exec` (b6a75d7); tile check uses GET + `Accept-Encoding: gzip`, CR-safe tile maths, data unit runs the script via bash (1dad315)
+- (02-14 adds its pre-check here)
 
 - [ ] Hero on cold open: force-quit, launch from the home screen; red eyes play for 1.5 s or less (stopwatch) with cached rows already visible underneath. Result / notes:
 - [ ] Tapping anywhere (or the x box) during the hero skips straight to the map. Result / notes:
