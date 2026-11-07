@@ -74,3 +74,33 @@
 .recenter:active { background: var(--c-surface); }
 .recenter svg { width: 24px; height: 24px; }
 .recenter.is-hidden { display: none; }
+
+/* long-press ring (D-07): 1px blue ring growing 8 -> 32 px radius over 500 ms */
+.map-host .longpress-ring {
+  position: absolute;
+  left: calc(var(--x, 0px) - 32px);
+  top: calc(var(--y, 0px) - 32px);
+  width: 64px;
+  height: 64px;
+  box-sizing: border-box;
+  border: 1px solid var(--c-blue);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 3;
+}
+.map-host .longpress-ring[hidden] { display: none; }
+.map-host .longpress-ring.is-growing { animation: longpress-grow 500ms linear forwards; }
+@keyframes longpress-grow {
+  from { transform: scale(0.25); }
+  to { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-host .longpress-ring.is-growing { animation: none; }
+}
+/* 1px anchor for the building card at the tap point */
+.tap-anchor {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}

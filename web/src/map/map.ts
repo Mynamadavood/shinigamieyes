@@ -10,6 +10,8 @@ import type { MapDeps, MapHandle, MapView } from "./types";
 import { readRingTokens, syncRing, type RingMap } from "./accuracy-ring";
 import { createFollow } from "./follow";
 import { Card } from "./card";
+import { BuildingSelector, buildingCardContent, buildingHeight, type BuildingMap } from "./buildings";
+import { createLongPress } from "./longpress";
 import { TagLayer } from "./tags";
 import { createFigureElement, createPinElement, setFigureAccuracy } from "./marker-figure";
 import { CBD_DEFAULT, FOLLOW, PIN_AREA_ZOOM } from "./view";
@@ -21,6 +23,10 @@ const FLY_MS = 600;
 const OFFLINE_COPY = "Map tiles unavailable offline";
 const DEFAULT_PEEK_PX = 144;
 const CAMERA_LAYERS = ["cameras_cctv", "cameras_road"] as const;
+const BUILDING_MIN_ZOOM = 15;
+const DROPPED_LABEL = "Dropped pin";
+// touches that begin on these never start the long-press ring
+const UI_SELECTOR = ".tag, .map-tag, .card, .hud, .drawer, .marker-hit, .recenter, .maplibregl-ctrl";
 
 let workerSet = false;
 
@@ -129,11 +135,40 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
     const r = document.querySelector(".readouts")?.getBoundingClientRect();
     return { top: r && r.bottom > 0 ? r.bottom + 8 : 64, bottom: bottomPadding() };
   });
-  map.on("click", (e: { originalEvent?: MouseEvent }) => {
+  const selector = new BuildingSelector(map as unknown as BuildingMap, readStyleTokens().buildingHot || undefined);
+  let tapAnchor: HTMLElement | null = null;
+  const dropTapAnchor = () => {
+    tapAnchor?.remove();
+    tapAnchor = null;
+  };
+  const closeBuilding = () => {
+    selector.clear();
+    dropTapAnchor();
+  };
+  type ClickEvt = {
+    originalEvent?: MouseEvent;
+    point?: { x: number; y: number };
+  };
+  map.on("click", (e: ClickEvt) => {
     const t = e.originalEvent?.target;
-    if (t instanceof Element && t.closest(".map-tag")) return;
+    if (t instanceof Element && t.closest(".map-tag, .marker-hit")) return;
     card.close();
+    closeBuilding();
     deps.onMapTap();
+    if (!e.point || map.getZoom() < BUILDING_MIN_ZOOM) return;
+    const feats = map.queryRenderedFeatures([e.point.x, e.point.y], { layers: ["buildings-3d"] });
+    const f = feats[0];
+    if (!f) return;
+    selector.select(f as unknown as Parameters<BuildingSelector["select"]>[0]);
+    const a = document.createElement("div");
+    a.className = "tap-anchor";
+    a.style.left = `${Math.round(e.point.x)}px`;
+    a.style.top = `${Math.round(e.point.y)}px`;
+    document.body.appendChild(a);
+    tapAnchor = a;
+    card.open(a, buildingCardContent(buildingHeight(f.properties as Record<string, unknown> | null)), {
+      onClose: closeBuilding,
+    });
   });
 
   const canvas = map.getCanvas();
@@ -193,6 +228,82 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
     pinOn = on;
   };
 
+  // marker cards (D-07, UI-SPEC): tapping the figure or the dropped/search pin
+  figureEl.addEventListener("click", () => {
+    if (current.kind !== "gps") return;
+    closeBuilding();
+    card.open(figureEl, {
+      title: "YOU",
+      primary: `GPS · accuracy ${Math.round(current.accuracy)} m`,
+      secondary: [],
+      caveats: [],
+    });
+  });
+  pinEl.addEventListener("click", () => {
+    const v = current;
+    if (v.kind !== "search") return;
+    closeBuilding();
+    card.open(pinEl, {
+      title: "YOUR PIN",
+      primary: v.label,
+      secondary: [],
+      caveats: v.label === DROPPED_LABEL ? ["Set from the map"] : [],
+      action: {
+        label: "Use GPS",
+        onClick: () => {
+          card.close();
+          deps.onUseGps();
+        },
+      },
+    });
+  });
+
+  // long-press pin drop (D-07): one finger, 500 ms, still, on empty map
+  const container = map.getCanvasContainer();
+  const ring = document.createElement("div");
+  ring.className = "longpress-ring";
+  ring.hidden = true;
+  deps.host.appendChild(ring);
+  const press = createLongPress({
+    onStart(x, y) {
+      ring.style.setProperty("--x", `${x}px`);
+      ring.style.setProperty("--y", `${y}px`);
+      ring.hidden = false;
+      ring.classList.add("is-growing");
+    },
+    onCancel() {
+      ring.hidden = true;
+      ring.classList.remove("is-growing");
+    },
+    onFire(x, y) {
+      ring.hidden = true;
+      ring.classList.remove("is-growing");
+      const ll = map.unproject([x, y]);
+      if (!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)) return;
+      card.close();
+      closeBuilding();
+      deps.onLongPress({ lat: ll.lat, lon: ll.lng });
+    },
+    setTimer: (fn, ms) => window.setTimeout(fn, ms),
+    clearTimer: (hd) => window.clearTimeout(hd as number),
+  });
+  const touchPts = (e: Event): Array<{ x: number; y: number }> => {
+    const r = container.getBoundingClientRect();
+    const list = (e as TouchEvent).touches;
+    return Array.from(list ?? [], (t) => ({ x: t.clientX - r.left, y: t.clientY - r.top }));
+  };
+  const onTouchStart = (e: Event) => {
+    const t = e.target;
+    const onUi = t instanceof Element && t.closest(UI_SELECTOR) !== null;
+    press.touchStart(touchPts(e), onUi);
+  };
+  const onTouchMove = (e: Event) => press.touchMove(touchPts(e));
+  const onTouchEnd = () => press.touchEnd();
+  container.addEventListener("touchstart", onTouchStart, { passive: true });
+  container.addEventListener("touchmove", onTouchMove, { passive: true });
+  container.addEventListener("touchend", onTouchEnd, { passive: true });
+  container.addEventListener("touchcancel", onTouchEnd, { passive: true });
+
   const ringTokens = readRingTokens();
   const ringMap = map as unknown as RingMap;
   let ringPending: MapView | null = null;
@@ -243,6 +354,7 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
   for (const ev of ["dragstart", "zoomstart", "rotatestart", "pitchstart"] as const) {
     map.on(ev, (e: { originalEvent?: unknown }) => {
       if (!e.originalEvent) return;
+      press.mapGesture();
       if (current.kind === "none") return;
       showRecenter(follow.on("userGesture").showRecenter);
     });
@@ -334,6 +446,12 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
       document.removeEventListener("visibilitychange", onVisible);
       hint.remove();
       recenterBtn.remove();
+      ring.remove();
+      closeBuilding();
+      container.removeEventListener("touchstart", onTouchStart);
+      container.removeEventListener("touchmove", onTouchMove);
+      container.removeEventListener("touchend", onTouchEnd);
+      container.removeEventListener("touchcancel", onTouchEnd);
       tags.destroy();
       card.destroy();
       figureMarker.remove();

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => {
-  const state = { opts: undefined as any, instance: undefined as any, throwOnNew: false };
+  const state = { opts: undefined as any, instance: undefined as any, throwOnNew: false, zoom: 17.5 };
   return state;
 });
 
@@ -36,8 +36,20 @@ vi.mock("maplibre-gl", () => {
       return { x: (l[0] - 144.9) * 100000, y: (l[1] + 37.8) * 100000 };
     }
     getZoom() {
-      return 17.5;
+      return h.zoom;
     }
+    container = document.createElement("div");
+    getCanvasContainer() {
+      return this.container;
+    }
+    unproject = vi.fn((p: [number, number]) => ({ lng: 144 + p[0] / 1000, lat: -37 - p[1] / 1000 }));
+    queryRenderedFeatures = vi.fn((..._a: unknown[]): any[] => []);
+    setFeatureState = vi.fn();
+    removeFeatureState = vi.fn();
+    getSource = vi.fn();
+    addSource = vi.fn();
+    getLayer = vi.fn();
+    addLayer = vi.fn();
   }
   class FakeMarker {
     static all: FakeMarker[] = [];
@@ -84,6 +96,7 @@ const okMeta = (build: string) =>
 
 beforeEach(() => {
   h.throwOnNew = false;
+  h.zoom = 17.5;
   h.opts = undefined;
   markers().length = 0;
   document.body.replaceChildren();
@@ -345,5 +358,107 @@ describe("camera tags", () => {
     vi.advanceTimersByTime(2);
     expect(spy).toHaveBeenCalledTimes(3);
     vi.useRealTimers();
+  });
+});
+
+describe("long-press, pin and building interactions", () => {
+  const touch = (target: Element, type: string, pts: Array<[number, number]>) => {
+    const ev = new Event(type, { bubbles: true });
+    (ev as any).touches = pts.map(([clientX, clientY]) => ({ clientX, clientY }));
+    target.dispatchEvent(ev);
+  };
+  const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]:not(.is-hidden)');
+
+  it("drops a pin after 500 ms still, via unproject", async () => {
+    vi.useFakeTimers();
+    const deps = mkDeps();
+    await createMap(deps);
+    const c = h.instance.container as HTMLElement;
+    touch(c, "touchstart", [[100, 200]]);
+    expect(deps.host.querySelector<HTMLElement>(".longpress-ring")!.hidden).toBe(false);
+    vi.advanceTimersByTime(500);
+    expect(h.instance.unproject).toHaveBeenCalledWith([100, 200]);
+    expect(deps.onLongPress).toHaveBeenCalledWith({ lat: -37.2, lon: 144.1 });
+    vi.useRealTimers();
+  });
+
+  it("ignores a non-finite unproject result", async () => {
+    vi.useFakeTimers();
+    const deps = mkDeps();
+    await createMap(deps);
+    h.instance.unproject.mockReturnValue({ lng: NaN, lat: NaN });
+    touch(h.instance.container, "touchstart", [[1, 2]]);
+    vi.advanceTimersByTime(500);
+    expect(deps.onLongPress).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("cancels on movement and on a map gesture; never starts on UI", async () => {
+    vi.useFakeTimers();
+    const deps = mkDeps();
+    await createMap(deps);
+    const c = h.instance.container as HTMLElement;
+    touch(c, "touchstart", [[0, 0]]);
+    touch(c, "touchmove", [[20, 0]]);
+    vi.advanceTimersByTime(600);
+    touch(c, "touchstart", [[0, 0]]);
+    h.instance.emit("dragstart", { originalEvent: {} });
+    vi.advanceTimersByTime(600);
+    for (const cls of ["tag", "card", "hud", "drawer"]) {
+      const el = document.createElement("div");
+      el.className = cls;
+      c.appendChild(el);
+      touch(el, "touchstart", [[0, 0]]);
+    }
+    vi.advanceTimersByTime(600);
+    expect(deps.onLongPress).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("dropped pin card has Use GPS", async () => {
+    const deps = mkDeps();
+    const handle = (await createMap(deps))!;
+    handle.setView({ kind: "search", lat: -37.7, lon: 144.8, label: "Dropped pin" });
+    pinM().el.click();
+    expect(dialog()!.textContent).toContain("YOUR PIN");
+    expect(dialog()!.textContent).toContain("Dropped pin");
+    expect(dialog()!.textContent).toContain("Set from the map");
+    const btn = Array.from(dialog()!.querySelectorAll("button")).find((b) => b.textContent === "Use GPS")!;
+    btn.click();
+    expect(deps.onUseGps).toHaveBeenCalledTimes(1);
+    expect(dialog()).toBeNull();
+  });
+
+  it("figure card shows GPS accuracy", async () => {
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView({ kind: "gps", lat: -37.8, lon: 144.9, accuracy: 12.2 });
+    figureM().el.click();
+    expect(dialog()!.textContent).toContain("YOU");
+    expect(dialog()!.textContent).toContain("GPS · accuracy 12 m");
+  });
+
+  it("building tap selects and opens the card; elsewhere clears", async () => {
+    await createMap(mkDeps());
+    h.instance.queryRenderedFeatures.mockReturnValue([{ id: 5, properties: { height: 24.4 } }]);
+    const target = document.createElement("canvas");
+    h.instance.emit("click", { originalEvent: { target }, point: { x: 30, y: 40 } });
+    expect(h.instance.queryRenderedFeatures).toHaveBeenCalledWith([30, 40], { layers: ["buildings-3d"] });
+    expect(h.instance.setFeatureState).toHaveBeenCalledWith(
+      { source: "protomaps", sourceLayer: "buildings", id: 5 }, { selected: true });
+    expect(dialog()!.textContent).toContain("BUILDING");
+    expect(dialog()!.textContent).toContain("Height: 24 m");
+    h.instance.queryRenderedFeatures.mockReturnValue([]);
+    h.instance.emit("click", { originalEvent: { target }, point: { x: 1, y: 1 } });
+    expect(h.instance.removeFeatureState).toHaveBeenCalled();
+    expect(dialog()).toBeNull();
+  });
+
+  it("ignores building taps below zoom 15", async () => {
+    await createMap(mkDeps());
+    h.zoom = 14;
+    h.instance.queryRenderedFeatures.mockReturnValue([{ id: 5, properties: {} }]);
+    h.instance.emit("click", { originalEvent: { target: document.createElement("canvas") }, point: { x: 1, y: 1 } });
+    expect(h.instance.queryRenderedFeatures).not.toHaveBeenCalled();
+    expect(dialog()).toBeNull();
   });
 });
