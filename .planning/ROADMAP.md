@@ -87,7 +87,7 @@ Plans:
   4. David sees mapped CCTV within about 150 m labelled "mapped, not exhaustive", and fixed speed/red-light cameras as static info only
   5. The map stays smooth on the real iPhone with tags capped to a budget
 
-**Plans:** 12/14 plans executed
+**Plans:** 13/14 plans executed
 
 Plans:
 **Wave 1**
@@ -119,7 +119,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 02-11-PLAN.md — Long-press pin, YOUR PIN / YOU cards, tapped-building red highlight (wave 6)
+- [x] 02-11-PLAN.md — Long-press pin, YOUR PIN / YOU cards, tapped-building red highlight (wave 6)
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
@@ -213,7 +213,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation and Flat HUD Slice | 11/11 | Complete    | 2026-11-06 |
-| 2. 3D Map, Hero and Surveillance | 12/14 | In Progress|  |
+| 2. 3D Map, Hero and Surveillance | 13/14 | In Progress|  |
 | 3. Transit | 0/0 | Not started | - |
 | 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
 | 5. Hazards, Sky and Bay | 0/0 | Not started | - |
