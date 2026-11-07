@@ -83,8 +83,8 @@
   box-shadow: none;
   padding-bottom: env(safe-area-inset-bottom);
   z-index: 6;
-  touch-action: none;
 }
+.drawer:not(.open) { touch-action: none; }
 .drawer.snapping { transition: height 220ms ease-out; }
 .drawer-handle {
   flex: none;
