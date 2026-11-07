@@ -1,0 +1,33 @@
+/* the map canvas stays transparent so the CSS grid shows through missing tiles */
+.map-host .maplibregl-canvas-container,
+.map-host .maplibregl-canvas {
+  background: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.map-host .maplibregl-canvas { outline: none; }
+.map-host .maplibregl-ctrl-bottom-right,
+.map-host .maplibregl-ctrl-bottom-left {
+  bottom: calc(var(--drawer-h, var(--drawer-peek)) + env(safe-area-inset-bottom));
+}
+.map-host .maplibregl-ctrl-attrib {
+  background: transparent;
+  color: var(--c-dim);
+  font-family: var(--f-mono);
+  font-size: var(--fs-label);
+}
+.map-host .maplibregl-ctrl-attrib a { color: var(--c-dim); }
+.map-offline-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 60%;
+  text-align: center;
+  pointer-events: none;
+  font-family: var(--f-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-label);
+  color: var(--c-dim);
+}
+.map-offline-hint[hidden] { display: none; }
