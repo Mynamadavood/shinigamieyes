@@ -486,18 +486,25 @@ export function assignFull(ranked: Cand[], max = 20, w = 176, h = 32): Set<strin
 | A13 | All npm/PyPI packages legitimate (slopcheck not run) | Audit | Human-verify checkpoint gates installs |
 | A14 | Excluding private-operator names and `guard` tags is the right privacy default | Camera pipeline | Needs David's confirmation |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Preset places and the map (CR-02 vs HUD-04).**
    - Known: presets resolve to server-held coordinates the client must never learn; the map needs a centre; camera positions near a preset would reveal it.
    - Unclear: what the map shows for `place=` pins.
    - Recommendation (default): map centres on the 0.1° cell centre at low zoom with no camera layers; count readout reads `Cameras · not shown for saved places`. Optional per-place `public = true` flag in `places.toml` (opt-in, default off) turns a preset into a client-known pin (like search). Needs David's yes/no because it adds a setting.
+   - **RESOLVED (provisional, confirm in 02-14):** no camera layers and cell-centre map for saved places; no `public` flag this phase (02-07, 02-09).
 2. **Speed/red-light card source copy.** UI-SPEC says "Victorian road safety camera list"; data will be OSM. Recommend amending to `Source: OpenStreetMap` and adding "Mapped, not exhaustive." Needs ui-phase amendment.
+   **RESOLVED (provisional):** amendment applied in 02-10.
 3. **Building card name.** Protomaps buildings have no `name`; D-18 "name if present" will never trigger. Title is always `BUILDING`. Accept.
+   **RESOLVED:** 02-11 implements the `BUILDING` card.
 4. **Extrusion opacity/gradient** (layer-wide). Accept colour-only highlight, opacity 1. Needs UI-SPEC wording change.
+   **RESOLVED (provisional):** colour-only highlight, opacity 1, extrusion minzoom 15 (02-08, 02-11).
 5. **Camera operator privacy rule.** Recommend omitting `operator` for private/individual tags and excluding `surveillance:type=guard`. Confirm with David.
+   **RESOLVED (provisional, confirm in 02-14):** filters implemented in 02-05.
 6. **CBD CCTV count probe** (150 m around -37.8136,144.9631) did not return a usable result (the Overpass call was cut off); real counts per radius should be measured from the PBF in Wave 0.
+   **RESOLVED:** measured on the first camera job run in 02-06.
 7. **Dev/prod data parity.** Dev PC (Windows) can run go-pmtiles (Windows build exists) and pyosmium; a small CBD extract (~2–5 MB) as a gitignored dev tile file avoids needing the 139 GB source.
+   **RESOLVED:** `scripts/dev-tiles.sh` in 02-04.
 
 ## Environment Availability
 

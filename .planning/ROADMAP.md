@@ -87,7 +87,44 @@ Plans:
   4. David sees mapped CCTV within about 150 m labelled "mapped, not exhaustive", and fixed speed/red-light cameras as static info only
   5. The map stays smooth on the real iPhone with tags capped to a budget
 
-**Plans**: TBD
+**Plans:** 14 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 02-01-PLAN.md — Human gate: approve maplibre-gl/workbox/pmtiles/osmium, generate JetBrains Mono glyphs, install once (wave 1)
+- [ ] 02-02-PLAN.md — Robustness: IDB first-paint timeout, location-keyed profile, derived list state, GPS error codes, HttpError, GPS accuracy (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 02-03-PLAN.md — HUD frame: full-screen shell over grid, corner readouts, pull-up drawer, cameras kept out of rows (wave 2)
+- [ ] 02-04-PLAN.md — Server-decoded PMTiles /tiles endpoint, tile meta/health, pmtiles CLI + extract scripts, verify probes (wave 2)
+- [ ] 02-05-PLAN.md — OSM camera job (CCTV + enforcement relations, privacy filters) + weekly sandboxed timer (wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 02-06-PLAN.md — CT provisioning: disk check, extract dry-run + extract, first camera run, Gate 3 checklist (wave 3)
+- [ ] 02-07-PLAN.md — Camera providers (150 m / 1 km), saved-place privacy, camera count readout (wave 3)
+- [ ] 02-08-PLAN.md — 3D map: token-driven Protomaps style, lazy MapLibre, self-hosted glyphs, offline grid hint (wave 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 02-09-PLAN.md — Figure marker, accuracy ring, pin marker, follow/recenter, icon sprite (wave 4)
+- [ ] 02-12-PLAN.md — Red-eyes hero on cold open, <= 1.5 s, skippable, reduced motion (wave 4)
+- [ ] 02-13-PLAN.md — SW tile/glyph caches for offline + HUD-10 CSP/verify guards (wave 4)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 02-10-PLAN.md — Camera tags (budget 20/60, red within 30 m) and info cards with leader lines (wave 5)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 02-11-PLAN.md — Long-press pin, YOUR PIN / YOU cards, tapped-building red highlight (wave 6)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 02-14-PLAN.md — Redeploy, remote verify and iPhone Gate 3 phase acceptance (wave 7)
+
 **UI hint**: yes
 
 ### Phase 3: Transit
@@ -176,7 +213,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation and Flat HUD Slice | 11/11 | Complete    | 2026-11-06 |
-| 2. 3D Map, Hero and Surveillance | 0/0 | Not started | - |
+| 2. 3D Map, Hero and Surveillance | 0/14 | Planned | - |
 | 3. Transit | 0/0 | Not started | - |
 | 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
 | 5. Hazards, Sky and Bay | 0/0 | Not started | - |

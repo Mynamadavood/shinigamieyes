@@ -2,7 +2,7 @@
 phase: 2
 slug: 3d-map-hero-and-surveillance
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-11-07
 ---
@@ -36,7 +36,7 @@ created: 2026-11-07
 
 ## Per-Task Verification Map
 
-Filled by the planner per task (each task's `<verify><automated>`). Requirement → test map:
+Each task in 02-01..02-14 carries its own `<verify><automated>` command or is an explicit checkpoint (02-01 package/glyph gate, 02-06 provisioning, 02-14 device gate); Wave 0 test files are created inside the plans that need them. Requirement → test map:
 
 | Requirement | Behavior | Test Type | Automated Command | File Exists | Status |
 |-------------|----------|-----------|-------------------|-------------|--------|
@@ -93,4 +93,4 @@ Filled by the planner per task (each task's `<verify><automated>`). Requirement 
 - [ ] Feedback latency < 30s
 - [ ] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-11-07 (plan check)

@@ -105,7 +105,7 @@ Not in this phase: transit, environment layers beyond sun/UV, ranking (Phase 4),
 ### Integration Points
 - `web/src/ui/shell.ts` slots (title bar, banner, location strip, list host, footer): restructure into map canvas + overlay HUD + drawer
 - `deploy/deploy.sh` / `verify.sh`: tile extract download + checks that no third-party hosts are requested (HUD-10)
-- CSP must allow MapLibre workers (blob:) and same-origin tiles/glyphs/sprites only
+- CSP: research found MapLibre 6.16 works with a same-origin worker via `setWorkerUrl`, so `worker-src 'self'` stays and no `blob:` is added (02-08/02-13). Documented fallback if the device test fails: add `worker-src blob:`. Same-origin tiles/glyphs/sprites only
 
 </code_context>
 
