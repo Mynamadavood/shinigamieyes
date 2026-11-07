@@ -20,8 +20,20 @@ async def test_security_headers(client):
     csp = r.headers["content-security-policy"]
     assert "default-src 'self'" in csp
     assert "frame-ancestors 'none'" in csp
+    # HUD-10: same-origin only, no third-party host, no blob:
+    assert "blob:" not in csp
+    assert "http:" not in csp and "https:" not in csp
+    assert "*" not in csp
+    for directive in ("connect-src 'self'", "img-src 'self' data:", "font-src 'self'", "worker-src 'self'"):
+        assert directive in csp
     assert r.headers["x-content-type-options"] == "nosniff"
     assert r.headers["referrer-policy"] == "no-referrer"
+
+
+async def test_tiles_carry_csp(client):
+    r = await client.get("/tiles/0/0/0.mvt")  # 204/404 is fine, the header must still be there
+    assert "blob:" not in r.headers["content-security-policy"]
+    assert "connect-src 'self'" in r.headers["content-security-policy"]
 
 
 async def test_static_cache_headers(settings):

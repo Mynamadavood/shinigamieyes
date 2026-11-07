@@ -73,6 +73,60 @@ tiles_checks() {
   else fail tile_cbd "HTTP ${code:-none}"; fi
 }
 
+# HUD-10 / 02-13: the map is served by David's own server and talks to no third party.
+CDN_HOSTS='tiles\.openfreemap\.org|protomaps\.github\.io|api\.maptiler\.com|fonts\.googleapis\.com|fonts\.gstatic\.com|demotiles\.maplibre\.org|api\.mapbox\.com|unpkg\.com|cdn\.jsdelivr\.net'
+
+# dist_grep <name> <dir> : FAIL if a known CDN host is referenced in the built PWA
+dist_grep() {
+  local name="$1" dir="$2" hits
+  hits="$(grep -rEl "$CDN_HOSTS" "$dir" 2>/dev/null || true)"
+  if [ -z "$hits" ]; then pass "$name"; else fail "$name" "CDN host referenced in $(printf '%s' "$hits" | head -n1)"; fi
+}
+
+hud10_checks() {
+  local base="$1" mode="$2" hdrs csp code body id font here devdist
+  font="${GLYPH_FONT:-JetBrainsMono-Regular}"
+
+  hdrs="$(curl -sI --max-time 10 "$base/" 2>/dev/null | tr -d '\r' || true)"
+  csp="$(printf '%s' "$hdrs" | grep -i '^content-security-policy:' || true)"
+  if [ -z "$csp" ]; then fail csp_no_blob "no CSP header"
+  elif printf '%s' "$csp" | grep -qiE 'blob:|https:'; then fail csp_no_blob "blob: or https: in CSP"
+  else pass csp_no_blob; fi
+
+  code="$(http_code "$base/glyphs/${font// /%20}/0-255.pbf")"
+  if [ "$code" = "200" ]; then pass glyph_0_255; else fail glyph_0_255 "HTTP $code"; fi
+
+  # public CBD default point only
+  code="$(http_code "$base/api/profile?lat=-37.8136&lon=144.9631")"
+  if [ "$code" = "404" ]; then skip cameras_layers "/api/profile not built yet"
+  elif [ "$code" != "200" ]; then fail cameras_layers "HTTP $code"
+  else
+    body="$(curl -s --max-time 10 "$base/api/profile?lat=-37.8136&lon=144.9631" 2>/dev/null || true)"
+    if printf '%s' "$body" | grep -q '"cameras_cctv"' && printf '%s' "$body" | grep -q '"cameras_road"'; then pass cameras_layers
+    else fail cameras_layers "cameras_cctv/cameras_road missing"; fi
+  fi
+
+  code="$(http_code "$base/api/places")"
+  id=""
+  if [ "$code" = "200" ]; then
+    body="$(curl -s --max-time 10 "$base/api/places" 2>/dev/null || true)"
+    id="$(printf '%s' "$body" | sed -n 's/.*"id" *: *"\([^"]*\)".*/\1/p' | head -n1)"
+  fi
+  if [ -z "$id" ]; then skip place_no_cameras "no saved places"
+  else
+    body="$(curl -s --max-time 10 "$base/api/profile?place=$id" 2>/dev/null || true)"
+    if printf '%s' "$body" | grep -qE 'cameras_|distance_m'; then fail place_no_cameras; else pass place_no_cameras; fi
+  fi
+
+  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  devdist="$here/../web/dist"
+  if [ "$mode" = "local" ]; then
+    if [ -d /opt/shinigami/web/dist ]; then dist_grep dist_no_cdn_hosts /opt/shinigami/web/dist
+    else skip dist_no_cdn_hosts "/opt/shinigami/web/dist not found"; fi
+  elif [ -d "$devdist" ]; then dist_grep dist_no_cdn_hosts "$devdist"
+  else skip dist_no_cdn_hosts "web/dist not built on this machine"; fi
+}
+
 verify_local() {
   local base=http://127.0.0.1:8000 listeners fqdn out i ok
 
@@ -134,6 +188,7 @@ verify_local() {
   done
 
   tiles_checks "$base"
+  hud10_checks "$base" local
   profile_p95 "$base"
 }
 
@@ -202,6 +257,7 @@ verify_remote() {
   else fail suggest_photon "HTTP $code"; fi
 
   tiles_checks "$url"
+  hud10_checks "$url" remote
   profile_p95 "$url"
 }
 
