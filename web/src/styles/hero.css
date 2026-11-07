@@ -1,0 +1,98 @@
+.hero {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + var(--s-2xl));
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--c-bg);
+  z-index: 20;
+  overflow: hidden;
+}
+.hero.fading {
+  animation: hero-fade 200ms linear forwards;
+}
+.hero-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 42%;
+  height: 128px;
+  margin-top: -64px;
+}
+.hero-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.hero-skip {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.hero-skip:focus { outline: none; }
+
+.hero-art .brow { fill: var(--c-red-deep); stroke: var(--c-red); stroke-width: 2; }
+.hero-art .lash,
+.hero-art .strand,
+.hero-art .lid { fill: none; stroke: var(--c-red); stroke-width: 2; }
+.hero-art .eye-body { fill: var(--c-bg); stroke: var(--c-red); stroke-width: 2; }
+.hero-art .iris-rest { fill: var(--c-red-deep); }
+.hero-art .iris-lit { fill: var(--c-red); opacity: 0; }
+.hero-art .pupil { fill: var(--c-bg); }
+.hero-art .notch { fill: var(--c-on-red); }
+.hero-art .flood { fill: var(--c-red); opacity: 0; }
+.hero-art .reveal { fill: var(--c-bg); }
+.hero-art .eye,
+.hero-art .reveal {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* all motion is transform / opacity only, so it stays on the compositor while MapLibre inits */
+.hero:not(.reduced) .eye { animation: hero-eye 1500ms linear both; }
+.hero:not(.reduced) .reveal { animation: hero-reveal 1500ms linear both; }
+.hero:not(.reduced) .iris-lit { animation: hero-iris 1500ms linear both; }
+.hero:not(.reduced) .flood { animation: hero-flood 1500ms linear both; }
+
+@keyframes hero-eye {
+  0%, 20% { transform: scaleY(0.04); animation-timing-function: steps(4, end); }
+  32%, 73.33% { transform: scaleY(1); animation-timing-function: steps(3, end); }
+  80%, 100% { transform: scaleY(0.04); }
+}
+@keyframes hero-reveal {
+  0%, 6.67% { transform: translateX(0); }
+  20%, 100% { transform: translateX(101%); }
+}
+@keyframes hero-iris {
+  0%, 31.99% { opacity: 0; }
+  32%, 100% { opacity: 1; }
+}
+@keyframes hero-flood {
+  0%, 31.99% { opacity: 0; }
+  32%, 36.4% { opacity: 0.35; }
+  36.5%, 100% { opacity: 0; }
+}
+@keyframes hero-fade {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* static open eyes: no draw-on, no snap, no flash */
+.hero.reduced .reveal,
+.hero.reduced .flood { display: none; }
+.hero.reduced .iris-lit { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .hero .eye,
+  .hero .reveal,
+  .hero .iris-lit,
+  .hero .flood { animation: none; }
+  .hero .reveal,
+  .hero .flood { display: none; }
+  .hero .iris-lit { opacity: 1; }
+}
