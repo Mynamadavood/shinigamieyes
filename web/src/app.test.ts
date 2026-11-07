@@ -12,7 +12,7 @@ vi.mock("idb-keyval", () => ({
   set: vi.fn(async () => {}),
 }));
 
-import { IDB_TIMEOUT_MS, boot, deriveListState } from "./app";
+import { IDB_TIMEOUT_MS, boot, deriveListState, resetHeroPlayed } from "./app";
 
 type SunItem = ReturnType<typeof sunItem>;
 const sunItem = (id: string, ts: number) => ({
@@ -45,6 +45,7 @@ let root: HTMLElement;
 beforeEach(() => {
   vi.useFakeTimers();
   FakeES.all = [];
+  resetHeroPlayed();
   document.body.innerHTML = '<div id="app"></div>';
   root = document.getElementById("app")!;
 });
@@ -56,7 +57,7 @@ const banner = () => root.querySelector(".banner-slot")!.firstElementChild as HT
 const geolocation = { getCurrentPosition: vi.fn() } as unknown as Geolocation;
 
 async function bootApp(fetchImpl: typeof fetch) {
-  const p = boot(root, { fetchImpl, EventSourceImpl: ES, geolocation });
+  const p = boot(root, { fetchImpl, EventSourceImpl: ES, geolocation, hero: false });
   await vi.advanceTimersByTimeAsync(IDB_TIMEOUT_MS + 100);
   return p;
 }
@@ -137,7 +138,7 @@ describe("lazy map wiring (02-08)", () => {
         },
       };
     });
-    const p = boot(root, { fetchImpl, EventSourceImpl: ES, geolocation, mapLoader });
+    const p = boot(root, { fetchImpl, EventSourceImpl: ES, geolocation, mapLoader, hero: false });
     await vi.advanceTimersByTimeAsync(IDB_TIMEOUT_MS + 100);
     await p;
     await vi.advanceTimersByTimeAsync(100);
@@ -156,7 +157,7 @@ describe("lazy map wiring (02-08)", () => {
     const mapLoader = vi.fn(async () => {
       throw new Error("chunk failed");
     });
-    const p = boot(root, { fetchImpl, EventSourceImpl: ES, geolocation, mapLoader });
+    const p = boot(root, { fetchImpl, EventSourceImpl: ES, geolocation, mapLoader, hero: false });
     await vi.advanceTimersByTimeAsync(IDB_TIMEOUT_MS + 100);
     await expect(p).resolves.toBeDefined();
     await vi.advanceTimersByTimeAsync(100);
@@ -174,5 +175,45 @@ describe("deriveListState (WR-07)", () => {
     [3, true, "online", "ready"],
   ] as const)("(%i,%s,%s) -> %s", (n, has, conn, want) => {
     expect(deriveListState(n, has, conn)).toBe(want);
+  });
+});
+
+describe("cold-open hero (HUD-03)", () => {
+  const okFetch = () =>
+    vi.fn(async (u: string) => (isProfile(u) ? json(profile([])) : json([]))) as unknown as typeof fetch;
+
+  it("is in the DOM synchronously after mountShell, before the IndexedDB read resolves", async () => {
+    const fetchImpl = okFetch();
+    void boot(root, { fetchImpl, EventSourceImpl: ES, geolocation });
+    // no timers advanced: the IDB read is still pending (mock never resolves)
+    expect(root.querySelector(".hero")).not.toBeNull();
+    expect(root.querySelector(".title-text")!.textContent).toBe("EYES");
+    await vi.advanceTimersByTimeAsync(IDB_TIMEOUT_MS + 100);
+    expect(vi.mocked(fetchImpl).mock.calls.some((c) => isProfile(c[0]))).toBe(true);
+  });
+
+  it("still ends at 1500 ms when the map loader never resolves", async () => {
+    const mapLoader = vi.fn(() => new Promise<never>(() => {}));
+    void boot(root, { fetchImpl: okFetch(), EventSourceImpl: ES, geolocation, mapLoader });
+    await vi.advanceTimersByTimeAsync(1499);
+    expect(root.querySelector(".hero")).not.toBeNull();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(root.querySelector(".hero")).toBeNull();
+    expect(root.querySelector(".title-text")!.textContent).toBe("SHINIGAMI EYES");
+  });
+
+  it("does not replay on pageshow or visibilitychange", async () => {
+    void boot(root, { fetchImpl: okFetch(), EventSourceImpl: ES, geolocation });
+    await vi.advanceTimersByTimeAsync(1600);
+    expect(root.querySelector(".hero")).toBeNull();
+    window.dispatchEvent(new Event("pageshow"));
+    document.dispatchEvent(new Event("visibilitychange"));
+    await vi.advanceTimersByTimeAsync(50);
+    expect(root.querySelector(".hero")).toBeNull();
+  });
+
+  it("is not mounted when deps.hero is false", async () => {
+    void boot(root, { fetchImpl: okFetch(), EventSourceImpl: ES, geolocation, hero: false });
+    expect(root.querySelector(".hero")).toBeNull();
   });
 });
