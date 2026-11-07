@@ -87,7 +87,7 @@ Plans:
   4. David sees mapped CCTV within about 150 m labelled "mapped, not exhaustive", and fixed speed/red-light cameras as static info only
   5. The map stays smooth on the real iPhone with tags capped to a budget
 
-**Plans:** 2/14 plans executed
+**Plans:** 5/14 plans executed
 
 Plans:
 **Wave 1**
@@ -97,9 +97,9 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 02-03-PLAN.md — HUD frame: full-screen shell over grid, corner readouts, pull-up drawer, cameras kept out of rows (wave 2)
-- [ ] 02-04-PLAN.md — Server-decoded PMTiles /tiles endpoint, tile meta/health, pmtiles CLI + extract scripts, verify probes (wave 2)
-- [ ] 02-05-PLAN.md — OSM camera job (CCTV + enforcement relations, privacy filters) + weekly sandboxed timer (wave 2)
+- [x] 02-03-PLAN.md — HUD frame: full-screen shell over grid, corner readouts, pull-up drawer, cameras kept out of rows (wave 2)
+- [x] 02-04-PLAN.md — Server-decoded PMTiles /tiles endpoint, tile meta/health, pmtiles CLI + extract scripts, verify probes (wave 2)
+- [x] 02-05-PLAN.md — OSM camera job (CCTV + enforcement relations, privacy filters) + weekly sandboxed timer (wave 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -213,7 +213,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation and Flat HUD Slice | 11/11 | Complete    | 2026-11-06 |
-| 2. 3D Map, Hero and Surveillance | 2/14 | In Progress|  |
+| 2. 3D Map, Hero and Surveillance | 5/14 | In Progress|  |
 | 3. Transit | 0/0 | Not started | - |
 | 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
 | 5. Hazards, Sky and Bay | 0/0 | Not started | - |
