@@ -51,3 +51,7 @@ None.
 None. Pin coordinates are never logged.
 
 ## Self-Check: PASSED
+
+## Building ids (RESEARCH A3, checked by the orchestrator 2026-11-07)
+- Decoded the live z15 CBD tile from /tiles: all 3386 `buildings` features carry an id (1868 unique; parts of one building share it). Max id is well under 2^53.
+- So selection takes the `setFeatureState` path; the GeoJSON fallback is a safety net only. A shared id highlights every part of that building, which is the intended look.
