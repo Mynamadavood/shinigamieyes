@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osm version="0.6" generator="fixture">
+  <node id="1001" version="1" lat="-37.8136" lon="144.9631"><tag k="man_made" v="surveillance"/><tag k="surveillance" v="public"/><tag k="camera:type" v="dome"/><tag k="camera:direction" v="45"/><tag k="operator" v="City of Melbourne"/><tag k="name" v="Do Not Emit"/></node>
+  <node id="1002" version="1" lat="-37.8140" lon="144.9640"><tag k="man_made" v="surveillance"/><tag k="surveillance" v="outdoor"/><tag k="operator" v="Joes Pizza"/><tag k="operator:type" v="private"/></node>
+  <node id="1003" version="1" lat="-37.8150" lon="144.9650"><tag k="man_made" v="surveillance"/><tag k="surveillance:type" v="guard"/></node>
+  <node id="2001" version="1" lat="-37.8200" lon="145.0000"/>
+  <node id="2002" version="1" lat="-37.8210" lon="145.0010"/>
+  <node id="2003" version="1" lat="-37.8220" lon="145.0020"><tag k="highway" v="speed_camera"/></node>
+  <node id="2004" version="1" lat="-37.8230" lon="145.0030"><tag k="highway" v="speed_camera"/></node>
+  <way id="3001" version="1"><nd ref="2003"/><nd ref="2004"/><tag k="highway" v="primary"/><tag k="name" v="Burwood Highway"/></way>
+  <way id="3002" version="1"><nd ref="2001"/><nd ref="2002"/><tag k="highway" v="residential"/></way>
+  <relation id="4001" version="1"><member type="node" ref="2001" role="device"/><tag k="type" v="enforcement"/><tag k="enforcement" v="traffic_signals"/></relation>
+</osm>
