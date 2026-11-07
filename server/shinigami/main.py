@@ -1,5 +1,7 @@
 """FastAPI app factory: routers first, static files mounted last."""
 
+import asyncio
+import contextlib
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -9,9 +11,11 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
 from shinigami.api import geocode, health, places, profile, stream, suggest, tiles
+from shinigami.cameras_store import CameraStore
 from shinigami.places import load_places
 from shinigami.providers.arpansa import ArpansaUvProvider
 from shinigami.providers.base import ProviderContext
+from shinigami.providers.cameras import CctvCameraProvider, RoadCameraProvider
 from shinigami.providers.sun import SunProvider
 from shinigami.providers.uv_window import UvWindowProvider
 from shinigami.runtime import EventBus, Runtime
@@ -33,7 +37,21 @@ NO_CACHE_PATHS = {"/", "/index.html", "/sw.js", "/manifest.webmanifest"}
 
 def create_app(settings: Settings | None = None, start_runtime: bool = True) -> FastAPI:
     settings = settings or get_settings()
-    providers = [SunProvider(), ArpansaUvProvider(), UvWindowProvider()]
+    cameras = CameraStore(settings.cameras_path)
+    cameras.load()  # startup file read, never in the request path
+    providers = [
+        SunProvider(),
+        ArpansaUvProvider(),
+        UvWindowProvider(),
+        CctvCameraProvider(cameras),
+        RoadCameraProvider(cameras),
+    ]
+
+    async def _reload_cameras() -> None:
+        while True:
+            await asyncio.sleep(300)
+            await asyncio.to_thread(cameras.reload_if_changed)
+
     ctx = ProviderContext(
         settings=settings,
         clock=time.time,
@@ -54,9 +72,14 @@ def create_app(settings: Settings | None = None, start_runtime: bool = True) -> 
             ctx.runtime = runtime
             app.state.runtime = runtime
             await runtime.start()
+        reload_task = asyncio.create_task(_reload_cameras()) if start_runtime else None
         try:
             yield
         finally:
+            if reload_task is not None:
+                reload_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await reload_task
             if runtime is not None:
                 await runtime.stop()
                 ctx.runtime = None
@@ -67,6 +90,7 @@ def create_app(settings: Settings | None = None, start_runtime: bool = True) -> 
     app.state.settings = settings
     app.state.ctx = ctx
     app.state.providers = providers
+    app.state.cameras = cameras
     app.state.tiles = TileStore(settings.tiles_path)
     app.state.places = {p.id: p for p in load_places(settings.places_path)}
 

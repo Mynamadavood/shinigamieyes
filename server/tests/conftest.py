@@ -19,6 +19,7 @@ def settings(tmp_path) -> Settings:
         db_path=tmp_path / "t.db",
         places_path=tmp_path / "places.toml",
         tiles_path=tmp_path / "tiles" / "t.pmtiles",
+        cameras_path=tmp_path / "cameras.json",
     )
 
 

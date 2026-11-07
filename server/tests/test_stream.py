@@ -35,11 +35,11 @@ async def test_event_stream_order_filter_and_unsubscribe(app, frozen_now):
     assert len(ctx.bus._subs) == 1  # subscribed by the time hello is out
     assert "server_time" in json.loads(first.data)
     layers = []
-    for _ in range(3):
+    for _ in range(5):
         ev = await gen.__anext__()
         assert ev.event == "layer"
         layers.append(json.loads(ev.data)["id"])
-    assert set(layers) == {"sun", "uv_now", "uv_window"}
+    assert set(layers) == {"sun", "uv_now", "uv_window", "cameras_cctv", "cameras_road"}
 
     def layer(i):
         return {"id": i, "status": "fresh", "rev": 1, "as_of": 1.0, "attribution": "", "items": []}

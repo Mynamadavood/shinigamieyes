@@ -22,6 +22,8 @@ class ProviderMeta:
     stale_after_s: int | None
     attribution: str
     interval_s: int | None = None
+    # True: computed from the exact point; never run for server-held place pins
+    exact_location_only: bool = False
 
 
 @dataclass
