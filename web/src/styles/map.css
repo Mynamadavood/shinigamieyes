@@ -72,7 +72,9 @@
   pointer-events: auto;
 }
 .recenter:active { background: var(--c-surface); }
-.recenter svg { width: 24px; height: 24px; }
+/* <use> of an external sprite does not inherit the sprite root's fill/stroke (iOS Safari),
+   so set them here like .tag-icon svg; without this the icon filled black and vanished. */
+.recenter svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; }
 .recenter.is-hidden { display: none; }
 
 /* long-press ring (D-07): 1px blue ring growing 8 -> 32 px radius over 500 ms */

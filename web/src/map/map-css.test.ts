@@ -13,4 +13,13 @@ describe("map host CSS", () => {
     expect(rule![1]).toMatch(/position:\s*fixed/);
     expect(rule![1]).toMatch(/inset:\s*0/);
   });
+
+  // Regression: <use> of /icons.svg does not inherit the sprite root's fill/stroke on iOS,
+  // so an icon without its own fill:none + stroke filled black and vanished (blank recenter box).
+  it("gives every sprite icon its own fill and stroke", () => {
+    const rule = css.match(/\.recenter svg\s*\{([^}]*)\}/);
+    expect(rule).not.toBeNull();
+    expect(rule![1]).toMatch(/fill:\s*none/);
+    expect(rule![1]).toMatch(/stroke:\s*currentColor/);
+  });
 });
