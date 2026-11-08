@@ -7,7 +7,9 @@ import httpx
 import pytest
 import uvicorn
 from shinigami.main import create_app
+from shinigami.geo import snap_cell
 from shinigami.places import load_places
+from shinigami.providers.sun import sun_boundaries
 
 HOME = (-37.7234, 145.0912)  # test-only fake coordinates (off the 0.1 degree cell centre)
 
@@ -88,16 +90,20 @@ async def test_places_empty_when_no_file(client):
 
 
 async def test_profile_place_pin(pclient):
+    before = time.time()
     r = await pclient.get("/api/profile", params={"place": "monash"})
     assert r.status_code == 200
     loc = r.json()["location"]
     assert loc["source"] == "pin" and loc["place_id"] == "monash"
     assert loc["label"] == "Monash Clayton"
     assert loc["lat"] is None and loc["lon"] is None
-    d = await pclient.get("/api/profile", params={"place": "cbd"})
+    # Sun times are computed for Monash's own cell. (Comparing against the CBD was flaky:
+    # the cells are 0.1 deg apart, under 30 s of solar time, so whole-minute times often match.)
+    cell = snap_cell(-37.9105, 145.1340)
+    assert cell != snap_cell(-37.8136, 144.9631)
     sun_m = {i["id"]: i["target_ts"] for i in r.json()["layers"]["sun"]["items"]}
-    sun_c = {i["id"]: i["target_ts"] for i in d.json()["layers"]["sun"]["items"]}
-    assert sun_m != sun_c  # computed at different coordinates
+    expected = {i.id: i.target_ts for i in sun_boundaries(cell.lat, cell.lon, before)}
+    assert sun_m and all(expected.get(k) == v for k, v in sun_m.items())
 
 
 async def test_home_pin_never_leaks_coordinates(pclient):
