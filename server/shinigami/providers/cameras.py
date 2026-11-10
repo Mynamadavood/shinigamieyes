@@ -8,7 +8,7 @@ from shinigami.schema import Item, Layer
 
 MAX_ITEMS = 60
 ATTRIBUTION = "© OpenStreetMap contributors (ODbL)"
-NAMES = {"cctv": "Camera", "speed": "Speed camera", "redlight": "Red-light camera"}
+NAMES = {"cctv": "Camera", "guard": "Guard post", "speed": "Speed camera", "redlight": "Red-light camera"}
 DETAIL_KEYS = ("camera_type", "direction", "operator", "surveillance", "road", "suburb")
 
 
@@ -82,7 +82,7 @@ class _CameraProvider(Provider):
 class CctvCameraProvider(_CameraProvider):
     layer_id = "cameras_cctv"
     radius_m = 150
-    kinds: ClassVar[set[str]] = {"cctv"}
+    kinds: ClassVar[set[str]] = {"cctv", "guard"}
     meta = ProviderMeta(
         id="cameras_cctv",
         tier="computed",

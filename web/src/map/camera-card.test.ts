@@ -22,6 +22,13 @@ describe("fmtDistance", () => {
 });
 
 describe("cameraCardContent", () => {
+  it("builds the guard post card", () => {
+    const c = cameraCardContent(item("guard", { operator: "Acme Security", phone: "1", name: "N" }), 30);
+    expect(c.title).toBe("GUARD POST");
+    expect(c.primary).toBe("30 m away");
+    expect(c.secondary).toEqual([["Operator", "Acme Security"]]);
+    expect(c.caveats).toEqual(["Source: OpenStreetMap", "Mapped, not exhaustive."]);
+  });
   it("builds the CCTV card with optional rows", () => {
     const c = cameraCardContent(item("cctv", { direction: "north-east", operator: "Test Council" }), 42);
     expect(c.title).toBe("CCTV CAMERA");

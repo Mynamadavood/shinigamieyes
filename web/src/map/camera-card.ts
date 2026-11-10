@@ -27,7 +27,7 @@ function text(detail: Record<string, unknown> | null, key: string): string | nul
   return t ? t.slice(0, MAX_TEXT) : null;
 }
 
-/** Card copy for a camera item. Distance is computed on the client from the live fix. */
+/** Card copy for a camera item. Distance comes from the live fix, the searched point, or (saved places) the server's detail.distance_m. */
 export function cameraCardContent(item: Item, distanceM: number): CardContent {
   const d = item.detail;
   const primary = `${fmtDistance(distanceM)} away`;
@@ -54,7 +54,7 @@ export function cameraCardContent(item: Item, distanceM: number): CardContent {
   if (operator) secondary.push(["Operator", operator]);
   if (surveillance) secondary.push(["Surveillance", surveillance]);
   return {
-    title: "CCTV CAMERA",
+    title: item.group === "guard" ? "GUARD POST" : "CCTV CAMERA",
     primary,
     secondary,
     caveats: ["Source: OpenStreetMap", "Mapped, not exhaustive."],

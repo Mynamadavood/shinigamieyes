@@ -38,6 +38,17 @@ def mk(tmp_path, cams):
     return s
 
 
+def test_guard_in_cctv_layer_not_road(tmp_path):
+    s = mk(tmp_path, [cam(1, "cctv", 50), cam(2, "guard", 60, operator="Acme Security")])
+    cctv = CctvCameraProvider(s).query(ctx(), LAT, LON, NOW)
+    assert cctv.items[0].detail["count"] == 2
+    g = [i for i in cctv.items if i.group == "guard"]
+    assert len(g) == 1 and g[0].name == "Guard post"
+    assert "alert" not in g[0].model_dump_json().lower()
+    road = RoadCameraProvider(s).query(ctx(), LAT, LON, NOW)
+    assert all(i.group != "guard" for i in road.items)
+
+
 def test_missing_file_pending(tmp_path):
     s = CameraStore(tmp_path / "none.json")
     s.load()
