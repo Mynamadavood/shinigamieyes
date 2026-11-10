@@ -13,6 +13,19 @@ export const BASE_FULL = 8;
 export const CLUSTER_PX = 96;
 export const CLUSTER_MAX = 6;
 
+/** CSS max-width of the label chip, used when the real width is not measurable */
+export const LABEL_MAX_W = 144;
+/** keep labels this far inside the viewport edge (same margin as the card) */
+export const LABEL_EDGE = 16;
+
+/** Which side of the icon the label chip goes: left only when right would clip and left fits. */
+export function labelSide(x: number, labelW: number, viewportW: number, iconW = 32): "right" | "left" {
+  const w = labelW > 0 ? labelW : LABEL_MAX_W;
+  const rightEnd = x + iconW / 2 + w;
+  const leftStart = x - iconW / 2 - w;
+  return rightEnd > viewportW - LABEL_EDGE && leftStart >= LABEL_EDGE ? "left" : "right";
+}
+
 export type TagIcon = "cctv" | "speed-cam" | "redlight-cam";
 
 export interface TagCand {
@@ -89,6 +102,7 @@ export interface TagLayerDeps {
   map: TagMapLike;
   card: Card;
   createMarker(el: HTMLElement): MarkerLike;
+  viewportWidth?(): number;
 }
 
 interface Entry {
@@ -110,6 +124,7 @@ function iconFor(group: string): TagIcon {
 }
 
 function spokenType(group: string): string {
+  if (group === "guard") return "Guard post";
   return group === "speed" ? "Speed camera" : group === "redlight" ? "Red-light camera" : "CCTV camera";
 }
 
@@ -256,6 +271,13 @@ export class TagLayer {
       e.el.classList.toggle("full", isFull);
       e.el.classList.toggle("compact", !isFull);
       e.el.classList.toggle("near", red.has(c.id));
+      if (isFull) {
+        const chip = e.el.querySelector<HTMLElement>(".tag-label");
+        const vw = this.deps.viewportWidth ? this.deps.viewportWidth() : window.innerWidth;
+        e.el.classList.toggle("flip", labelSide(c.x, chip?.offsetWidth ?? 0, vw) === "left");
+      } else {
+        e.el.classList.remove("flip");
+      }
       e.el.setAttribute("aria-label", `${spokenType(l.item.group)}, ${spokenDistance(c.dist)} away`);
     }
     for (const [id, e] of this.entries) {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { MAX_FULL, MAX_TOTAL, NEAR_M, RED_CAP, EXPAND_ZOOM, assignTags, rankTags, TagLayer, type TagCand } from "./tags";
+import { MAX_FULL, MAX_TOTAL, NEAR_M, RED_CAP, EXPAND_ZOOM, assignTags, labelSide, rankTags, TagLayer, type TagCand } from "./tags";
 
 function cand(i: number, p: Partial<TagCand> = {}): TagCand {
   return { id: `c${i}`, x: i * 300, y: 0, dist: 100 + i, label: "Camera", icon: "cctv", ...p };
@@ -87,5 +87,67 @@ describe("TagLayer server origin", () => {
     expect(added).toHaveLength(2);
     expect(added.filter((e) => e.classList.contains("near"))).toHaveLength(1);
     expect(added[0].getAttribute("aria-label")).toContain("10 metres");
+  });
+});
+
+describe("labelSide", () => {
+  it("keeps the label on the right when it fits", () => {
+    expect(labelSide(100, 120, 390)).toBe("right");
+  });
+  it("flips left near the right edge", () => {
+    expect(labelSide(330, 120, 390)).toBe("left");
+  });
+  it("does not flip when neither side fits", () => {
+    expect(labelSide(40, 360, 390)).toBe("right");
+  });
+  it("falls back to the CSS max width", () => {
+    expect(labelSide(330, 0, 390)).toBe("left");
+    expect(labelSide(100, 0, 390)).toBe("right");
+  });
+});
+
+describe("TagLayer flip and guard", () => {
+  const mk = (id: string, lon: number, group = "cctv"): any => ({
+    id, layer: "cameras_cctv", group, name: "Camera", verb: "", target_ts: null, kind: "static",
+    severity: 0, detail: { distance_m: 100 }, geom: { type: "Point", coordinates: [lon, -37.8] },
+    fetched_at: 0, stale_after_s: null, computed: true,
+  });
+  const setup = (zoom = 15) => {
+    const added: HTMLElement[] = [];
+    const marker: any = { setLngLat: () => marker, addTo: () => marker, remove: () => marker };
+    const layer = new TagLayer({
+      map: { project: (l) => ({ x: l[0], y: 0 }), getZoom: () => zoom, on: vi.fn() },
+      card: { isOpen: () => false, update: vi.fn(), close: vi.fn(), open: vi.fn() } as any,
+      createMarker: (el) => {
+        added.push(el);
+        return marker;
+      },
+      viewportWidth: () => 390,
+    });
+    layer.setOrigin("server");
+    return { layer, added };
+  };
+
+  it("flips only the full tag near the right edge", () => {
+    const { layer, added } = setup();
+    layer.update([mk("a", 340), mk("b", 100)]);
+    const byX = (x: number) => added[x];
+    expect(byX(0).classList.contains("full")).toBe(true);
+    expect(byX(0).classList.contains("flip")).toBe(true);
+    expect(byX(1).classList.contains("flip")).toBe(false);
+  });
+
+  it("never flips a compact tag", () => {
+    const { layer, added } = setup();
+    // same spot: the second overlaps the first and is demoted to compact
+    layer.update([mk("a", 340), mk("b", 341)]);
+    const compact = added.find((e) => e.classList.contains("compact"))!;
+    expect(compact.classList.contains("flip")).toBe(false);
+  });
+
+  it("announces guard posts", () => {
+    const { layer, added } = setup();
+    layer.update([mk("g", 100, "guard")]);
+    expect(added[0].getAttribute("aria-label")).toMatch(/^Guard post, /);
   });
 });

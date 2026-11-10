@@ -58,6 +58,7 @@
   text-overflow: ellipsis;
 }
 .map-tag.full .tag-label { display: flex; }
+.map-tag.flip .tag-label { left: auto; right: calc(50% + var(--tag-icon) / 2 - var(--bw)); }
 
 .tag-tick {
   position: absolute;
