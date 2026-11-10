@@ -7,7 +7,7 @@ from shinigami.data.refresh_cameras import (
     direction_words,
     enforcement_kind,
     main,
-    public_operator,
+    shown_operator,
 )
 
 FIX = Path(__file__).parent / "fixtures" / "enforcement.osm"
@@ -21,21 +21,35 @@ def test_direction(raw, exp):
     assert direction_words(raw) == exp
 
 
-def test_public_operator():
-    assert public_operator({"operator": "City of Melbourne"}) == "City of Melbourne"
-    assert public_operator({"operator": "Joes Pizza", "operator:type": "private"}) is None
-    assert public_operator({"operator": "Some Shop"}) is None
-    assert public_operator({"operator": "X", "operator:type": "government"}) == "X"
-    for n in ["Shire of X", "Department of Y", "Victoria Police", "VicRoads", "Public Transport Victoria",
-              "Metro Trains", "Yarra Trams", "V/Line", "Boroondara COUNCIL"]:
-        assert public_operator({"operator": n}) == n
+def test_shown_operator():
+    assert shown_operator({"operator": "Joes Pizza"}) == "Joes Pizza"
+    assert shown_operator({"operator": "City of Melbourne"}) == "City of Melbourne"
+    for t in ("private", "individual", "personal"):
+        assert shown_operator({"operator": "X", "operator:type": t}) is None
+    assert shown_operator({"operator": "X", "operator:type": "government"}) == "X"
+    for b in ("house", "residential", "apartments", "detached", "semidetached_house", "terrace"):
+        assert shown_operator({"operator": "Acme", "building": b}) is None
+    assert shown_operator({"operator": "Acme", "addr:housenumber": "12"}) is None
+    for k in ("shop", "amenity", "office", "tourism", "leisure"):
+        assert shown_operator({"operator": "Acme", "addr:housenumber": "12", k: "y"}) == "Acme"
+    for v in ("a@b.c", "see http://x", "www.x.com", "0412345678"):
+        assert shown_operator({"operator": v}) is None
+    assert shown_operator({"operator": "   "}) is None
+    assert shown_operator({}) is None
 
 
 def test_cctv_record_filters():
-    assert cctv_record(1, 0, 0, {"man_made": "surveillance", "surveillance:type": "guard"}) is None
     assert cctv_record(1, 0, 0, {"highway": "x"}) is None
+    g = cctv_record(1, 0, 0, {"man_made": "surveillance", "surveillance:type": "guard"})
+    assert g["k"] == "guard"
     r = cctv_record(1, 1, 2, {"man_made": "surveillance", "name": "n"})
     assert "name" not in r and r["k"] == "cctv"
+    r = cctv_record(1, 1, 2, {
+        "man_made": "surveillance", "name": "n", "contact:phone": "1", "phone": "2",
+        "email": "e", "website": "w", "contact:email": "x", "operator": "Z", "operator:type": "private",
+    })
+    assert set(r) <= {"id", "k", "lat", "lon", "camera_type", "direction", "operator", "surveillance", "suburb"}
+    assert "operator" not in r
 
 
 def test_enforcement_kind():
@@ -54,7 +68,8 @@ def test_end_to_end(tmp_path):
     by = {c["id"]: c for c in d["cameras"]}
     assert by["n2001"]["k"] == "redlight"
     assert by["n2003"]["k"] == "speed" and by["n2003"]["road"] == "Burwood Highway"
-    assert "n1003" not in by
+    assert by["n1003"]["k"] == "guard" and by["n1003"]["operator"] == "Acme Security"
     assert "operator" not in by["n1002"]
     assert by["n1001"]["operator"] == "City of Melbourne" and by["n1001"]["direction"] == "north-east"
-    assert all("name" not in c for c in d["cameras"])
+    banned = {"name", "phone", "email", "website"}
+    assert all(not (banned & set(c)) and not any(k.startswith("contact") for k in c) for c in d["cameras"])

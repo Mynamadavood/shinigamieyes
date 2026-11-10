@@ -1,9 +1,11 @@
 """Weekly job: Geofabrik Victoria PBF -> cameras.json (CCTV, speed, red-light).
 
-Privacy rules (PROVISIONAL decision 2, David to confirm in 02-14):
-- surveillance:type=guard (a person) is never emitted.
-- operator is kept only for public bodies; dropped when uncertain.
-- no name field is ever emitted; output prints counts only, never coordinates.
+Privacy rules (David's decision 2026-11-10):
+- surveillance:type=guard is emitted as k=guard (a mapped place, not a person).
+- operator is kept unless operator:type is private/individual/personal, the node
+  is a residential spot, or the value looks like contact details.
+- no name or contact field (contact:*, phone, email, website) is ever emitted;
+  output prints counts only, never coordinates.
 """
 from __future__ import annotations
 
@@ -21,11 +23,9 @@ _COMPASS = {
     "N": 0, "NNE": 22.5, "NE": 45, "ENE": 67.5, "E": 90, "ESE": 112.5, "SE": 135, "SSE": 157.5,
     "S": 180, "SSW": 202.5, "SW": 225, "WSW": 247.5, "W": 270, "WNW": 292.5, "NW": 315, "NNW": 337.5,
 }
-_PUBLIC_RE = re.compile(
-    r"council|city of|shire|department|government|victoria police|vicroads|"
-    r"public transport victoria|metro trains|yarra trams|v/line",
-    re.IGNORECASE,
-)
+_RESIDENTIAL_BUILDINGS = {"house", "residential", "apartments", "detached", "semidetached_house", "terrace"}
+_COMMERCIAL_KEYS = ("shop", "amenity", "office", "tourism", "leisure")
+_CONTACT_RE = re.compile(r"@|https?:|www\.|\d{6,}", re.IGNORECASE)
 
 
 def direction_words(raw):
@@ -43,16 +43,21 @@ def direction_words(raw):
     return _WORDS[round((deg % 360) / 45) % 8]
 
 
-def public_operator(tags):
-    op = tags.get("operator")
+def _residential(tags):
+    if tags.get("building") in _RESIDENTIAL_BUILDINGS:
+        return True
+    return bool(tags.get("addr:housenumber")) and not any(tags.get(k) for k in _COMMERCIAL_KEYS)
+
+
+def shown_operator(tags):
+    op = (tags.get("operator") or "").strip()
     if not op:
         return None
-    optype = tags.get("operator:type")
-    if optype in ("public", "government"):
-        return op
-    if optype:
+    if tags.get("operator:type") in ("private", "individual", "personal"):
         return None
-    return op if _PUBLIC_RE.search(op) else None
+    if _residential(tags) or _CONTACT_RE.search(op):
+        return None
+    return op
 
 
 def enforcement_kind(value):
@@ -68,15 +73,17 @@ def _base(node_id, lat, lon, kind):
 
 
 def cctv_record(node_id, lat, lon, tags):
-    if tags.get("man_made") != "surveillance" or tags.get("surveillance:type") == "guard":
+    if tags.get("man_made") != "surveillance":
         return None
-    rec = _base(node_id, lat, lon, "cctv")
+    # Whitelist copy only: name, contact:*, phone, email, website are never copied.
+    kind = "guard" if tags.get("surveillance:type") == "guard" else "cctv"
+    rec = _base(node_id, lat, lon, kind)
     if tags.get("camera:type"):
         rec["camera_type"] = tags["camera:type"]
     d = direction_words(tags.get("camera:direction") or tags.get("direction"))
     if d:
         rec["direction"] = d
-    op = public_operator(tags)
+    op = shown_operator(tags)
     if op:
         rec["operator"] = op
     if tags.get("surveillance") in ("public", "outdoor", "indoor"):
@@ -144,7 +151,7 @@ def build(path):
     if road_ids:
         Ways().apply_file(str(path))
     for c in cameras:
-        if c["k"] != "cctv":
+        if c["k"] in ("speed", "redlight"):
             r = roads.get(int(c["id"][1:]))
             if r:
                 c["road"] = r
@@ -161,8 +168,8 @@ def main(argv=None):
     tmp = out.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
     os.replace(tmp, out)
-    counts = {k: sum(1 for c in data["cameras"] if c["k"] == k) for k in ("cctv", "speed", "redlight")}
-    print("cctv={cctv} speed={speed} redlight={redlight}".format(**counts))
+    counts = {k: sum(1 for c in data["cameras"] if c["k"] == k) for k in ("cctv", "guard", "speed", "redlight")}
+    print("cctv={cctv} guard={guard} speed={speed} redlight={redlight}".format(**counts))
     return 0
 
 

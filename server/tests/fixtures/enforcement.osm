@@ -2,7 +2,7 @@
 <osm version="0.6" generator="fixture">
   <node id="1001" version="1" lat="-37.8136" lon="144.9631"><tag k="man_made" v="surveillance"/><tag k="surveillance" v="public"/><tag k="camera:type" v="dome"/><tag k="camera:direction" v="45"/><tag k="operator" v="City of Melbourne"/><tag k="name" v="Do Not Emit"/></node>
   <node id="1002" version="1" lat="-37.8140" lon="144.9640"><tag k="man_made" v="surveillance"/><tag k="surveillance" v="outdoor"/><tag k="operator" v="Joes Pizza"/><tag k="operator:type" v="private"/></node>
-  <node id="1003" version="1" lat="-37.8150" lon="144.9650"><tag k="man_made" v="surveillance"/><tag k="surveillance:type" v="guard"/></node>
+  <node id="1003" version="1" lat="-37.8150" lon="144.9650"><tag k="man_made" v="surveillance"/><tag k="surveillance:type" v="guard"/><tag k="operator" v="Acme Security"/></node>
   <node id="2001" version="1" lat="-37.8200" lon="145.0000"/>
   <node id="2002" version="1" lat="-37.8210" lon="145.0010"/>
   <node id="2003" version="1" lat="-37.8220" lon="145.0020"><tag k="highway" v="speed_camera"/></node>
