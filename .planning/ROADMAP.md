@@ -87,7 +87,7 @@ Plans:
   4. David sees mapped CCTV within about 150 m labelled "mapped, not exhaustive", and fixed speed/red-light cameras as static info only
   5. The map stays smooth on the real iPhone with tags capped to a budget
 
-**Plans:** 13/14 plans executed
+**Plans:** 13/18 plans executed
 
 Plans:
 **Wave 1**
@@ -124,6 +124,13 @@ Plans:
 **Wave 7** *(blocked on Wave 6 completion)*
 
 - [ ] 02-14-PLAN.md — Redeploy, remote verify and iPhone Gate 3 phase acceptance (wave 7)
+
+**Gap closure** *(Gate 3 fixes, 02-UAT.md; 02-14 closes after 02-18)*
+
+- [ ] 02-15-PLAN.md — Saved-place cameras except Home (fail-closed flag), server distances for pin views, verify place checks (gap wave 1)
+- [ ] 02-16-PLAN.md — Guard posts and owner names under the private/residential rule (gap wave 1)
+- [ ] 02-17-PLAN.md — Tag labels flip at the screen edge; info card avoids covering tags (gap wave 2)
+- [ ] 02-18-PLAN.md — Push on David's word, SSH deploy, camera job, remote verify, iPhone re-check and Gate 3 GO (gap wave 3)
 
 **UI hint**: yes
 
