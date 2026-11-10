@@ -112,8 +112,7 @@ hud10_checks() {
   code="$(http_code "$base/api/places")"
   local lines="" line pid nocam_ids="" cam_ids="" bad=""
   if [ "$code" = "200" ]; then
-    lines="$(curl -s --max-time 10 "$base/api/places" 2>/dev/null | tr -d '\r' | sed 's/},{/}
-{/g' || true)"
+    lines="$(curl -s --max-time 10 "$base/api/places" 2>/dev/null | tr -d '\r' | sed 's/},{/}\n{/g' || true)"
   fi
   while IFS= read -r line; do
     [ -z "$line" ] && continue
