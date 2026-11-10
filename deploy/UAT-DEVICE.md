@@ -53,26 +53,35 @@ Automated pre-check:
   - Extract: `greater-melbourne.pmtiles` 125 MB (dry-run estimate 130 MB); CT root 7.8 G, 5.6 G free after provisioning
   - Camera job (`shinigami-data.service`, 3 min, 249 MB peak): `cctv=674 speed=189 redlight=136`; cameras.json 82 KB; server picked it up on its 5-minute re-read with no restart; weekly timer armed
   - Bring-up fixes: pmtiles PATH under `pct exec` (b6a75d7); tile check uses GET + `Accept-Encoding: gzip`, CR-safe tile maths, data unit runs the script via bash (1dad315)
-- (02-14 adds its pre-check here)
+- 02-14 final pre-check (2026-11-08, deployed 8579cf1, run by Claude over SSH and the tailnet):
+  - `verify.sh --local` (in CT): `{"mode":"local","pass":25,"fail":0,"skip":0,"p95_ms":2}`
+  - `verify.sh --remote` (dev PC over tailnet): `{"mode":"remote","pass":21,"fail":0,"skip":0,"p95_ms":44}`
+  - `/api/tiles/meta`: `status ok`, minzoom 0, maxzoom 15; `/sw.js` HTTP 200
+  - Camera data refreshed by the weekly timer 2026-11-08 (next run 2026-11-15)
+  - Local suites: pytest 125 passed / 1 skipped, web 241 passed, build clean. A date-dependent sun-time test was fixed (1c446e8, test only)
+  - Device notes (minor, follow-up): the `Speed camera` tag label clips at the screen edge; an open card can cover nearby tags
+- Fixes found during Wave 6 device checks: map host collapsed to 0 px under maplibre-gl.css (04776d9); fonts inlined as data: URLs blocked by CSP (46c4cd8); blank recenter icon on iOS (8579cf1)
 
-- [ ] Hero on cold open: force-quit, launch from the home screen; red eyes play for 1.5 s or less (stopwatch) with cached rows already visible underneath. Result / notes:
-- [ ] Tapping anywhere (or the x box) during the hero skips straight to the map. Result / notes:
-- [ ] Hero does not replay when returning to the app from the background. Result / notes:
-- [ ] Reduced motion (Settings > Accessibility > Motion > Reduce Motion on): hero is a still frame of about 0.7 s, no flash, still skippable. Result / notes:
-- [ ] 3D map look: tilted about 60 degrees, dark land, blue extruded buildings, street labels at zoom 16 and closer. Result / notes:
-- [ ] Smoothness: pan and zoom over the CBD with tags on; no visible stutter, labelled tags capped (about 20, rest as small icons). Result / notes:
-- [ ] Offline: view an area, turn Tailscale off, force-quit, reopen; tiles already seen still draw, unseen areas show the dark grid, OFF-GRID banner shows. Result / notes:
-- [ ] Zero third-party requests: Safari Web Inspector Network tab (from the PC/Mac) on a cold open; every request host is the ts.net origin. Result / notes:
-- [ ] Camera count readout reads like `6 cameras · 150 m · mapped, not exhaustive` and a CCTV card says `Mapped, not exhaustive.`. Result / notes:
-- [ ] Speed/red-light camera card says `Static info only.` and `Source: OpenStreetMap`. Result / notes:
-- [ ] Camera tags are blue, and turn red within about 30 m (at most 3 red at once). Result / notes:
-- [ ] Long-press (half a second) drops a blue pin; the strip reads `PIN · Dropped pin`; `Use GPS` on its card returns to GPS. Result / notes:
-- [ ] Drawer: drag the handle, flick, and tap the handle to move between peek, half and full. Result / notes:
-- [ ] Recenter button appears after panning and snaps the map back to you. Result / notes:
-- [ ] Tapping a building turns it solid red with a `BUILDING` card; everything else stays blue. Result / notes:
-- [ ] Your position shows as the small red suited-figure marker with a faint accuracy ring. Result / notes:
-- [ ] Saved place (e.g. Home): map shows the area, no Home marker, readout says cameras are not shown for saved places. Result / notes:
-- [ ] CBD buildings with parts do not show doubled or flickering extrusions (building_part check). Result / notes:
-- [ ] Provisional decisions confirmed or changed: saved places show no cameras; guard cameras excluded and private operator names dropped; `Source: OpenStreetMap` / colour-only building highlight / `BUILDING` title; server-side map tiles. Result / notes:
+- [x] Hero on cold open: force-quit, launch from the home screen; red eyes play for 1.5 s or less (stopwatch) with cached rows already visible underneath. Result / notes: pass (David, iPhone, 2026-11-10)
+- [x] Tapping anywhere (or the x box) during the hero skips straight to the map. Result / notes: pass (David, iPhone, 2026-11-10)
+- [x] Hero does not replay when returning to the app from the background. Result / notes: pass (David, iPhone, 2026-11-10)
+- [~] Reduced motion (Settings > Accessibility > Motion > Reduce Motion on): hero is a still frame of about 0.7 s, no flash, still skippable. Result / notes: SKIPPED by David (not tried); still frame covered by hero tests
+- [x] 3D map look: tilted about 60 degrees, dark land, blue extruded buildings, street labels at zoom 16 and closer. Result / notes: pass (David, iPhone, 2026-11-07/10; CBD screenshots show tilt, blue extrusions, dark land; labels at close zoom confirmed)
+- [x] Smoothness: pan and zoom over the CBD with tags on; no visible stutter, labelled tags capped (about 20, rest as small icons). Result / notes: pass (David, iPhone, 2026-11-10, CBD walk)
+- [x] Offline: view an area, turn Tailscale off, force-quit, reopen; tiles already seen still draw, unseen areas show the dark grid, OFF-GRID banner shows. Result / notes: pass (David, iPhone, 2026-11-10)
+- [~] Zero third-party requests: Safari Web Inspector Network tab (from the PC/Mac) on a cold open; every request host is the ts.net origin. Result / notes: SKIPPED: no Mac for Safari Web Inspector. Covered by verify.sh `csp_header`, `dist_no_cdn_hosts`, `dist_no_inline_fonts` and the `connect-src 'self'` CSP, which blocks any other host
+- [x] Camera count readout reads like `6 cameras · 150 m · mapped, not exhaustive` and a CCTV card says `Mapped, not exhaustive.`. Result / notes: pass (David, iPhone, 2026-11-07 screenshots: `4 cameras · 150 m · mapped, not exhaustive`; zero case `0 mapped cameras · 150 m · not exhaustive`; CCTV card `Mapped, not exhaustive.`)
+- [x] Speed/red-light camera card says `Static info only.` and `Source: OpenStreetMap`. Result / notes: pass (David, iPhone, 2026-11-10)
+- [x] Camera tags are blue, and turn red within about 30 m (at most 3 red at once). Result / notes: pass (David, iPhone, 2026-11-10); David asked for a double-check: code reviewed 2026-11-10, red only within 30 m, capped at 3 nearest (`assignTags`, test `reds only the 3 nearest within 30 m`), re-ranked on every GPS fix
+- [x] Long-press (half a second) drops a blue pin; the strip reads `PIN · Dropped pin`; `Use GPS` on its card returns to GPS. Result / notes: pass (David, iPhone, 2026-11-10)
+- [x] Drawer: drag the handle, flick, and tap the handle to move between peek, half and full. Result / notes: pass (David, iPhone, 2026-11-10)
+- [x] Recenter button appears after panning and snaps the map back to you. Result / notes: pass (David, iPhone, 2026-11-08, after the iOS icon fix 8579cf1)
+- [x] Tapping a building turns it solid red with a `BUILDING` card; everything else stays blue. Result / notes: pass (David, iPhone, 2026-11-07 screenshot: red building, card `Height: 125 m`)
+- [x] Your position shows as the small red suited-figure marker with a faint accuracy ring. Result / notes: pass (David, iPhone, 2026-11-07 screenshots)
+- [x] Saved place (e.g. Home): map shows the area, no Home marker, readout says cameras are not shown for saved places. Result / notes: pass as built (David, iPhone, 2026-11-10); decision 1 flipped below
+- [x] CBD buildings with parts do not show doubled or flickering extrusions (building_part check). Result / notes: pass (David, iPhone, 2026-11-10: no doubling or flicker seen)
+- [x] Provisional decisions confirmed or changed: saved places show no cameras; guard cameras excluded and private operator names dropped; `Source: OpenStreetMap` / colour-only building highlight / `BUILDING` title; server-side map tiles. Result / notes: (1) no cameras for saved places: FLIPPED, show cameras for every saved place except Home (Home stays hidden so its location never reaches the phone); (2) guards excluded / private operators dropped: FLIPPED, show guard posts and owner names unless OSM marks the owner private or the camera sits on a residential spot; (3) `Source: OpenStreetMap`, colour-only highlight, `BUILDING` title: CONFIRMED; (4) server-side tiles: CONFIRMED (David, 2026-11-10)
+
+Go / No-go: PENDING. David chose to fix first (2026-11-10): decisions 1 and 2 plus the clipped tag label and card-over-tags layout go in a gap plan (see 02-UAT.md), then GO.
 
 Sign-off (David): ______________________  Date: __________
