@@ -24,28 +24,61 @@ export interface CardOpts {
 
 const EDGE = 16;
 
-/** Pure card placement: right of the tag, else left, else above (UI-SPEC "Floating Info Card"). */
+export type Side = "right" | "left" | "above" | "below";
+
+const ORDER: Side[] = ["right", "left", "above", "below"];
+
+function overlaps(a: Rect, b: Rect): boolean {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
+
+/**
+ * Pure card placement (UI-SPEC "Floating Info Card"): right, left, above, below of the tag.
+ * Each side that fits is scored by how many `avoid` rects it would cover; lowest wins, ties go
+ * to `prefer`, then to the order right, left, above, below. Nothing fits: clamped above.
+ */
 export function placeCard(
   tag: Rect,
   card: { w: number; h: number },
   viewport: { w: number; h: number },
   safe: { top: number; bottom: number },
   gap = 16,
-): { x: number; y: number; side: "right" | "left" | "above" } {
+  avoid: Rect[] = [],
+  prefer?: Side,
+): { x: number; y: number; side: Side } {
   const minY = safe.top;
   const maxY = Math.max(minY, viewport.h - safe.bottom - card.h);
   const clampY = (y: number) => Math.min(Math.max(y, minY), maxY);
   const cy = clampY(tag.y + tag.h / 2 - card.h / 2);
-
-  const rx = tag.x + tag.w + gap;
-  if (rx + card.w <= viewport.w - EDGE) return { x: rx, y: cy, side: "right" };
-  const lx = tag.x - gap - card.w;
-  if (lx >= EDGE) return { x: lx, y: cy, side: "left" };
   const ax = Math.min(
     Math.max(tag.x + tag.w / 2 - card.w / 2, EDGE),
     Math.max(EDGE, viewport.w - EDGE - card.w),
   );
-  return { x: ax, y: clampY(tag.y - gap - card.h), side: "above" };
+
+  const cands: Array<{ x: number; y: number; side: Side }> = [];
+  const rx = tag.x + tag.w + gap;
+  if (rx + card.w <= viewport.w - EDGE) cands.push({ x: rx, y: cy, side: "right" });
+  const lx = tag.x - gap - card.w;
+  if (lx >= EDGE) cands.push({ x: lx, y: cy, side: "left" });
+  if (tag.y - gap - card.h >= safe.top) cands.push({ x: ax, y: tag.y - gap - card.h, side: "above" });
+  const by = tag.y + tag.h + gap;
+  if (by + card.h <= viewport.h - safe.bottom) cands.push({ x: ax, y: by, side: "below" });
+  if (cands.length === 0) return { x: ax, y: clampY(tag.y - gap - card.h), side: "above" };
+
+  const score = (c: { x: number; y: number }) =>
+    avoid.filter((r) => overlaps({ x: c.x, y: c.y, w: card.w, h: card.h }, r)).length;
+  let best = cands[0];
+  let bestScore = score(best);
+  for (const c of cands.slice(1)) {
+    const sc = score(c);
+    const better =
+      sc < bestScore || (sc === bestScore && c.side === prefer && best.side !== prefer);
+    if (better) {
+      best = c;
+      bestScore = sc;
+    }
+  }
+  return best;
 }
 
 function row(cls: string, text: string): HTMLElement {
@@ -62,6 +95,7 @@ export class Card {
   private anchor: HTMLElement | null = null;
   private opts: CardOpts = {};
   private openState = false;
+  private side: Side | undefined;
 
   constructor(
     parent: HTMLElement = document.body,
@@ -99,6 +133,7 @@ export class Card {
       this.opts = {};
       prev?.();
     }
+    if (this.anchor !== anchor) this.side = undefined;
     this.anchor = anchor;
     this.opts = opts;
     const near = opts.near === true;
@@ -151,7 +186,27 @@ export class Card {
     const cr = this.root.getBoundingClientRect();
     const w = cr.width || 224;
     const h = cr.height || 96;
-    const p = placeCard(tag, { w, h }, { w: window.innerWidth, h: window.innerHeight }, this.safe());
+    const avoid: Rect[] = [];
+    for (const t of document.querySelectorAll<HTMLElement>(".map-tag")) {
+      if (t === a || a.contains(t) || t.contains(a)) continue;
+      const rects = [t.querySelector<HTMLElement>(".tag-icon")];
+      if (t.classList.contains("full")) rects.push(t.querySelector<HTMLElement>(".tag-label"));
+      for (const el of rects) {
+        if (!el) continue;
+        const b = el.getBoundingClientRect();
+        if (b.width > 0 && b.height > 0) avoid.push({ x: b.left, y: b.top, w: b.width, h: b.height });
+      }
+    }
+    const p = placeCard(
+      tag,
+      { w, h },
+      { w: window.innerWidth, h: window.innerHeight },
+      this.safe(),
+      16,
+      avoid,
+      this.side,
+    );
+    this.side = p.side;
     this.root.style.left = `${Math.round(p.x)}px`;
     this.root.style.top = `${Math.round(p.y)}px`;
     this.root.classList.remove("is-hidden");
@@ -166,6 +221,7 @@ export class Card {
     const anchor = this.anchor;
     const cb = this.opts.onClose;
     this.anchor = null;
+    this.side = undefined;
     this.opts = {};
     cb?.();
     if (anchor && anchor.isConnected) anchor.focus({ preventScroll: true });

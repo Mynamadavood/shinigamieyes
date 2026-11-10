@@ -28,7 +28,41 @@ describe("placeCard", () => {
   });
 });
 
+describe("placeCard avoidance", () => {
+  const tag = { x: 300, y: 300, w: 32, h: 32 };
+  const blockRight = { x: 350, y: 300, w: 40, h: 32 };
+  const blockLeft = { x: 250, y: 300, w: 40, h: 32 };
+  it("goes left when the right slot is covered", () => {
+    expect(placeCard(tag, CARD, { w: 700, h: 800 }, SAFE, 16, [blockRight]).side).toBe("left");
+  });
+  it("goes above when right and left are covered", () => {
+    const p = placeCard(tag, CARD, { w: 700, h: 800 }, SAFE, 16, [blockRight, blockLeft]);
+    expect(p.side).toBe("above");
+  });
+  it("goes below when right, left and above are covered", () => {
+    const above = { x: 200, y: 200, w: 200, h: 40 };
+    const p = placeCard(tag, CARD, { w: 700, h: 800 }, SAFE, 16, [blockRight, blockLeft, above]);
+    expect(p).toMatchObject({ side: "below", y: 300 + 32 + 16 });
+  });
+  it("prefers the previous side on a tie", () => {
+    const t = { x: 300, y: 300, w: 32, h: 32 };
+    expect(placeCard(t, CARD, { w: 700, h: 800 }, SAFE, 16, [], "left").side).toBe("left");
+    expect(placeCard(t, CARD, { w: 700, h: 800 }, SAFE, 16, [], undefined).side).toBe("right");
+  });
+  it("falls back to clamped above when nothing fits", () => {
+    const p = placeCard({ x: 10, y: 20, w: 32, h: 32 }, CARD, { w: 200, h: 200 }, SAFE);
+    expect(p.side).toBe("above");
+    expect(p.y).toBe(60);
+  });
+});
+
 describe("leaderPoints", () => {
+  it("runs from the tag bottom edge to a card below", () => {
+    const p = leaderPoints({ x: 96, y: 100, w: 32, h: 32 }, { x: 0, y: 148, w: 224, h: 100 });
+    expect(p.y1).toBe(132);
+    expect(p.y2).toBe(148);
+    expect(p.x2).toBe(112);
+  });
   it("runs from the tag edge to the card's near edge midpoint", () => {
     const p = leaderPoints({ x: 0, y: 100, w: 32, h: 32 }, { x: 48, y: 80, w: 224, h: 100 });
     expect(p).toEqual({ x1: 32, y1: 116, x2: 48, y2: 130 });
@@ -61,6 +95,27 @@ describe("Card", () => {
     expect(d.getAttribute("aria-label")).toBe("<b>x</b>");
     expect(d.querySelector("b")).toBeNull();
     expect(d.textContent).toContain("Type: dome");
+  });
+
+  it("places the card left when another tag covers the right slot", () => {
+    const rect = (x: number, y: number, w: number, h: number) =>
+      ({ left: x, top: y, width: w, height: h, right: x + w, bottom: y + h, x, y, toJSON() {} }) as DOMRect;
+    anchor.className = "map-tag";
+    const icon = document.createElement("div");
+    icon.className = "tag-icon";
+    anchor.append(icon);
+    vi.spyOn(icon, "getBoundingClientRect").mockReturnValue(rect(600, 300, 32, 32));
+    const other = document.createElement("div");
+    other.className = "map-tag";
+    const oi = document.createElement("div");
+    oi.className = "tag-icon";
+    other.append(oi);
+    document.body.append(other);
+    vi.spyOn(oi, "getBoundingClientRect").mockReturnValue(rect(660, 300, 32, 32));
+    Object.defineProperty(window, "innerWidth", { value: 1200, configurable: true });
+    card.open(anchor, content);
+    const root = document.querySelector<HTMLElement>(".card")!;
+    expect(parseInt(root.style.left, 10)).toBeLessThan(600);
   });
 
   it("marks near cards and calls onClose once", () => {
