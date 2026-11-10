@@ -110,15 +110,38 @@ hud10_checks() {
   fi
 
   code="$(http_code "$base/api/places")"
-  id=""
+  local lines="" line pid nocam_ids="" cam_ids="" bad=""
   if [ "$code" = "200" ]; then
-    body="$(curl -s --max-time 10 "$base/api/places" 2>/dev/null || true)"
-    id="$(printf '%s' "$body" | sed -n 's/.*"id" *: *"\([^"]*\)".*/\1/p' | head -n1)"
+    lines="$(curl -s --max-time 10 "$base/api/places" 2>/dev/null | tr -d '' | sed 's/},{/}
+{/g' || true)"
   fi
-  if [ -z "$id" ]; then skip place_no_cameras "no saved places"
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    pid="$(printf '%s' "$line" | sed -n 's/.*"id" *: *"\([^"]*\)".*/\1/p')"
+    [ -z "$pid" ] && continue
+    if printf '%s' "$line" | grep -qE '"cameras" *: *false'; then nocam_ids="$nocam_ids $pid"
+    elif printf '%s' "$line" | grep -qE '"cameras" *: *true'; then cam_ids="$cam_ids $pid"; fi
+  done <<EOF_PLACES
+$lines
+EOF_PLACES
+  if [ -z "$nocam_ids$cam_ids" ]; then skip place_no_cameras "no saved places"
+  elif [ -z "$nocam_ids" ]; then fail place_no_cameras "no camera-free place (home expected)"
   else
-    body="$(curl -s --max-time 10 "$base/api/profile?place=$id" 2>/dev/null || true)"
-    if printf '%s' "$body" | grep -qE 'cameras_|distance_m'; then fail place_no_cameras; else pass place_no_cameras; fi
+    for pid in $nocam_ids; do
+      body="$(curl -s --max-time 10 "$base/api/profile?place=$pid" 2>/dev/null || true)"
+      if printf '%s' "$body" | grep -qE 'cameras_|distance_m'; then bad="$bad $pid"; fi
+    done
+    if [ -n "$bad" ]; then fail place_no_cameras "camera data for:$bad"; else pass place_no_cameras; fi
+  fi
+  if [ -z "$cam_ids" ]; then skip place_cameras "no camera-enabled saved places"
+  else
+    bad=""
+    for pid in $cam_ids; do
+      body="$(curl -s --max-time 10 "$base/api/profile?place=$pid" 2>/dev/null || true)"
+      if printf '%s' "$body" | grep -q '"cameras_cctv"' && printf '%s' "$body" | grep -q '"cameras_road"'         && printf '%s' "$body" | grep -qE '"location" *: *\{[^}]*"lat" *: *null'         && printf '%s' "$body" | grep -qE '"location" *: *\{[^}]*"lon" *: *null'; then :
+      else bad="$bad $pid"; fi
+    done
+    if [ -n "$bad" ]; then fail place_cameras "bad camera profile for:$bad"; else pass place_cameras; fi
   fi
 
   here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
