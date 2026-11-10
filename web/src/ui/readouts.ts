@@ -12,7 +12,7 @@ export function cornerRows(rows: RowVM[]): RowVM[] {
 }
 
 export function cameraCountText(profile: Profile | null): { num: string | null; rest: string } {
-  if (profile && profile.location.source === "pin") {
+  if (profile && profile.location.source === "pin" && !profile.layers["cameras_cctv"]) {
     return { num: null, rest: "Cameras · not shown for saved places" };
   }
   const layer = profile?.layers["cameras_cctv"];

@@ -123,11 +123,14 @@ function pointOf(item: Item): [number, number] | null {
   return [lon, lat];
 }
 
+/** A point the phone knows, "server" (saved place: use detail.distance_m) or null (hide all). */
+export type TagOrigin = { lat: number; lon: number } | "server" | null;
+
 /** Floating icon + label tags for positioned items; re-ranks on profile/view change and moveend only. */
 export class TagLayer {
   private readonly entries = new Map<string, Entry>();
   private located: Located[] = [];
-  private origin: { lat: number; lon: number } | null = null;
+  private origin: TagOrigin = null;
   private selectedId: string | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private raf = 0;
@@ -162,8 +165,12 @@ export class TagLayer {
     this.reconcile();
   }
 
-  /** The active location distances are measured from (gps or search); null hides all tags. */
-  setOrigin(o: { lat: number; lon: number } | null): void {
+  /**
+   * Where distances are measured from. gps/search: a point the client knows. "server": a saved
+   * place whose coordinates the phone never has, so distances come from the server's
+   * detail.distance_m. null hides all tags.
+   */
+  setOrigin(o: TagOrigin): void {
     this.origin = o;
     this.reconcile();
   }
@@ -208,12 +215,19 @@ export class TagLayer {
     const cands: TagCand[] = [];
     for (const l of this.located) {
       byId.set(l.item.id, l);
+      let dist: number;
+      if (o === "server") {
+        dist = Number(l.item.detail?.["distance_m"]);
+        if (!Number.isFinite(dist)) continue;
+      } else {
+        dist = haversineM(o.lat, o.lon, l.lngLat[1], l.lngLat[0]);
+      }
       const p = map.project(l.lngLat);
       cands.push({
         id: l.item.id,
         x: p.x,
         y: p.y,
-        dist: haversineM(o.lat, o.lon, l.lngLat[1], l.lngLat[0]),
+        dist,
         label: l.item.name,
         icon: iconFor(l.item.group),
       });

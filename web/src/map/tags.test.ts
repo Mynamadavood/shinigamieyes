@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { MAX_FULL, MAX_TOTAL, NEAR_M, RED_CAP, EXPAND_ZOOM, assignTags, rankTags, type TagCand } from "./tags";
+import { describe, expect, it, vi } from "vitest";
+import { MAX_FULL, MAX_TOTAL, NEAR_M, RED_CAP, EXPAND_ZOOM, assignTags, rankTags, TagLayer, type TagCand } from "./tags";
 
 function cand(i: number, p: Partial<TagCand> = {}): TagCand {
   return { id: `c${i}`, x: i * 300, y: 0, dist: 100 + i, label: "Camera", icon: "cctv", ...p };
@@ -57,5 +57,35 @@ describe("assignTags", () => {
     const compact = r.rendered.filter((c) => !r.full.has(c.id));
     expect(compact).toHaveLength(6);
     expect(compact.map((c) => c.id)).toEqual(["c1", "c2", "c3", "c4", "c5", "c6"]);
+  });
+});
+
+describe("TagLayer server origin", () => {
+  const mk = (id: string, x: number, detail: Record<string, unknown>): any => ({
+    id, layer: "cameras_cctv", group: "cctv", name: "Camera", verb: "", target_ts: null, kind: "static",
+    severity: 0, detail, geom: { type: "Point", coordinates: [144.9 + x, -37.8] },
+    fetched_at: 0, stale_after_s: null, computed: true,
+  });
+  const setup = () => {
+    const added: HTMLElement[] = [];
+    const marker: any = { setLngLat: () => marker, addTo: () => marker, remove: () => marker };
+    const layer = new TagLayer({
+      map: { project: (l) => ({ x: l[0] * 1000, y: 0 }), getZoom: () => 15, on: vi.fn() },
+      card: { isOpen: () => false, update: vi.fn(), close: vi.fn(), open: vi.fn() } as any,
+      createMarker: (el) => {
+        added.push(el);
+        return marker;
+      },
+    });
+    return { layer, added };
+  };
+
+  it("uses detail.distance_m for rank and red, and skips items without it", () => {
+    const { layer, added } = setup();
+    layer.setOrigin("server");
+    layer.update([mk("a", 0.001, { distance_m: 10 }), mk("b", 0.01, { distance_m: 200 }), mk("c", 0.02, {})]);
+    expect(added).toHaveLength(2);
+    expect(added.filter((e) => e.classList.contains("near"))).toHaveLength(1);
+    expect(added[0].getAttribute("aria-label")).toContain("10 metres");
   });
 });

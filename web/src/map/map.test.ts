@@ -14,6 +14,7 @@ vi.mock("maplibre-gl", () => {
     jumpTo = vi.fn();
     easeTo = vi.fn();
     flyTo = vi.fn();
+    fitBounds = vi.fn();
     isStyleLoaded = () => false;
     resize = vi.fn();
     triggerRepaint = vi.fn();
@@ -315,11 +316,60 @@ describe("camera tags", () => {
     expect(document.querySelectorAll(".map-tag")).toHaveLength(0);
   });
 
-  it("shows no tags without a gps or search origin", async () => {
+  it("pin view ranks tags by the server distance_m", async () => {
     const handle = (await createMap(mkDeps()))!;
     handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A" });
+    handle.setProfile(
+      profileWith([
+        camItem("a", 144.9, -37.79982, { distance_m: 10 }),
+        camItem("b", 144.9, -37.79865, { distance_m: 100 }),
+        camItem("c", 144.9, -37.797, { distance_m: 400 }),
+      ]),
+    );
+    const tags = tagEls();
+    expect(tags).toHaveLength(3);
+    expect(tags.filter((t) => t.el.classList.contains("near"))).toHaveLength(1);
+    expect(tags.find((t) => t.el.getAttribute("aria-label")!.includes("10 metres"))!.el.classList.contains("near")).toBe(true);
+  });
+
+  it("pin view skips items without a finite distance_m", async () => {
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A" });
+    const bad = camItem("x", 144.9, -37.79982);
+    delete bad.detail.distance_m;
+    handle.setProfile(profileWith([bad, camItem("y", 144.9, -37.79865, { distance_m: 100 })]));
+    expect(tagEls()).toHaveLength(1);
+  });
+
+  it("shows no tags with no view", async () => {
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView({ kind: "none" });
     handle.setProfile(profileWith(items()));
     expect(document.querySelectorAll(".map-tag")).toHaveLength(0);
+  });
+
+  it("pin view frames the CCTV items once, not again on the next profile", async () => {
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A" });
+    const p = profileWith([
+      camItem("a", 144.901, -37.799, { distance_m: 10 }),
+      camItem("b", 144.903, -37.797, { distance_m: 100 }),
+    ]);
+    handle.setProfile(p);
+    expect(h.instance.fitBounds).toHaveBeenCalledTimes(1);
+    expect(h.instance.fitBounds).toHaveBeenCalledWith(
+      [[144.901, -37.799], [144.903, -37.797]],
+      expect.objectContaining({ padding: 48, maxZoom: 17, pitch: 60 }),
+    );
+    handle.setProfile(p);
+    expect(h.instance.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it("pin view without CCTV positions keeps the area framing", async () => {
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A" });
+    handle.setProfile(profileWith([]));
+    expect(h.instance.fitBounds).not.toHaveBeenCalled();
   });
 
   it("a click opens the card; a canvas click closes it; Enter also opens", async () => {

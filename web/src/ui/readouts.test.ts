@@ -58,7 +58,10 @@ describe("cameraCountText", () => {
     expect(cameraCountText(prof(0))).toEqual({ num: "0", rest: " mapped cameras · 150 m · not exhaustive" });
     expect(cameraCountText(prof(null))).toEqual({ num: null, rest: "Cameras · not loaded yet" });
     expect(cameraCountText(prof(3, "gps", "pending"))).toEqual({ num: null, rest: "Cameras · not loaded yet" });
-    expect(cameraCountText(prof(3, "pin"))).toEqual({ num: null, rest: "Cameras · not shown for saved places" });
+    const noLayer = prof(3, "pin");
+    delete (noLayer.layers as Record<string, unknown>)["cameras_cctv"];
+    expect(cameraCountText(noLayer)).toEqual({ num: null, rest: "Cameras · not shown for saved places" });
+    expect(cameraCountText(prof(4, "pin"))).toEqual({ num: "4", rest: " cameras · 150 m · mapped, not exhaustive" });
     expect(cameraCountText(null)).toEqual({ num: null, rest: "Cameras · not loaded yet" });
   });
   it("renders in the right column without red or 'no cameras'", () => {

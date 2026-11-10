@@ -334,6 +334,7 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
   let current: MapView = { kind: "none" };
   let lastKind: MapView["kind"] = "none";
   let lastPinKey = "";
+  let pinFramed = false;
 
   const framing = (v: { lat: number; lon: number }) => ({
     center: [v.lon, v.lat] as [number, number],
@@ -372,8 +373,10 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
 
   function setView(v: MapView): void {
     current = v;
-    // camera distances are measured from the live fix or searched point, never a saved place
-    tags.setOrigin(v.kind === "gps" || v.kind === "search" ? { lat: v.lat, lon: v.lon } : null);
+    // gps/search measure on the client. Saved places use the server's distances because the phone
+    // never receives the place coordinates (a pin view's lat/lon is the 0.1 degree cell centre,
+    // not the place, and must NOT be used as the origin).
+    tags.setOrigin(v.kind === "gps" || v.kind === "search" ? { lat: v.lat, lon: v.lon } : v.kind === "pin" ? "server" : null);
     if (v.kind === "none") {
       setFigure(false);
       setPin(false);
@@ -393,6 +396,7 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
       const key = `${v.lat},${v.lon}`;
       if (lastKind !== "pin" || key !== lastPinKey) {
         map.jumpTo(areaFraming(v));
+        pinFramed = false;
         follow.on("recenter");
         showRecenter(false);
       }
@@ -438,6 +442,31 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
         for (const it of p?.layers[id]?.items ?? []) items.push(it);
       }
       tags.update(items);
+      // saved place: the cell-centre area view shows 150 m as ~5 px, so frame the CCTV items once
+      if (current.kind === "pin" && !pinFramed && follow.following()) {
+        const pts: [number, number][] = [];
+        for (const it of p?.layers["cameras_cctv"]?.items ?? []) {
+          if (it.detail && it.detail["summary"] === true) continue;
+          const g = it.geom as { type?: unknown; coordinates?: unknown } | null;
+          if (!g || g.type !== "Point" || !Array.isArray(g.coordinates)) continue;
+          const [lo, la] = g.coordinates as unknown[];
+          if (typeof lo === "number" && typeof la === "number" && Number.isFinite(lo) && Number.isFinite(la)) {
+            pts.push([lo, la]);
+          }
+        }
+        if (pts.length > 0) {
+          pinFramed = true;
+          const lons = pts.map((q) => q[0]);
+          const lats = pts.map((q) => q[1]);
+          const bounds: [[number, number], [number, number]] = [
+            [Math.min(...lons), Math.min(...lats)],
+            [Math.max(...lons), Math.max(...lats)],
+          ];
+          const opts = { padding: 48, maxZoom: 17, pitch: 60, bearing: 0 };
+          if (deps.reducedMotion) map.fitBounds(bounds, { ...opts, duration: 0 });
+          else map.fitBounds(bounds, { ...opts, duration: FLY_MS });
+        }
+      }
     },
     resize() {
       map.resize();
