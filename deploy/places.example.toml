@@ -1,9 +1,13 @@
 # Example place presets (D-09). Copy to /etc/shinigami/places.toml on the server.
+# Other places default to cameras = true.
 # Order is preserved. Required ids: home, monash, cbd, gym.
 
 [[place]]
 id = "home"
 label = "Home (Bulleen)"
+# Home never shows cameras (its location must never reach the phone); this is also the
+# built-in default for id home, so the line is a reminder, not a requirement.
+cameras = false
 # REQUIRED on the server only: set real coordinates in /etc/shinigami/places.toml, never in git
 # lat = 0.0
 # lon = 0.0

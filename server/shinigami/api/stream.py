@@ -12,7 +12,7 @@ from typing import Literal
 from fastapi import APIRouter, Query, Request
 from sse_starlette import EventSourceResponse, ServerSentEvent
 
-from shinigami.api.profile import resolve_location
+from shinigami.api.profile import camera_ok, resolve_location
 from shinigami.assemble import assemble_profile
 from shinigami.geo import snap_cell
 
@@ -29,11 +29,12 @@ async def event_stream(
     lat: float,
     lon: float,
     is_disconnected: Callable[[], Awaitable[bool]],
+    exact_ok: bool = False,
 ) -> AsyncIterator[ServerSentEvent]:
     # subscribe BEFORE hello so no update between snapshot and loop is lost
     queue = ctx.bus.subscribe()
     try:
-        profile = assemble_profile(ctx, providers, location, lat, lon)
+        profile = assemble_profile(ctx, providers, location, lat, lon, exact_ok=exact_ok)
         yield ServerSentEvent(
             event="hello", data=json.dumps({"server_time": ctx.clock(), "rev": profile.rev})
         )
@@ -73,6 +74,7 @@ async def stream(
         lat,
         lon,
         request.is_disconnected,
+        exact_ok=camera_ok(request, location),
     )
     return EventSourceResponse(
         gen,

@@ -6,8 +6,8 @@ import time
 import httpx
 import pytest
 import uvicorn
-from shinigami.main import create_app
 from shinigami.geo import snap_cell
+from shinigami.main import create_app
 from shinigami.places import load_places
 from shinigami.providers.sun import sun_boundaries
 
@@ -81,7 +81,13 @@ async def test_api_places_no_coordinates(pclient):
     assert r.status_code == 200
     body = r.json()
     assert [p["id"] for p in body] == ["home", "monash", "cbd", "gym"]
-    assert all(set(p) == {"id", "label"} for p in body)
+    assert all(set(p) == {"id", "label", "cameras"} for p in body)
+    assert {p["id"]: p["cameras"] for p in body} == {
+        "home": False,
+        "monash": True,
+        "cbd": True,
+        "gym": True,
+    }
     assert str(HOME[0]) not in r.text and "lat" not in r.text
 
 
@@ -182,44 +188,91 @@ def test_stream_accepts_place(settings):
         t.join(10)
 
 
-async def test_place_pin_has_no_camera_layers(settings):
+def _cam_settings(settings):
     import json as _json
 
-    from shinigami.geo import snap_cell
-
-    # camera right next to the CBD place; must never be reflected for the pin
+    # camera right next to the CBD place and right next to the fake home
     settings.cameras_path.write_text(
         _json.dumps(
             {
                 "version": 1,
                 "built_at": 1.0,
                 "source": "t",
-                "cameras": [{"id": "c1", "k": "cctv", "lat": -37.8137, "lon": 144.9631}],
+                "cameras": [
+                    {"id": "c1", "k": "cctv", "lat": -37.8137, "lon": 144.9631},
+                    {"id": "c2", "k": "cctv", "lat": HOME[0] + 0.0001, "lon": HOME[1]},
+                ],
             }
         )
     )
     settings.places_path.write_text(TOML)
-    app = create_app(settings, start_runtime=False)
+    return create_app(settings, start_runtime=False)
+
+
+async def test_place_pin_with_cameras_shows_layers(settings):
+    app = _cam_settings(settings)
     c = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
     r = await c.get("/api/profile", params={"place": "cbd"})
     body = r.json()
-    assert not [k for k in body["layers"] if k.startswith("cameras_")]
-    assert "distance_m" not in r.text
+    assert "cameras_cctv" in body["layers"] and "cameras_road" in body["layers"]
+    items = body["layers"]["cameras_cctv"]["items"]
+    assert any("distance_m" in (i.get("detail") or {}) for i in items)
     loc = body["location"]
     cell = snap_cell(-37.8136, 144.9631)
     assert loc["lat"] is None and loc["lon"] is None
     assert (loc["cell_lat"], loc["cell_lon"]) == (cell.lat, cell.lon)
-    # same assemble path as the stream hello
-    from shinigami.api.profile import resolve_location
+    g = await c.get("/api/profile", params={"lat": -37.8136, "lon": 144.9631})
+    assert "cameras_cctv" in g.json()["layers"]
+
+
+async def test_home_pin_has_no_camera_layers(settings):
+    app = _cam_settings(settings)
+    c = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
+    r = await c.get("/api/profile", params={"place": "home"})
+    assert not [k for k in r.json()["layers"] if k.startswith("cameras_")]
+    assert "distance_m" not in r.text
+    assert str(HOME[0]) not in r.text and str(HOME[1]) not in r.text
+
+
+async def test_assemble_pin_fails_closed_and_stream_gate(settings):
+    from shinigami.api.profile import camera_ok, resolve_location
     from shinigami.assemble import assemble_profile
+
+    app = _cam_settings(settings)
 
     class Req:
         pass
 
     req = Req()
     req.app = app
-    location, la, lo = resolve_location(req, None, None, "cbd")
-    prof = assemble_profile(app.state.ctx, app.state.providers, location, la, lo)
-    assert not [k for k in prof.layers if k.startswith("cameras_")]
-    g = await c.get("/api/profile", params={"lat": -37.8136, "lon": 144.9631})
-    assert "cameras_cctv" in g.json()["layers"]
+    for pid, expect in (("home", False), ("cbd", True)):
+        location, la, lo = resolve_location(req, None, None, pid)
+        assert camera_ok(req, location) is expect
+        default = assemble_profile(app.state.ctx, app.state.providers, location, la, lo)
+        assert not [k for k in default.layers if k.startswith("cameras_")]
+        prof = assemble_profile(
+            app.state.ctx, app.state.providers, location, la, lo, exact_ok=camera_ok(req, location)
+        )
+        assert bool([k for k in prof.layers if k.startswith("cameras_")]) is expect
+
+
+def test_load_places_cameras_flag_rules(tmp_path, caplog):
+    f = tmp_path / "p.toml"
+    f.write_text(
+        '[[place]]\nid = "a"\nlabel = "A"\nlat = 1.5\nlon = 2.5\n\n'
+        '[[place]]\nid = "b"\nlabel = "B"\nlat = 1.5\nlon = 2.5\ncameras = false\n\n'
+        '[[place]]\nid = "c"\nlabel = "C"\nlat = 1.5\nlon = 2.5\ncameras = "yes"\n\n'
+        '[[place]]\nid = "home"\nlabel = "H"\nlat = 7.7777\nlon = 8.8888\ncameras = true\n\n'
+        '[[place]]\nid = "office"\nlabel = "Home office"\nlat = 1.5\nlon = 2.5\n'
+    )
+    with caplog.at_level(logging.DEBUG):
+        ps = load_places(f)
+    assert {p.id: p.cameras for p in ps} == {
+        "a": True,
+        "b": False,
+        "c": False,
+        "home": False,
+        "office": False,
+    }
+    assert "home" in caplog.text
+    assert "7.7777" not in caplog.text and "8.8888" not in caplog.text

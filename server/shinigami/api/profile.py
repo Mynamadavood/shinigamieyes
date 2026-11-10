@@ -60,6 +60,14 @@ def resolve_location(
     return ProfileLocation(source="gps", lat=lat, lon=lon, label=text), lat, lon
 
 
+def camera_ok(request: Request, location: ProfileLocation) -> bool:
+    """Camera layers allowed? Always for live locations; for pins only if Place.cameras."""
+    if location.source != "pin":
+        return True
+    p = request.app.state.places.get(location.place_id)
+    return bool(p and p.cameras)
+
+
 @router.get("/api/profile")
 def get_profile(
     request: Request,
@@ -70,4 +78,11 @@ def get_profile(
     label: str | None = Query(None, max_length=120),
 ) -> Profile:
     location, lat, lon = resolve_location(request, lat, lon, place, src, label)
-    return assemble_profile(request.app.state.ctx, request.app.state.providers, location, lat, lon)
+    return assemble_profile(
+        request.app.state.ctx,
+        request.app.state.providers,
+        location,
+        lat,
+        lon,
+        exact_ok=camera_ok(request, location),
+    )

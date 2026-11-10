@@ -1,6 +1,8 @@
 """Saved places (D-09) loaded from a server-side places.toml.
 
 Privacy: home coordinates live only in that file. Warnings name the id, never numbers.
+Home never gets camera layers: nearby camera positions would reveal its location
+(UAT gap 1, David 2026-11-10). Other places default to cameras on.
 """
 
 import logging
@@ -17,6 +19,11 @@ class Place:
     label: str
     lat: float
     lon: float
+    cameras: bool = True
+
+
+def is_home_like(pid: str, label: str) -> bool:
+    return pid.casefold() == "home" or label.strip().casefold().startswith("home")
 
 
 def load_places(path: Path) -> list[Place]:
@@ -45,6 +52,16 @@ def load_places(path: Path) -> list[Place]:
         if not ok:
             log.warning("skipping invalid place %s", pid)
             continue
+        raw = entry.get("cameras", True)
+        if isinstance(raw, bool):
+            flag = raw
+        else:
+            log.warning("place %s has a non-boolean cameras flag; cameras off", pid)
+            flag = False
+        if is_home_like(pid, label):
+            if raw is True and "cameras" in entry:
+                log.warning("place %s is home; cameras stay off", pid)
+            flag = False
         seen.add(pid)
-        out.append(Place(pid, label, lat, lon))
+        out.append(Place(pid, label, lat, lon, flag))
     return out

@@ -15,13 +15,15 @@ def assemble_profile(
     location: ProfileLocation,
     lat: float,
     lon: float,
+    *,
+    exact_ok: bool = False,
 ) -> Profile:
     now = ctx.clock()
     layers: dict[str, Layer] = {}
     for p in providers:
-        # PROVISIONAL (02-07, decision 1): no camera layers for saved places; David to confirm.
-        # Flip: remove this skip and add a per-place opt-in.
-        if p.meta.exact_location_only and location.source == "pin":
+        # Saved places get camera layers only when their Place.cameras is true (Home never);
+        # default False so any caller that forgets fails closed.
+        if p.meta.exact_location_only and location.source == "pin" and not exact_ok:
             continue
         try:
             layer = p.query(ctx, lat, lon, now)
