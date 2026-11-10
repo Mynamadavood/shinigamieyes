@@ -61,6 +61,13 @@ Automated pre-check:
   - Local suites: pytest 125 passed / 1 skipped, web 241 passed, build clean. A date-dependent sun-time test was fixed (1c446e8, test only)
   - Device notes (minor, follow-up): the `Speed camera` tag label clips at the screen edge; an open card can cover nearby tags
 - Fixes found during Wave 6 device checks: map host collapsed to 0 px under maplibre-gl.css (04776d9); fonts inlined as data: URLs blocked by CSP (46c4cd8); blank recenter icon on iOS (8579cf1)
+- 02-18 gap-fix pre-check (2026-11-11, deployed 74acc09 after David's "push", run by Claude over SSH and the tailnet):
+  - Gap plans 02-15 (saved-place cameras, never Home), 02-16 (guard posts, owner-name rule), 02-17 (label flip, card avoids tags)
+  - Camera job re-run: `cctv=674 guard=0 speed=189 redlight=136` (Victoria OSM has no `surveillance:type=guard` nodes today; the job reads the full Victoria extract)
+  - First verify run showed `place_no_cameras`/`place_cameras` as SKIP: a literal newline in a sed replacement made the places parse fail silently. Fixed in 3aec642 (verify.sh only)
+  - With the fixed script: `verify.sh --local` (in CT, script piped over SSH) `{"mode":"local","pass":26,"fail":0,"skip":0,"p95_ms":2}`; `verify.sh --remote` `{"mode":"remote","pass":22,"fail":0,"skip":0,"p95_ms":67}` (one earlier remote run hit p95 355 ms while the camera job was running)
+  - `/api/places`: 4 places, Home `cameras:false`, the other three `cameras:true`; no coordinates
+  - Local suites: pytest 129 passed / 1 skipped, web 261 passed, build clean
 
 - [x] Hero on cold open: force-quit, launch from the home screen; red eyes play for 1.5 s or less (stopwatch) with cached rows already visible underneath. Result / notes: pass (David, iPhone, 2026-11-10)
 - [x] Tapping anywhere (or the x box) during the hero skips straight to the map. Result / notes: pass (David, iPhone, 2026-11-10)
