@@ -5,7 +5,7 @@ import { GPS_OFF_COPY, LocationSheet } from "./location-sheet";
 import { LocationStrip } from "./location-strip";
 
 const PLACES = [
-  { id: "home", label: "Home (Bulleen)" },
+  { id: "home", label: "Home" },
   { id: "monash", label: "Monash Clayton" },
   { id: "cbd", label: "Melbourne CBD" },
   { id: "gym", label: "Hammers Gym Nunawading" },
