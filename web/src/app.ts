@@ -243,7 +243,11 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
     renderLocation();
     render();
   }
-  void loadPlaces(deps.fetchImpl).then((l) => sheet.setPlaces(l));
+  void loadPlaces(deps.fetchImpl)
+    .then((l) => sheet.setPlaces(l))
+    .catch(() => {
+      /* the sheet keeps its previous list; never an unhandled rejection (WR-W6) */
+    });
   renderLocation();
   // location restore is an IndexedDB read only; the GPS fix itself never blocks anything
   // shares the single IDB_TIMEOUT_MS budget with the cached read, so first request <= ~300 ms

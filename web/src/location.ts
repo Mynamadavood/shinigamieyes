@@ -18,6 +18,8 @@ export interface LocationState {
 export interface PlaceRef {
   id: string;
   label: string;
+  /** false for Home-like places: the server sends no camera layers for them (D-09). */
+  cameras?: boolean;
 }
 export interface LocationDeps {
   geolocation: Geolocation;
@@ -178,11 +180,29 @@ export function createLocation(deps: LocationDeps): LocationController {
   };
 }
 
+/**
+ * Keep only well-formed {id, label, cameras} entries and copy just those fields, so nothing else
+ * the server might ever add (coordinates included) is stored on the phone (WR-W6).
+ * Returns null when the body is not an array at all.
+ */
+export function sanitizePlaces(raw: unknown): Array<Required<PlaceRef>> | null {
+  if (!Array.isArray(raw)) return null;
+  const out: Array<Required<PlaceRef>> = [];
+  for (const p of raw as unknown[]) {
+    if (!p || typeof p !== "object") continue;
+    const { id, label, cameras } = p as { id?: unknown; label?: unknown; cameras?: unknown };
+    if (typeof id !== "string" || typeof label !== "string" || typeof cameras !== "boolean") continue;
+    out.push({ id, label, cameras });
+  }
+  return out;
+}
+
 export async function loadPlaces(fetchImpl: typeof fetch = fetch): Promise<PlaceRef[]> {
   try {
     const res = await fetchImpl("/api/places", { cache: "no-store" });
     if (!res.ok) throw new Error(String(res.status));
-    const list = (await res.json()) as PlaceRef[];
+    const list = sanitizePlaces((await res.json()) as unknown);
+    if (!list) throw new Error("bad places body");
     try {
       await set(PLACES_KEY, list);
     } catch {
@@ -191,7 +211,7 @@ export async function loadPlaces(fetchImpl: typeof fetch = fetch): Promise<Place
     return list;
   } catch {
     try {
-      return ((await get(PLACES_KEY)) as PlaceRef[] | undefined) ?? [];
+      return sanitizePlaces((await get(PLACES_KEY)) as unknown) ?? [];
     } catch {
       return [];
     }

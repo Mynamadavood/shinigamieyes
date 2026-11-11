@@ -189,7 +189,7 @@ describe("toParams", () => {
 });
 
 describe("loadPlaces", () => {
-  const list = [{ id: "cbd", label: "Melbourne CBD" }];
+  const list = [{ id: "cbd", label: "Melbourne CBD", cameras: true }];
   it("caches on success and falls back to cache on failure", async () => {
     const ok = vi.fn(async () => new Response(JSON.stringify(list), { status: 200 }));
     expect(await loadPlaces(ok as unknown as typeof fetch)).toEqual(list);
@@ -197,5 +197,23 @@ describe("loadPlaces", () => {
       throw new TypeError("offline");
     });
     expect(await loadPlaces(bad as unknown as typeof fetch)).toEqual(list);
+  });
+  it("persists only id, label and cameras, and drops malformed entries", async () => {
+    const body = [
+      { id: "home", label: "Home", cameras: false, lat: -10.5, lon: 120.5 },
+      { id: 3, label: "X", cameras: true },
+      { id: "gym", label: "Gym" },
+      null,
+    ];
+    const ok = vi.fn(async () => new Response(JSON.stringify(body), { status: 200 }));
+    const got = await loadPlaces(ok as unknown as typeof fetch);
+    expect(got).toEqual([{ id: "home", label: "Home", cameras: false }]);
+    expect(await get("places:list")).toEqual([{ id: "home", label: "Home", cameras: false }]);
+  });
+  it("a non-array body falls back to the cache instead of throwing", async () => {
+    const ok = vi.fn(async () => new Response(JSON.stringify(list), { status: 200 }));
+    await loadPlaces(ok as unknown as typeof fetch);
+    const html = vi.fn(async () => new Response(JSON.stringify({ detail: "nope" }), { status: 200 }));
+    expect(await loadPlaces(html as unknown as typeof fetch)).toEqual(list);
   });
 });
