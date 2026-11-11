@@ -13,7 +13,7 @@
 
 [[place]]
 id = "home"
-label = "Home (Bulleen)"
+label = "Home"
 # Home never shows cameras (its location must never reach the phone); this is also the
 # built-in default for id home, so the line is a reminder, not a requirement.
 cameras = false

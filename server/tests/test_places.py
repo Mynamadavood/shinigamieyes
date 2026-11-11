@@ -11,12 +11,12 @@ from shinigami.main import create_app
 from shinigami.places import load_places
 from shinigami.providers.sun import sun_boundaries
 
-HOME = (-37.7234, 145.0912)  # test-only fake coordinates (off the 0.1 degree cell centre)
+HOME = (-10.5321, 120.5432)  # obviously fictional test point (open sea, far from Melbourne, off the 0.1 degree cell centre)
 
 TOML = f"""
 [[place]]
 id = "home"
-label = "Home (Bulleen)"
+label = "Home"
 lat = {HOME[0]}
 lon = {HOME[1]}
 
