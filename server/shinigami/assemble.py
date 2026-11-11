@@ -20,13 +20,19 @@ def assemble_profile(
 ) -> Profile:
     now = ctx.clock()
     layers: dict[str, Layer] = {}
+    cell = snap_cell(lat, lon)
+    pin = location.source == "pin"
     for p in providers:
         # Saved places get camera layers only when their Place.cameras is true (Home never);
         # default False so any caller that forgets fails closed.
-        if p.meta.exact_location_only and location.source == "pin" and not exact_ok:
+        if p.meta.exact_location_only and pin and not exact_ok:
             continue
+        # Review WR-S2: a pin's true point goes only to exact providers that were allowed
+        # above; every other provider sees the 0.1 degree cell centre, so a future provider
+        # that echoes geometry, a distance or a bearing cannot reveal the place.
+        qlat, qlon = (lat, lon) if (not pin or p.meta.exact_location_only) else (cell.lat, cell.lon)
         try:
-            layer = p.query(ctx, lat, lon, now)
+            layer = p.query(ctx, qlat, qlon, now)
         except Exception as exc:  # noqa: BLE001 - a failing provider must not break the profile
             # log provider id and exception type only, never coordinates
             log.warning("provider %s failed: %s", p.meta.id, type(exc).__name__)
@@ -46,7 +52,7 @@ def assemble_profile(
         ):
             try:
                 # fire-and-forget; never awaited in the request path
-                ctx.runtime.request_cell(p.meta.id, snap_cell(lat, lon))
+                ctx.runtime.request_cell(p.meta.id, cell)
             except Exception as exc:  # noqa: BLE001
                 log.warning("request failed provider=%s err=%s", p.meta.id, type(exc).__name__)
     rev = max((layer.rev for layer in layers.values()), default=int(now))

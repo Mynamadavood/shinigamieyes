@@ -293,3 +293,49 @@ def test_load_places_cameras_flag_rules(tmp_path, caplog):
     assert {p.id for p in ps if p.home} == {"home", "office", "base", "flat"}
     assert "home" in caplog.text
     assert "7.7777" not in caplog.text and "8.8888" not in caplog.text
+
+
+async def test_pin_non_exact_providers_get_cell_centre(settings):
+    # Review WR-S2: only allowed exact providers ever see a pin's true point.
+    from shinigami.api.profile import camera_ok, resolve_location
+    from shinigami.assemble import assemble_profile
+    from shinigami.providers.base import Provider, ProviderMeta
+    from shinigami.schema import Layer
+
+    seen: dict[str, tuple[float, float]] = {}
+
+    class Rec(Provider):
+        def __init__(self, pid, exact):
+            self.meta = ProviderMeta(
+                id=pid, tier="computed", ttl_s=1, stale_after_s=None, attribution="t",
+                exact_location_only=exact,
+            )
+
+        def query(self, ctx, lat, lon, now):
+            seen[self.meta.id] = (lat, lon)
+            return Layer(id=self.meta.id, status="fresh", rev=1, as_of=None, attribution="t", items=[])
+
+    app = _cam_settings(settings)
+
+    class Req:
+        pass
+
+    req = Req()
+    req.app = app
+    providers = [Rec("plain", False), Rec("exact", True)]
+    for pid in ("home", "cbd"):
+        seen.clear()
+        location, la, lo = resolve_location(req, None, None, pid)
+        assemble_profile(
+            app.state.ctx, providers, location, la, lo, exact_ok=camera_ok(req, location)
+        )
+        cell = snap_cell(la, lo)
+        assert seen["plain"] == (cell.lat, cell.lon)
+        if pid == "home":
+            assert "exact" not in seen
+        else:
+            assert seen["exact"] == (la, lo)
+    seen.clear()
+    location, la, lo = resolve_location(req, HOME[0], HOME[1])
+    assemble_profile(app.state.ctx, providers, location, la, lo, exact_ok=True)
+    assert seen["plain"] == (la, lo)  # live GPS keeps the exact point
