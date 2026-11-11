@@ -96,3 +96,33 @@ def test_end_to_end(tmp_path):
     assert by["n1001"]["operator"] == "City of Melbourne" and by["n1001"]["direction"] == "north-east"
     banned = {"name", "phone", "email", "website"}
     assert all(not (banned & set(c)) and not any(k.startswith("contact") for k in c) for c in d["cameras"])
+
+
+def _fake_build(n):
+    cams = [{"id": f"n{i}", "k": "cctv", "lat": 0.0, "lon": 0.0} for i in range(n)]
+    return lambda path: {"version": 1, "built_at": 1.0, "source": "t", "cameras": cams}
+
+
+def test_refuses_to_shrink_dataset(tmp_path, monkeypatch, capsys):
+    # Review WR-S5: empty or much smaller output keeps the old file and exits non-zero.
+    import shinigami.data.refresh_cameras as rc
+
+    out = tmp_path / "cameras.json"
+    monkeypatch.setattr(rc, "build", _fake_build(0))
+    assert main(["--input", "x", "--output", str(out)]) == 1
+    assert not out.exists()
+    monkeypatch.setattr(rc, "build", _fake_build(10))
+    assert main(["--input", "x", "--output", str(out)]) == 0
+    before = out.read_text()
+    for n in (0, 4):
+        monkeypatch.setattr(rc, "build", _fake_build(n))
+        assert main(["--input", "x", "--output", str(out)]) == 1
+        assert out.read_text() == before
+        assert not out.with_suffix(".tmp").exists()
+    assert "new=4 old=10" in capsys.readouterr().out
+    monkeypatch.setattr(rc, "build", _fake_build(6))
+    assert main(["--input", "x", "--output", str(out)]) == 0
+    assert len(json.loads(out.read_text())["cameras"]) == 6
+    monkeypatch.setattr(rc, "build", _fake_build(1))
+    assert main(["--input", "x", "--output", str(out), "--force"]) == 0
+    assert len(json.loads(out.read_text())["cameras"]) == 1

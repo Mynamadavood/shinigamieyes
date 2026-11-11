@@ -183,13 +183,30 @@ def build(path):
     return {"version": 1, "built_at": time.time(), "source": SOURCE, "cameras": cameras}
 
 
+MIN_KEEP_RATIO = 0.5
+
+
+def _existing_count(path: Path) -> int | None:
+    try:
+        return len(json.loads(path.read_text(encoding="utf-8"))["cameras"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", required=True)
     ap.add_argument("--output", required=True)
+    ap.add_argument("--force", action="store_true", help="replace even if the dataset shrank a lot")
     a = ap.parse_args(argv)
     data = build(a.input)
     out = Path(a.output)
+    # Review WR-S5: a truncated or wrong-region PBF must not wipe a good dataset.
+    new_n = len(data["cameras"])
+    old_n = _existing_count(out)
+    if not a.force and (new_n == 0 or (old_n and new_n < old_n * MIN_KEEP_RATIO)):
+        print(f"REFUSED: new={new_n} old={old_n}; kept the existing file (use --force to override)")
+        return 1
     tmp = out.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
     os.replace(tmp, out)
