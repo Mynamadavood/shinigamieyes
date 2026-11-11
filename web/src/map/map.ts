@@ -442,18 +442,24 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
         for (const it of p?.layers[id]?.items ?? []) items.push(it);
       }
       tags.update(items);
-      // saved place: the cell-centre area view shows 150 m as ~5 px, so frame the CCTV items once
+      // saved place: the cell-centre area view shows 150 m as ~5 px, so frame the cameras once:
+      // the CCTV items, or the road cameras when no CCTV is mapped within 150 m (the common case)
       if (current.kind === "pin" && !pinFramed && follow.following()) {
-        const pts: [number, number][] = [];
-        for (const it of p?.layers["cameras_cctv"]?.items ?? []) {
-          if (it.detail && it.detail["summary"] === true) continue;
-          const g = it.geom as { type?: unknown; coordinates?: unknown } | null;
-          if (!g || g.type !== "Point" || !Array.isArray(g.coordinates)) continue;
-          const [lo, la] = g.coordinates as unknown[];
-          if (typeof lo === "number" && typeof la === "number" && Number.isFinite(lo) && Number.isFinite(la)) {
-            pts.push([lo, la]);
+        const pointsOf = (layer: string): [number, number][] => {
+          const out: [number, number][] = [];
+          for (const it of p?.layers[layer]?.items ?? []) {
+            if (it.detail && it.detail["summary"] === true) continue;
+            const g = it.geom as { type?: unknown; coordinates?: unknown } | null;
+            if (!g || g.type !== "Point" || !Array.isArray(g.coordinates)) continue;
+            const [lo, la] = g.coordinates as unknown[];
+            if (typeof lo === "number" && typeof la === "number" && Number.isFinite(lo) && Number.isFinite(la)) {
+              out.push([lo, la]);
+            }
           }
-        }
+          return out;
+        };
+        let pts = pointsOf("cameras_cctv");
+        if (pts.length === 0) pts = pointsOf("cameras_road");
         if (pts.length > 0) {
           pinFramed = true;
           const lons = pts.map((q) => q[0]);

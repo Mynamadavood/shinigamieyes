@@ -365,7 +365,23 @@ describe("camera tags", () => {
     expect(h.instance.fitBounds).toHaveBeenCalledTimes(1);
   });
 
-  it("pin view without CCTV positions keeps the area framing", async () => {
+  it("pin view with no CCTV frames the road cameras instead", async () => {
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A" });
+    handle.setProfile(
+      profileWith([], [
+        camItem("r1", 144.91, -37.79, { distance_m: 600 }, "speed"),
+        camItem("r2", 144.92, -37.78, { distance_m: 900 }, "redlight"),
+      ]),
+    );
+    expect(h.instance.fitBounds).toHaveBeenCalledTimes(1);
+    expect(h.instance.fitBounds).toHaveBeenCalledWith(
+      [[144.91, -37.79], [144.92, -37.78]],
+      expect.objectContaining({ padding: 48, maxZoom: 17, pitch: 60 }),
+    );
+  });
+
+  it("pin view without any camera positions keeps the area framing", async () => {
     const handle = (await createMap(mkDeps()))!;
     handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A" });
     handle.setProfile(profileWith([]));
