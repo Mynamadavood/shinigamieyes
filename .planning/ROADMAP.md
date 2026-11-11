@@ -7,7 +7,7 @@ v1 = City mode: a private, Tailscale-only iPhone PWA that profiles Melbourne aro
 ## Phases
 
 - [x] **Phase 1: Foundation and Flat HUD Slice** - Installable Tailscale-only PWA showing a cached-first, ticking list of sun and UV items at your location (completed 2026-11-06)
-- [ ] **Phase 2: 3D Map, Hero and Surveillance** - Dark tilted 3D map with floating tags, info cards, hero activation, and CCTV/road-camera layer
+- [x] **Phase 2: 3D Map, Hero and Surveillance** - Dark tilted 3D map with floating tags, info cards, hero activation, and CCTV/road-camera layer (completed 2026-11-11)
 - [ ] **Phase 3: Transit** - Nearest PTV stops, live departures, approaching vehicles and disruptions
 - [ ] **Phase 4: Environment, Grid/Water and Ranking** - Weather/rain, air, fire danger, pollen, grid and water, plus the ranked "next" strip, chips and layer toggles
 - [ ] **Phase 5: Hazards, Sky and Bay** - Emergency incidents with pre-empting banner, planes, ISS/satellite passes and ships
@@ -87,7 +87,7 @@ Plans:
   4. David sees mapped CCTV within about 150 m labelled "mapped, not exhaustive", and fixed speed/red-light cameras as static info only
   5. The map stays smooth on the real iPhone with tags capped to a budget
 
-**Plans:** 16/18 plans executed
+**Plans:** 18/18 plans complete
 
 Plans:
 **Wave 1**
@@ -123,14 +123,14 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 02-14-PLAN.md — Redeploy, remote verify and iPhone Gate 3 phase acceptance (wave 7)
+- [x] 02-14-PLAN.md — Redeploy, remote verify and iPhone Gate 3 phase acceptance (wave 7)
 
 **Gap closure** *(Gate 3 fixes, 02-UAT.md; 02-14 closes after 02-18)*
 
 - [x] 02-15-PLAN.md — Saved-place cameras except Home (fail-closed flag), server distances for pin views, verify place checks (gap wave 1)
 - [x] 02-16-PLAN.md — Guard posts and owner names under the private/residential rule (gap wave 1)
 - [x] 02-17-PLAN.md — Tag labels flip at the screen edge; info card avoids covering tags (gap wave 2)
-- [ ] 02-18-PLAN.md — Push on David's word, SSH deploy, camera job, remote verify, iPhone re-check and Gate 3 GO (gap wave 3)
+- [x] 02-18-PLAN.md — Push on David's word, SSH deploy, camera job, remote verify, iPhone re-check and Gate 3 GO (gap wave 3)
 
 **UI hint**: yes
 
@@ -220,7 +220,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation and Flat HUD Slice | 11/11 | Complete    | 2026-11-06 |
-| 2. 3D Map, Hero and Surveillance | 16/18 | In Progress|  |
+| 2. 3D Map, Hero and Surveillance | 18/18 | Complete   | 2026-11-11 |
 | 3. Transit | 0/0 | Not started | - |
 | 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
 | 5. Hazards, Sky and Bay | 0/0 | Not started | - |
