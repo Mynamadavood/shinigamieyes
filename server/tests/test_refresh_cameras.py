@@ -16,6 +16,7 @@ FIX = Path(__file__).parent / "fixtures" / "enforcement.osm"
 @pytest.mark.parametrize("raw,exp", [
     ("45", "north-east"), ("0", "north"), ("350", "north"), ("NE", "north-east"),
     ("SSW", "south"), ("45;90", "north-east"), ("abc", None), (None, None),
+    ("nan", None), ("inf", None), ("-inf", None), ("NaN;90", None),
 ])
 def test_direction(raw, exp):
     assert direction_words(raw) == exp
@@ -67,6 +68,11 @@ def test_cctv_record_filters():
     })
     assert set(r) <= {"id", "k", "lat", "lon", "camera_type", "direction", "operator", "surveillance", "suburb"}
     assert "operator" not in r
+
+
+def test_cctv_record_survives_non_finite_direction():
+    r = cctv_record(1, 1, 2, {"man_made": "surveillance", "camera:direction": "nan"})
+    assert r is not None and "direction" not in r
 
 
 def test_enforcement_kind():

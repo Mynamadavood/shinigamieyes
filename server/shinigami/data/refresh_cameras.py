@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import time
@@ -52,6 +53,8 @@ def direction_words(raw):
             deg = float(token)
         except ValueError:
             return None
+    if not math.isfinite(deg):  # review WR-S4: "nan"/"inf" parse but cannot be bucketed
+        return None
     return _WORDS[round((deg % 360) / 45) % 8]
 
 
@@ -133,18 +136,26 @@ def build(path):
 
     cameras: list[dict] = []
     road_ids: set[int] = set()
+    skipped = [0]
 
     class Nodes(osmium.SimpleHandler):
         def node(self, n):
             if not n.location.valid():
                 return
-            tags = n.tags
-            lat, lon = n.location.lat, n.location.lon
-            rec = cctv_record(n.id, lat, lon, tags)
+            try:
+                tags = n.tags
+                lat, lon = n.location.lat, n.location.lon
+                rec = cctv_record(n.id, lat, lon, tags)
+                road = None
+                if tags.get("highway") == "speed_camera" or n.id in device_kind:
+                    road = road_record(n.id, lat, lon, tags, device_kind.get(n.id))
+            except Exception:  # noqa: BLE001 - one bad tag must not stop the weekly refresh
+                skipped[0] += 1
+                return
             if rec:
                 cameras.append(rec)
-            if tags.get("highway") == "speed_camera" or n.id in device_kind:
-                cameras.append(road_record(n.id, lat, lon, tags, device_kind.get(n.id)))
+            if road:
+                cameras.append(road)
                 road_ids.add(n.id)
 
     Nodes().apply_file(str(path))
@@ -160,6 +171,8 @@ def build(path):
                 if nd.ref in road_ids and nd.ref not in roads:
                     roads[nd.ref] = name
 
+    if skipped[0]:
+        print(f"skipped {skipped[0]} malformed nodes")
     if road_ids:
         Ways().apply_file(str(path))
     for c in cameras:
