@@ -109,6 +109,19 @@ hud10_checks() {
     else fail cameras_layers "cameras_cctv/cameras_road missing"; fi
   fi
 
+  # review WR-S8: the layers above exist (as "pending") even with no dataset, so ask
+  # health whether the camera store actually loaded, and how old the data is.
+  local cams age
+  cams="$(curl -s --max-time 10 "$base/api/health" 2>/dev/null | tr -d '\r' | grep -oE '"cameras" *: *\{[^}]*\}' || true)"
+  if [ -z "$cams" ]; then fail cameras_loaded "health has no cameras field"
+  elif ! printf '%s' "$cams" | grep -qE '"loaded" *: *true'; then fail cameras_loaded "camera dataset not loaded (run shinigami-data.service)"
+  else
+    age="$(printf '%s' "$cams" | sed -n 's/.*"age_days" *: *\([0-9][0-9]*\).*/\1/p')"
+    if [ -z "$age" ]; then fail cameras_loaded "dataset has no build time"
+    elif [ "$age" -gt 14 ]; then fail cameras_loaded "dataset is ${age} days old"
+    else pass "cameras_loaded age=${age}d"; fi
+  fi
+
   code="$(http_code "$base/api/places")"
   local lines="" line pid nocam_ids="" cam_ids="" bad=""
   if [ "$code" = "200" ]; then

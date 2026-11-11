@@ -14,11 +14,18 @@ router = APIRouter()
 @router.get("/api/health")
 async def health(request: Request) -> dict:
     settings = request.app.state.settings
+    now = time.time()
+    # Review WR-S8: camera store status (loaded, count, dataset age). Never coordinates.
+    cams = request.app.state.cameras
+    age_days = None
+    if cams.loaded and cams.built_at is not None:
+        age_days = max(0, int((now - cams.built_at) // 86400))
     return {
         "status": "ok",
         "version": settings.version,
-        "server_time": time.time(),
+        "server_time": now,
         "tiles": request.app.state.tiles.status,
+        "cameras": {"loaded": cams.loaded, "count": cams.count, "age_days": age_days},
     }
 
 

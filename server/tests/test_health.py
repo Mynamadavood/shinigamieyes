@@ -13,6 +13,31 @@ async def test_health_payload(client):
     assert body["version"] == "0.1.0"
     assert abs(body["server_time"] - time.time()) < 5
     assert r.headers["cache-control"] == "no-store"
+    assert body["cameras"] == {"loaded": False, "count": 0, "age_days": None}
+
+
+async def test_health_reports_camera_store(settings):
+    # Review WR-S8: verify.sh needs to tell a loaded dataset from pending layers.
+    import json
+
+    settings.cameras_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "built_at": time.time() - 3 * 86400 - 60,
+                "source": "t",
+                "cameras": [
+                    {"id": "a", "k": "cctv", "lat": 1.25, "lon": 2.25},
+                    {"id": "b", "k": "speed", "lat": 3.25, "lon": 4.25},
+                ],
+            }
+        )
+    )
+    app = create_app(settings, start_runtime=False)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
+        r = await c.get("/api/health")
+    assert r.json()["cameras"] == {"loaded": True, "count": 2, "age_days": 3}
+    assert "1.25" not in r.text and "2.25" not in r.text
 
 
 async def test_security_headers(client):

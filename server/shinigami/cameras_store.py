@@ -14,6 +14,7 @@ class CameraStore:
     def __init__(self, path: Path) -> None:
         self.path = Path(path)
         self.loaded = False
+        self.count = 0
         self.built_at: float | None = None
         self._buckets: dict[int, list[dict]] = {}
         self._mtime: float | None = None
@@ -41,6 +42,7 @@ class CameraStore:
                 log.info("cameras not loaded: %s", type(exc).__name__)
             return False
         self.built_at, self._buckets, self._mtime = built, buckets, mtime
+        self.count = sum(len(b) for b in buckets.values())
         self.loaded = True
         return True
 
