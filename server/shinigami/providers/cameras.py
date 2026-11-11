@@ -36,6 +36,11 @@ class _CameraProvider(Provider):
             detail: dict = {
                 k: rec[k] for k in DETAIL_KEYS if rec.get(k) not in (None, "", "unknown")
             }
+            # Review WR-S3, accepted risk (David's call): for a camera-enabled saved place,
+            # exact camera geoms plus distance_m let a client trilaterate the place even though
+            # the pin's location lat/lon are null. That is fine for public places he chose to
+            # show cameras at. Home and any is_home place never reach this code (places.py and
+            # assemble.py keep exact providers off them), which is the real protection.
             detail["distance_m"] = round(dist)
             items.append(
                 Item(
