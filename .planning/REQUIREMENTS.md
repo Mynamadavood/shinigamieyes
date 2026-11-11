@@ -22,14 +22,14 @@ Milestone v1 = City mode (no hardware). Each maps to one roadmap phase.
 
 - [x] **HUD-01**: Every item on screen shows a name and a live countdown that ticks every second, computed from an absolute target time (stays correct on cached data and after the app was backgrounded)
 - [x] **HUD-02**: Expired or stale items are visibly dimmed or removed, and each item shows how fresh its data is
-- [ ] **HUD-03**: On cold open, a hero "activation" screen shows the Shinigami eyes in blood red on black (≤1.5 s, skippable, plays over real loading, never delays data)
-- [ ] **HUD-04**: The main view is a dark, tilted 3D map of David's surroundings in the Watch Dogs NetHack style (desaturated blue world, thin frame, extruded buildings)
-- [ ] **HUD-05**: Items appear as floating icon + label tags on the map; tapping one opens an info card with its details
+- [x] **HUD-03**: On cold open, a hero "activation" screen shows the Shinigami eyes in blood red on black (≤1.5 s, skippable, plays over real loading, never delays data)
+- [x] **HUD-04**: The main view is a dark, tilted 3D map of David's surroundings in the Watch Dogs NetHack style (desaturated blue world, thin frame, extruded buildings)
+- [x] **HUD-05**: Items appear as floating icon + label tags on the map; tapping one opens an info card with its details
 - [ ] **HUD-06**: A "next" strip shows the 3–4 most urgent items, ranked by urgency × relevance × severity; map tags are capped to a budget so the screen stays readable
 - [ ] **HUD-07**: Slow-changing conditions (air, UV, fire danger, pollen) appear as colour-banded chips that escalate only when crossing a threshold
 - [ ] **HUD-08**: David can toggle individual layers on and off, and the choice persists
 - [ ] **HUD-09**: Glitch effects fire only on state changes (never over resting text), and red is reserved for highlights/threats
-- [ ] **HUD-10**: Map tiles, fonts and sprites are served from David's own server, so no third party learns his location
+- [x] **HUD-10**: Map tiles, fonts and sprites are served from David's own server, so no third party learns his location
 - [ ] **HUD-11**: David can open a Sources screen showing each feed's status, last update time and attribution
 - [ ] **HUD-12**: Layers outside their coverage (e.g. City of Melbourne data outside the CBD) show "out of coverage" rather than looking broken
 
@@ -58,8 +58,8 @@ Milestone v1 = City mode (no hardware). Each maps to one roadmap phase.
 
 ### Surveillance (SURV)
 
-- [ ] **SURV-01**: David can see known CCTV cameras within ~150 m (from OpenStreetMap), labelled "mapped, not exhaustive"
-- [ ] **SURV-02**: David can see fixed speed and red-light cameras nearby, as static information only (no proactive driving alerts)
+- [x] **SURV-01**: David can see known CCTV cameras within ~150 m (from OpenStreetMap), labelled "mapped, not exhaustive"
+- [x] **SURV-02**: David can see fixed speed and red-light cameras nearby, as static information only (no proactive driving alerts)
 
 ### Sky & Bay (SKY)
 
@@ -137,12 +137,12 @@ Set during roadmap creation (2026-11-05).
 | HUD-02 | Phase 1 | Complete |
 | ENV-04 | Phase 1 | Complete |
 | ENV-07 | Phase 1 | Complete |
-| HUD-03 | Phase 2 | Pending |
-| HUD-04 | Phase 2 | Pending |
-| HUD-05 | Phase 2 | Pending |
-| HUD-10 | Phase 2 | Pending |
-| SURV-01 | Phase 2 | Pending |
-| SURV-02 | Phase 2 | Pending |
+| HUD-03 | Phase 2 | Complete |
+| HUD-04 | Phase 2 | Complete |
+| HUD-05 | Phase 2 | Complete |
+| HUD-10 | Phase 2 | Complete |
+| SURV-01 | Phase 2 | Complete |
+| SURV-02 | Phase 2 | Complete |
 | TRAN-01 | Phase 3 | Pending |
 | TRAN-02 | Phase 3 | Pending |
 | TRAN-03 | Phase 3 | Pending |
