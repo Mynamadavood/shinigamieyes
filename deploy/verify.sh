@@ -123,7 +123,11 @@ hud10_checks() {
   done <<EOF_PLACES
 $lines
 EOF_PLACES
-  if [ -z "$nocam_ids$cam_ids" ]; then skip place_no_cameras "no saved places"
+  # review WR-S7: on the CT, an existing places.toml with an empty /api/places means the
+  # server is reading the wrong file (or none), so Home's camera gate is untested: FAIL.
+  if [ -z "$nocam_ids$cam_ids" ] && [ "$mode" = "local" ] && [ -f /etc/shinigami/places.toml ]; then
+    fail place_no_cameras "/etc/shinigami/places.toml exists but /api/places is empty"
+  elif [ -z "$nocam_ids$cam_ids" ]; then skip place_no_cameras "no saved places"
   elif [ -z "$nocam_ids" ]; then fail place_no_cameras "no camera-free place (home expected)"
   else
     for pid in $nocam_ids; do
