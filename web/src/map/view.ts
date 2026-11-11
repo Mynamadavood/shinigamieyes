@@ -14,11 +14,13 @@ export function mapViewFor(s: LocationState, p: Profile | null): MapView {
   if (s.mode === "gps" && s.lastFix) {
     return { kind: "gps", lat: s.lastFix.lat, lon: s.lastFix.lon, accuracy: s.lastFix.accuracy };
   }
-  if (s.mode === "pin" && s.pin) {
+  // only the profile fetched for THIS place may frame it: while switching A -> B, A's profile is
+  // still loaded and must not place B's view (WR-W3)
+  if (s.mode === "pin" && s.pin && p?.location?.place_id === s.pin.id) {
     const lat = p?.location?.cell_lat;
     const lon = p?.location?.cell_lon;
     if (typeof lat === "number" && typeof lon === "number") {
-      return { kind: "pin", lat, lon, label: s.pin.label };
+      return { kind: "pin", lat, lon, label: s.pin.label, placeId: s.pin.id };
     }
   }
   return { kind: "none" };

@@ -17,7 +17,7 @@ export interface StyleTokens {
 export type MapView =
   | { kind: "gps"; lat: number; lon: number; accuracy: number }
   | { kind: "search"; lat: number; lon: number; label: string }
-  | { kind: "pin"; lat: number; lon: number; label: string }
+  | { kind: "pin"; lat: number; lon: number; label: string; placeId: string }
   | { kind: "none" };
 
 export interface MapDeps {

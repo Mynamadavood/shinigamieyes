@@ -23,10 +23,14 @@ describe("mapViewFor", () => {
     });
   });
   it("pin with a cell uses the cell centre", () => {
-    const p = { location: { cell_lat: -37.8, cell_lon: 144.9 } } as unknown as Profile;
+    const p = { location: { place_id: "a", cell_lat: -37.8, cell_lon: 144.9 } } as unknown as Profile;
     expect(mapViewFor({ mode: "pin", gps: "off", pin: { id: "a", label: "A" } }, p)).toEqual({
-      kind: "pin", lat: -37.8, lon: 144.9, label: "A",
+      kind: "pin", lat: -37.8, lon: 144.9, label: "A", placeId: "a",
     });
+  });
+  it("pin with another place's profile is none", () => {
+    const p = { location: { place_id: "a", cell_lat: -37.8, cell_lon: 144.9 } } as unknown as Profile;
+    expect(mapViewFor({ mode: "pin", gps: "off", pin: { id: "b", label: "B" } }, p)).toEqual({ kind: "none" });
   });
   it("exports camera constants", () => {
     expect(PIN_AREA_ZOOM).toBe(12);

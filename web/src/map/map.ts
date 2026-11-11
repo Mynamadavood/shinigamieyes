@@ -401,7 +401,8 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
       setFigure(false);
       setPin(false);
       applyRing(v);
-      const key = `${v.lat},${v.lon}`;
+      // keyed on the place, not just the 0.1 degree cell: two places often share a cell (WR-W3)
+      const key = `${v.placeId}|${v.lat},${v.lon}`;
       if (lastKind !== "pin" || key !== lastPinKey) {
         map.jumpTo(areaFraming(v));
         pinFramed = false;

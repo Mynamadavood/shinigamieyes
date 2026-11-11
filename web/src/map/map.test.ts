@@ -255,7 +255,7 @@ describe("createMap", () => {
 
   it("pin view shows no marker and jumps to area zoom, pitch 0", async () => {
     const handle = (await createMap(mkDeps()))!;
-    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A" });
+    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A", placeId: "a" });
     expect(figureM().added).toBe(false);
     expect(pinM().added).toBe(false);
     expect(h.instance.jumpTo).toHaveBeenCalledWith(
@@ -357,7 +357,7 @@ describe("camera tags", () => {
 
   it("pin view ranks tags by the server distance_m", async () => {
     const handle = (await createMap(mkDeps()))!;
-    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A" });
+    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A", placeId: "a" });
     handle.setProfile(
       profileWith([
         camItem("a", 144.9, -37.79982, { distance_m: 10 }),
@@ -373,7 +373,7 @@ describe("camera tags", () => {
 
   it("pin view skips items without a finite distance_m", async () => {
     const handle = (await createMap(mkDeps()))!;
-    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A" });
+    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A", placeId: "a" });
     const bad = camItem("x", 144.9, -37.79982);
     delete bad.detail.distance_m;
     handle.setProfile(profileWith([bad, camItem("y", 144.9, -37.79865, { distance_m: 100 })]));
@@ -389,7 +389,7 @@ describe("camera tags", () => {
 
   it("pin view frames the CCTV items once, not again on the next profile", async () => {
     const handle = (await createMap(mkDeps()))!;
-    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A" });
+    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A", placeId: "a" });
     const p = profileWith([
       camItem("a", 144.901, -37.799, { distance_m: 10 }),
       camItem("b", 144.903, -37.797, { distance_m: 100 }),
@@ -404,9 +404,19 @@ describe("camera tags", () => {
     expect(h.instance.fitBounds).toHaveBeenCalledTimes(1);
   });
 
+  it("switching to another place in the same cell re-frames its cameras", async () => {
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A", placeId: "a" });
+    handle.setProfile(profileWith([camItem("a", 144.901, -37.799, { distance_m: 10 })]));
+    expect(h.instance.fitBounds).toHaveBeenCalledTimes(1);
+    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "B", placeId: "b" });
+    handle.setProfile(profileWith([camItem("b", 144.95, -37.81, { distance_m: 20 })]));
+    expect(h.instance.fitBounds).toHaveBeenCalledTimes(2);
+  });
+
   it("pin view with no CCTV frames the road cameras instead", async () => {
     const handle = (await createMap(mkDeps()))!;
-    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A" });
+    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A", placeId: "a" });
     handle.setProfile(
       profileWith([], [
         camItem("r1", 144.91, -37.79, { distance_m: 600 }, "speed"),
@@ -422,7 +432,7 @@ describe("camera tags", () => {
 
   it("pin view without any camera positions keeps the area framing", async () => {
     const handle = (await createMap(mkDeps()))!;
-    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A" });
+    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A", placeId: "a" });
     handle.setProfile(profileWith([]));
     expect(h.instance.fitBounds).not.toHaveBeenCalled();
   });
