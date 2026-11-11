@@ -1,16 +1,16 @@
 ---
-status: diagnosed
+status: complete
 phase: 02-3d-map-hero-and-surveillance
 source: [02-14 Gate 3 in deploy/UAT-DEVICE.md]
 started: 2026-11-07T00:00:00+11:00
-updated: 2026-11-10T00:00:00+11:00
+updated: 2026-11-11T00:00:00+11:00
 ---
 
 ## Current Test
 
 number: none
-name: Gate 3 complete; David chose "fix first, then GO"
-awaiting: gap plan execution, then David's GO
+name: Gate 3 signed GO by David (2026-11-11) after gap plans 02-15..02-18
+awaiting: none
 
 ## Tests
 
@@ -52,7 +52,7 @@ blocked: 0
 ## Gaps
 
 - truth: "Saved places other than Home show the camera layers (CCTV 150 m, speed/red-light 1 km) with distances from the place; Home shows none and keeps the `not shown for saved places` readout"
-  status: failed
+  status: closed
   reason: "User reported: show cams. Chose: all saved places except Home, so Home's location never reaches the phone"
   severity: major
   test: 1
@@ -67,7 +67,7 @@ blocked: 0
   debug_session: ""
 
 - truth: "CCTV includes OSM guard posts (surveillance:type=guard) and shows owner names except when OSM marks the owner private or the camera is on a residential spot"
-  status: failed
+  status: closed
   reason: "User reported: show if legally possible. Chose: guards + business names"
   severity: major
   test: 2
@@ -82,7 +82,7 @@ blocked: 0
   debug_session: ""
 
 - truth: "Camera tag labels near the screen edge stay fully on screen"
-  status: failed
+  status: closed
   reason: "Observed in David's iPhone screenshot: `Speed camera` label clipped at the right edge"
   severity: cosmetic
   test: 3
@@ -93,7 +93,7 @@ blocked: 0
   debug_session: ""
 
 - truth: "An open info card does not hide the tags around it"
-  status: failed
+  status: closed
   reason: "Observed in David's iPhone screenshot: card overlaps nearby tags"
   severity: minor
   test: 4

@@ -89,6 +89,7 @@ Automated pre-check:
 - [x] CBD buildings with parts do not show doubled or flickering extrusions (building_part check). Result / notes: pass (David, iPhone, 2026-11-10: no doubling or flicker seen)
 - [x] Provisional decisions confirmed or changed: saved places show no cameras; guard cameras excluded and private operator names dropped; `Source: OpenStreetMap` / colour-only building highlight / `BUILDING` title; server-side map tiles. Result / notes: (1) no cameras for saved places: FLIPPED, show cameras for every saved place except Home (Home stays hidden so its location never reaches the phone); (2) guards excluded / private operators dropped: FLIPPED, show guard posts and owner names unless OSM marks the owner private or the camera sits on a residential spot; (3) `Source: OpenStreetMap`, colour-only highlight, `BUILDING` title: CONFIRMED; (4) server-side tiles: CONFIRMED (David, 2026-11-10)
 
-Go / No-go: PENDING. David chose to fix first (2026-11-10): decisions 1 and 2 plus the clipped tag label and card-over-tags layout go in a gap plan (see 02-UAT.md), then GO.
+Gap re-check (David, iPhone, 2026-11-11, after 6dc96a0): pass on all four. Saved places other than Home show cameras and frame them (road cameras when no CCTV is mapped within 150 m: Monash, CBD and gym have none today); Home shows no cameras; edge labels flip left; an open card sits on the side covering the fewest tags. Owner names apply to CCTV cards only (seen on GPS); Victoria OSM has no guard posts today.
+Device-check fix during the re-check: saved places with no nearby CCTV now frame the road cameras (6dc96a0).
 
-Sign-off (David): ______________________  Date: __________
+Go / No-go: GO (17 pass, 2 skipped with cover; 2 provisional decisions flipped and shipped in 02-15/02-16; layout notes fixed in 02-17). Sign-off: David, 2026-11-11
