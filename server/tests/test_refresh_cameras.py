@@ -34,6 +34,23 @@ def test_shown_operator():
         assert shown_operator({"operator": "Acme", "addr:housenumber": "12", k: "y"}) == "Acme"
     for v in ("a@b.c", "see http://x", "www.x.com", "0412345678"):
         assert shown_operator({"operator": v}) is None
+    # review CR-S2: grouped AU phone formats, bare domains and emails
+    for v in (
+        "0412 345 678",
+        "J Smith 0412 345 678",
+        "03 9123 4567",
+        "+61 3 9123 4567",
+        "(03) 9123-4567",
+        "1300 123 456",
+        "03.9123.4567",
+        "example.com.au",
+        "Joes Pizza example.com.au",
+        "facebook.com/joesmith",
+        "joe.smith@example.com",
+    ):
+        assert shown_operator({"operator": v}) is None, v
+    for v in ("7-Eleven", "Coles Supermarkets", "Metro Trains", "Westfield Doncaster"):
+        assert shown_operator({"operator": v}) == v
     assert shown_operator({"operator": "   "}) is None
     assert shown_operator({}) is None
 

@@ -25,7 +25,19 @@ _COMPASS = {
 }
 _RESIDENTIAL_BUILDINGS = {"house", "residential", "apartments", "detached", "semidetached_house", "terrace"}
 _COMMERCIAL_KEYS = ("shop", "amenity", "office", "tourism", "leisure")
-_CONTACT_RE = re.compile(r"@|https?:|www\.|\d{6,}", re.IGNORECASE)
+_CONTACT_RE = re.compile(
+    r"@|https?:|www\.|\b[\w-]+(\.[\w-]+)*\.(com|net|org|au|io|co|biz|info|me|nz|uk)\b|\d{6,}",
+    re.IGNORECASE,
+)
+_PHONE_SEPARATORS = re.compile(r"[\s().\-]")
+_PHONE_RE = re.compile(r"\+\s*\d|\d{8,}")
+
+
+def looks_like_contact(value: str) -> bool:
+    """Email, URL, bare domain or phone number (any AU grouping: spaces, dashes, dots, brackets)."""
+    if _CONTACT_RE.search(value):
+        return True
+    return bool(_PHONE_RE.search(_PHONE_SEPARATORS.sub("", value)))
 
 
 def direction_words(raw):
@@ -55,7 +67,7 @@ def shown_operator(tags):
         return None
     if tags.get("operator:type") in ("private", "individual", "personal"):
         return None
-    if _residential(tags) or _CONTACT_RE.search(op):
+    if _residential(tags) or looks_like_contact(op):
         return None
     return op
 
