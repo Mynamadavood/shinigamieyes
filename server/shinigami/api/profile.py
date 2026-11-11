@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 
 from shinigami.assemble import assemble_profile
 from shinigami.geo import haversine_m, snap_cell
+from shinigami.places import is_home_like
 from shinigami.schema import Profile, ProfileLocation
 
 router = APIRouter()
@@ -53,6 +54,11 @@ def resolve_location(
         )
     best: tuple[float, str] | None = None
     for p in request.app.state.places.values():
+        # Review CR-S1: a sharp "near X" yes/no answer is a location oracle. Camera-off and
+        # home-like places are exactly the ones whose coordinates are secret, so they are
+        # never matched; only public, camera-enabled places can name a GPS label.
+        if not p.cameras or is_home_like(p.id, p.label):
+            continue
         d = haversine_m(lat, lon, p.lat, p.lon)
         if d <= NEAR_M and (best is None or d < best[0]):
             best = (d, p.label)

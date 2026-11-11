@@ -131,11 +131,21 @@ async def test_profile_place_validation(pclient, params):
 
 
 async def test_gps_label_near_and_far(pclient):
-    near = await pclient.get("/api/profile", params={"lat": HOME[0] + 0.003, "lon": HOME[1]})
+    near = await pclient.get("/api/profile", params={"lat": -37.8136 + 0.003, "lon": 144.9631})
     assert near.json()["location"]["source"] == "gps"
-    assert near.json()["location"]["label"] == "near Home (Bulleen)"
+    assert near.json()["location"]["label"] == "near Melbourne CBD"
     far = await pclient.get("/api/profile", params={"lat": -33.9, "lon": 151.2})
     assert far.json()["location"]["label"] == "current location"
+
+
+async def test_gps_label_never_names_home(pclient):
+    # Review CR-S1: the label must not be an oracle for Home's position.
+    for dlat in (0.0, 0.003, -0.003):
+        r = await pclient.get("/api/profile", params={"lat": HOME[0] + dlat, "lon": HOME[1]})
+        loc = r.json()["location"]
+        assert loc["source"] == "gps"
+        assert loc["label"] == "current location"
+        assert "home" not in loc["label"].casefold()
 
 
 async def test_search_label(pclient):
