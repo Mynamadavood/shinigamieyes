@@ -339,3 +339,22 @@ async def test_pin_non_exact_providers_get_cell_centre(settings):
     location, la, lo = resolve_location(req, HOME[0], HOME[1])
     assemble_profile(app.state.ctx, providers, location, la, lo, exact_ok=True)
     assert seen["plain"] == (la, lo)  # live GPS keeps the exact point
+
+
+def test_load_places_rejects_ids_the_api_cannot_select(tmp_path, caplog):
+    # Review WR-S10: ids must match the /api/profile?place= pattern.
+    long_id = "x" * 33
+    f = tmp_path / "p.toml"
+    f.write_text(
+        '[[place]]\nid = "Home"\nlabel = "A"\nlat = 1.5\nlon = 2.5\n\n'
+        '[[place]]\nid = "my place"\nlabel = "B"\nlat = 1.5\nlon = 2.5\n\n'
+        f'[[place]]\nid = "{long_id}"\nlabel = "C"\nlat = 1.5\nlon = 2.5\n\n'
+        '[[place]]\nid = ""\nlabel = "D"\nlat = 1.5\nlon = 2.5\n\n'
+        '[[place]]\nid = "ok_1-a"\nlabel = "E"\nlat = 6.6666\nlon = 2.5\n\n'
+        '[[place]]\nid = "bad!"\nlabel = "F"\nlat = 6.6666\nlon = 2.5\n'
+    )
+    with caplog.at_level(logging.DEBUG):
+        ps = load_places(f)
+    assert [p.id for p in ps] == ["ok_1-a"]
+    assert "my place" in caplog.text and "bad!" in caplog.text
+    assert "6.6666" not in caplog.text

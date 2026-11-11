@@ -9,11 +9,15 @@ Other places default to cameras on.
 """
 
 import logging
+import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
 log = logging.getLogger("shinigami.places")
+
+# Same rule as /api/profile?place= (review WR-S10): an id the API would reject is skipped.
+PLACE_ID_RE = re.compile(r"[a-z0-9_-]{1,32}")
 
 
 @dataclass(frozen=True)
@@ -46,6 +50,9 @@ def load_places(path: Path) -> list[Place]:
         pid = entry.get("id") if isinstance(entry, dict) else None
         if not isinstance(pid, str):
             log.warning("skipping place entry without a valid id")
+            continue
+        if not PLACE_ID_RE.fullmatch(pid):
+            log.warning("skipping place with invalid id %.40r (need [a-z0-9_-], 1-32 chars)", pid)
             continue
         try:
             lat, lon = float(entry["lat"]), float(entry["lon"])
