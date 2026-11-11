@@ -21,6 +21,7 @@ import type { ListState } from "./ui/next-list";
 import { OffgridBanner } from "./ui/offgrid-banner";
 import { Readouts } from "./ui/readouts";
 import { mountHero, shouldPlayHero } from "./ui/hero";
+import type { HeroHandle } from "./ui/hero";
 import { mountShell } from "./ui/shell";
 import type { MapDeps, MapHandle } from "./map/types";
 import { mapViewFor } from "./map/view";
@@ -42,6 +43,8 @@ export interface AppHandle {
 export const IDB_TIMEOUT_MS = 300;
 const SAVE_DEBOUNCE_MS = 1000;
 const PREVIOUS_LOCATION_M = 500;
+/** WR-W1: with a cached profile on screen, the hero covers it for at most this long. */
+export const CACHED_HERO_MS = 600;
 
 /** Strip text per UI-SPEC location states. */
 export function stripText(s: LocationState, p: Profile | null): StripText {
@@ -115,6 +118,7 @@ function cachedIdentity(c: CachedProfile): string | null {
 export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppHandle> {
   const wall = deps.now ?? Date.now;
   const slots = mountShell(root);
+  let hero: HeroHandle | null = null;
   // HUD-03: the hero takes no data and is never awaited, so it cannot delay the cached paint.
   const navType = (
     typeof performance !== "undefined" && performance.getEntriesByType
@@ -123,7 +127,7 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
   )?.type;
   if (deps.hero !== false && shouldPlayHero(navType, false, heroPlayed)) {
     heroPlayed = true;
-    mountHero(
+    hero = mountHero(
       root,
       { titleBar: slots.titleBar, titleText: slots.titleText },
       {
@@ -270,6 +274,9 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
     profileKey = cached.key;
     renderLocation();
     render();
+    // Core Value: the cached HUD must be visible in under a second, so the full hero only plays
+    // when there is nothing cached to show; reduced motion is still respected inside the hero
+    hero?.shortenTo(CACHED_HERO_MS);
   }
   void loadPlaces(deps.fetchImpl)
     .then((l) => {

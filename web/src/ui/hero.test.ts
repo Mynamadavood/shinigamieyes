@@ -103,6 +103,36 @@ describe("mountHero timeline", () => {
     expect(hero()!.classList.contains("fading")).toBe(true);
   });
 
+  it("shortenTo(600) at 250 ms fades at 650 ms and ends at 850 ms (WR-W1)", () => {
+    const h = mount();
+    vi.advanceTimersByTime(250);
+    h.shortenTo(600);
+    vi.advanceTimersByTime(399);
+    expect(hero()!.classList.contains("fading")).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(hero()!.classList.contains("fading")).toBe(true);
+    vi.advanceTimersByTime(199);
+    expect(hero()).not.toBeNull();
+    vi.advanceTimersByTime(1);
+    expect(hero()).toBeNull();
+  });
+
+  it("shortenTo never lengthens the hero; reduced motion ends without a fade", () => {
+    const h = mount();
+    vi.advanceTimersByTime(1000);
+    h.shortenTo(600);
+    vi.advanceTimersByTime(500);
+    expect(hero()).toBeNull();
+
+    const r = mount(true);
+    vi.advanceTimersByTime(100);
+    r.shortenTo(300);
+    vi.advanceTimersByTime(299);
+    expect(hero()!.classList.contains("fading")).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(hero()).toBeNull();
+  });
+
   it("uses no inline styles", () => {
     mount();
     expect(hero()!.querySelector("[style]")).toBeNull();

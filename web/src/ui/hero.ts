@@ -12,6 +12,8 @@ export function shouldPlayHero(navType: string | undefined, persisted: boolean, 
 
 export interface HeroHandle {
   skip(): void;
+  /** End within `ms` from now (fade included); never lengthens the hero. */
+  shortenTo(ms: number): void;
   done: Promise<void>;
 }
 
@@ -90,10 +92,20 @@ export function mountHero(
     endTimer = setTimeout(finish, Math.min(FADE_MS, remaining));
   }
 
+  function shortenTo(ms: number): void {
+    if (finished || fading) return;
+    const elapsed = now() - started;
+    if (elapsed + ms >= total) return;
+    clearTimeout(fadeTimer);
+    clearTimeout(endTimer);
+    if (!opts.reducedMotion) fadeTimer = setTimeout(startFade, Math.max(0, ms - FADE_MS));
+    endTimer = setTimeout(finish, ms);
+  }
+
   skipBtn.addEventListener("click", skip);
   closeBox?.addEventListener("click", skip);
 
   fadeTimer = setTimeout(startFade, total - FADE_MS);
   endTimer = setTimeout(finish, total); // hard cap
-  return { skip, done };
+  return { skip, shortenTo, done };
 }
