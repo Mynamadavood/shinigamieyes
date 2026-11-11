@@ -76,6 +76,19 @@ async function persist(s: LocationState): Promise<void> {
   }
 }
 
+/** The persisted location state, or undefined (missing, invalid, unreadable or slow). */
+export async function loadSavedState(): Promise<LocationState | undefined> {
+  try {
+    const saved = (await withTimeout(get(STATE_KEY), STATE_READ_TIMEOUT_MS, undefined)) as
+      | LocationState
+      | undefined;
+    if (saved && (saved.mode === "gps" || saved.mode === "pin" || saved.mode === "search")) return saved;
+  } catch {
+    /* use default */
+  }
+  return undefined;
+}
+
 export function createLocation(deps: LocationDeps): LocationController {
   const clock = deps.now ?? Date.now;
   let s: LocationState = { mode: "gps", gps: "locating" };
@@ -134,16 +147,8 @@ export function createLocation(deps: LocationDeps): LocationController {
 
   return {
     async start() {
-      try {
-        const saved = (await withTimeout(get(STATE_KEY), STATE_READ_TIMEOUT_MS, undefined)) as
-          | LocationState
-          | undefined;
-        if (saved && (saved.mode === "gps" || saved.mode === "pin" || saved.mode === "search")) {
-          s = { ...saved, gps: "locating" };
-        }
-      } catch {
-        /* use default */
-      }
+      const saved = await loadSavedState();
+      if (saved) s = { ...saved, gps: "locating" };
       if (!listening) {
         listening = true;
         document.addEventListener("visibilitychange", () => {

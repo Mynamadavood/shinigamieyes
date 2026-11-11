@@ -3,6 +3,7 @@ import type { Layer, Profile } from "./types";
 
 vi.mock("./store", () => ({
   loadProfile: vi.fn(() => new Promise(() => {})),
+  loadCachedProfile: vi.fn(() => new Promise(() => {})),
   loadLastSync: vi.fn(() => new Promise(() => {})),
   saveProfile: vi.fn(async () => {}),
   saveLastSync: vi.fn(async () => {}),

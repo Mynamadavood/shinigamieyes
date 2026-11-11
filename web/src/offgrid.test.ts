@@ -1,5 +1,5 @@
 import "fake-indexeddb/auto";
-import { clear } from "idb-keyval";
+import { clear, set } from "idb-keyval";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { boot } from "./app";
 import { setOffset } from "./clock";
@@ -137,6 +137,22 @@ describe("boot", () => {
     expect((await loadProfile())?.layers.sun.rev).toBe(2);
     expect(await loadLastSync()).not.toBeNull();
     expect(rows()).toHaveLength(1);
+  });
+
+  it("does not show a cached profile for another place under the restored pin (WR-W4)", async () => {
+    const forA = { ...cachedProfile(), location: { source: "pin" as const, lat: null, lon: null, place_id: "a" } };
+    await saveProfile(forA, "place=a");
+    await set("location:state", { mode: "pin", gps: "off", pin: { id: "b", label: "B" } });
+    await boot(root, { fetchImpl: hangingFetch, EventSourceImpl: ES });
+    expect(rows()).toHaveLength(0);
+  });
+
+  it("shows the cached profile when it belongs to the restored pin", async () => {
+    const forA = { ...cachedProfile(), location: { source: "pin" as const, lat: null, lon: null, place_id: "a" } };
+    await saveProfile(forA, "place=a");
+    await set("location:state", { mode: "pin", gps: "off", pin: { id: "a", label: "A" } });
+    await boot(root, { fetchImpl: hangingFetch, EventSourceImpl: ES });
+    expect(rows()).toHaveLength(2);
   });
 
   it("SSE layer replaces rows in place (same DOM node for unchanged id)", async () => {

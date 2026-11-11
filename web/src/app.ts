@@ -3,10 +3,11 @@ import { pad2 } from "./format";
 import { selectVisible } from "./model";
 import { HttpError, applyLayer, fetchProfile, openStream } from "./net";
 import type { StreamHandle } from "./net";
-import { createLocation, haversineM, loadPlaces } from "./location";
+import { createLocation, haversineM, loadPlaces, loadSavedState, toParams } from "./location";
 import type { LocationState } from "./location";
 import { createConnectivity } from "./offgrid";
-import { loadLastSync, loadProfile, saveLastSync, saveProfile } from "./store";
+import { loadCachedProfile, loadLastSync, saveLastSync, saveProfile } from "./store";
+import type { CachedProfile } from "./store";
 import { startTicker } from "./ticker";
 import { withTimeout } from "./timeout";
 import type { Profile } from "./types";
@@ -70,8 +71,6 @@ export function deriveListState(rowCount: number, hasProfile: boolean, conn: Con
   return "loading";
 }
 
-const CACHED_KEY = "\u0000cached";
-
 /** Module-level so the hero plays at most once per page lifetime (UI-SPEC). */
 let heroPlayed = false;
 /** Test hook: forget that the hero has played. */
@@ -80,6 +79,29 @@ export function resetHeroPlayed(): void {
 }
 
 const paramKey = (p: URLSearchParams | null): string => (p ? p.toString() : "");
+
+/**
+ * Which location a params key is for, coarse enough that a GPS profile still shows as
+ * "previous location" after a move: pin:<place id>, search:<lat>,<lon>, gps, or none.
+ */
+export function locationIdentity(key: string): string {
+  const q = new URLSearchParams(key);
+  const place = q.get("place");
+  if (place) return `pin:${place}`;
+  if (q.get("src") === "search") return `search:${q.get("lat")},${q.get("lon")}`;
+  if (q.has("lat")) return "gps";
+  return "none";
+}
+
+/** Identity of a cached profile: from its stored params key, else (legacy) from its location. */
+function cachedIdentity(c: CachedProfile): string | null {
+  if (c.key !== null) return locationIdentity(c.key);
+  const l = c.profile.location;
+  if (l?.source === "pin") return l.place_id ? `pin:${l.place_id}` : null;
+  if (l?.source === "gps") return "gps";
+  if (l?.source === "default") return "none";
+  return null; // a legacy search profile cannot be matched to its point
+}
 
 export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppHandle> {
   const wall = deps.now ?? Date.now;
@@ -120,8 +142,6 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
   const handle: AppHandle = {
     setLocationParams(p) {
       params = p;
-      // the cached profile belongs to the restored location: adopt the first params as its key
-      if (profileKey === CACHED_KEY) profileKey = paramKey(p);
       void refetch();
       stream?.reopen(p);
     },
@@ -207,15 +227,19 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
 
   const bootStart = Date.now();
   // (2) cached-first: IndexedDB is read before any network request is started.
-  const [cached, lastSync] = await withTimeout(
-    Promise.all([loadProfile(), loadLastSync()]),
+  const [cached, lastSync, savedLoc] = await withTimeout(
+    Promise.all([loadCachedProfile(), loadLastSync(), loadSavedState()]),
     IDB_TIMEOUT_MS,
-    [null, null] as [Profile | null, number | null],
+    [null, null, undefined] as [CachedProfile | null, number | null, LocationState | undefined],
   );
   conn.seedSync(lastSync);
-  if (cached) {
-    profile = cached;
-    profileKey = CACHED_KEY;
+  // WR-W4: only adopt a cached profile fetched for the location being restored; a profile for
+  // another place must never show under this one's label or have its frames merged into it
+  const restoredKey = paramKey(toParams(savedLoc ?? { mode: "gps", gps: "locating" }));
+  if (cached && cachedIdentity(cached) === locationIdentity(restoredKey)) {
+    profile = cached.profile;
+    // the exact key it was fetched for: stream frames merge only while params match it
+    profileKey = cached.key;
     renderLocation();
     render();
   }
@@ -254,7 +278,7 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
       profileKey = key;
       renderLocation();
       const t = wall();
-      void saveProfile(p);
+      void saveProfile(p, key);
       void saveLastSync(t);
       conn.markOnline(t);
       render();
@@ -277,7 +301,7 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
   function scheduleSave(): void {
     if (saveTimer !== undefined) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      if (profile) void saveProfile(profile);
+      if (profile && profileKey !== null) void saveProfile(profile, profileKey);
     }, SAVE_DEBOUNCE_MS);
   }
 
@@ -293,9 +317,8 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
         void saveLastSync(t);
       },
       onLayer: (layer) => {
-        // frames for another location must never merge into this profile (WR-04)
-        if (profileKey === CACHED_KEY) profileKey = paramKey(params);
-        if (!profile || paramKey(params) !== profileKey) {
+        // frames for another location must never merge into this profile (WR-04, WR-W4)
+        if (!profile || profileKey === null || paramKey(params) !== profileKey) {
           void refetch();
           return;
         }
