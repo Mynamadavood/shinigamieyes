@@ -342,6 +342,7 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
   let lastKind: MapView["kind"] = "none";
   let lastPinKey = "";
   let pinFramed = false;
+  let lastCamLayers: unknown[] = [];
 
   const framing = (v: { lat: number; lon: number }) => ({
     center: [v.lon, v.lat] as [number, number],
@@ -444,11 +445,16 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
   return {
     setView,
     setProfile(p) {
-      const items: Item[] = [];
-      for (const id of CAMERA_LAYERS) {
-        for (const it of p?.layers[id]?.items ?? []) items.push(it);
+      // a frame for another layer leaves the camera layer objects untouched (applyLayer copies
+      // references), so the tags (and any open tag card) are only reconciled when cameras change
+      const camLayers = CAMERA_LAYERS.map((id) => p?.layers[id]);
+      const camsChanged = camLayers.some((l, i) => l !== lastCamLayers[i]);
+      lastCamLayers = camLayers;
+      if (camsChanged) {
+        const items: Item[] = [];
+        for (const l of camLayers) for (const it of l?.items ?? []) items.push(it);
+        tags.update(items);
       }
-      tags.update(items);
       // saved place: the cell-centre area view shows 150 m as ~5 px, so frame the cameras once:
       // the CCTV items, or the road cameras when no CCTV is mapped within 150 m (the common case)
       if (current.kind === "pin" && !pinFramed && follow.following()) {

@@ -298,7 +298,11 @@ export class TagLayer {
   }
 
   private clearAll(): void {
-    this.deps.card.close();
+    // the Card is shared with the building, YOU and pin cards: close it only when a tag owns it
+    if (this.selectedId !== null) {
+      this.deps.card.close();
+      this.selectedId = null;
+    }
     for (const e of this.entries.values()) e.marker.remove();
     this.entries.clear();
   }

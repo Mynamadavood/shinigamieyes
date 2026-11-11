@@ -448,6 +448,30 @@ describe("camera tags", () => {
     expect(dialog()!.textContent).toContain("Source: OpenStreetMap");
   });
 
+  it("a camera-less profile update does not close a card the tags do not own", async () => {
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView(ORIGIN);
+    handle.setProfile(profileWith([]));
+    figureM().el.click();
+    const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]:not(.is-hidden)');
+    expect(dialog()!.textContent).toContain("YOU");
+    handle.setProfile(profileWith([]));
+    expect(dialog()).not.toBeNull();
+  });
+
+  it("a frame for another layer leaves an open tag card alone", async () => {
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView(ORIGIN);
+    const p = profileWith(items());
+    handle.setProfile(p);
+    tagEls()[0].el.click();
+    const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]:not(.is-hidden)');
+    expect(dialog()).not.toBeNull();
+    const other = { id: "uv_now", status: "fresh", rev: 1, as_of: 0, attribution: "", items: [] };
+    handle.setProfile({ ...p, layers: { ...p.layers, uv_now: other } });
+    expect(dialog()).not.toBeNull();
+  });
+
   it("re-ranks on moveend debounced 100 ms, not on move", async () => {
     vi.useFakeTimers();
     const handle = (await createMap(mkDeps()))!;
