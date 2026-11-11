@@ -155,6 +155,27 @@ describe("boot", () => {
     expect(rows()).toHaveLength(2);
   });
 
+  it("never stores or merges camera layers for a camera-off place (WR-W5)", async () => {
+    const camLayer: Layer = { ...mkLayer(1, []), id: "cameras_cctv" };
+    const home: Profile = {
+      ...cachedProfile(),
+      location: { source: "pin", lat: null, lon: null, place_id: "home" },
+      layers: { sun: mkLayer(1, [mkItem("a", NOW + 3_600_000)]), cameras_cctv: camLayer },
+    };
+    await set("location:state", { mode: "pin", gps: "off", pin: { id: "home", label: "Home", cameras: false } });
+    const fetchImpl = (async (u: string) => ({
+      ok: true,
+      status: 200,
+      json: async () => (String(u).startsWith("/api/places") ? [{ id: "home", label: "Home", cameras: false }] : home),
+    })) as unknown as typeof fetch;
+    await boot(root, { fetchImpl, EventSourceImpl: ES });
+    await vi.advanceTimersByTimeAsync(300);
+    expect(Object.keys((await loadProfile())!.layers)).toEqual(["sun"]);
+    FakeES.all[FakeES.all.length - 1].emit("layer", { ...camLayer, rev: 2 });
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(Object.keys((await loadProfile())!.layers)).toEqual(["sun"]);
+  });
+
   it("SSE layer replaces rows in place (same DOM node for unchanged id)", async () => {
     await saveProfile(cachedProfile());
     await boot(root, { fetchImpl: hangingFetch, EventSourceImpl: ES });

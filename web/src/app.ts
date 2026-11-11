@@ -4,13 +4,13 @@ import { selectVisible } from "./model";
 import { HttpError, applyLayer, fetchProfile, openStream } from "./net";
 import type { StreamHandle } from "./net";
 import { createLocation, haversineM, loadPlaces, loadSavedState, toParams } from "./location";
-import type { LocationState } from "./location";
+import type { LocationState, PlaceRef } from "./location";
 import { createConnectivity } from "./offgrid";
 import { loadCachedProfile, loadLastSync, saveLastSync, saveProfile } from "./store";
 import type { CachedProfile } from "./store";
 import { startTicker } from "./ticker";
 import { withTimeout } from "./timeout";
-import type { Profile } from "./types";
+import type { Layer, Profile } from "./types";
 import type { ConnState } from "./offgrid";
 import { GPS_OFF_COPY, LocationSheet } from "./ui/location-sheet";
 import { LocationStrip } from "./ui/location-strip";
@@ -93,6 +93,15 @@ export function locationIdentity(key: string): string {
   return "none";
 }
 
+const isCameraLayer = (id: string): boolean => id.startsWith("cameras_");
+
+/** The profile without its camera layers (WR-W5 client backstop for camera-off places). */
+export function stripCameraLayers(p: Profile): Profile {
+  const layers: Record<string, Layer> = {};
+  for (const [id, l] of Object.entries(p.layers)) if (!isCameraLayer(id)) layers[id] = l;
+  return { ...p, layers };
+}
+
 /** Identity of a cached profile: from its stored params key, else (legacy) from its location. */
 function cachedIdentity(c: CachedProfile): string | null {
   if (c.key !== null) return locationIdentity(c.key);
@@ -137,6 +146,24 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
   let mapViewKey = "";
   let inflight = false;
   let queued = false;
+  let places: PlaceRef[] = [];
+  /** Saved places whose profile came back with no camera layers: Home-like, never show cameras. */
+  const noCameraPlaces = new Set<string>();
+
+  /**
+   * WR-W5 defence in depth: for a camera-off place (Home), camera layers are never rendered or
+   * stored even if the server ever regressed and sent them, because camera positions plus
+   * distance_m would trilaterate the place. For camera-enabled (public) places the phone can
+   * still derive the place from its cameras; that risk is accepted.
+   */
+  function camerasOff(key: string): boolean {
+    const id = new URLSearchParams(key).get("place");
+    if (!id) return false;
+    if (noCameraPlaces.has(id)) return true;
+    const pin = loc.state().pin;
+    if (pin && pin.id === id && pin.cameras === false) return true;
+    return places.some((pl) => pl.id === id && pl.cameras === false);
+  }
 
   list.setState("loading");
   const handle: AppHandle = {
@@ -237,14 +264,18 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
   // another place must never show under this one's label or have its frames merged into it
   const restoredKey = paramKey(toParams(savedLoc ?? { mode: "gps", gps: "locating" }));
   if (cached && cachedIdentity(cached) === locationIdentity(restoredKey)) {
-    profile = cached.profile;
+    const savedPin = savedLoc?.mode === "pin" ? savedLoc.pin : undefined;
+    profile = savedPin?.cameras === false ? stripCameraLayers(cached.profile) : cached.profile;
     // the exact key it was fetched for: stream frames merge only while params match it
     profileKey = cached.key;
     renderLocation();
     render();
   }
   void loadPlaces(deps.fetchImpl)
-    .then((l) => sheet.setPlaces(l))
+    .then((l) => {
+      places = l;
+      sheet.setPlaces(l);
+    })
     .catch(() => {
       /* the sheet keeps its previous list; never an unhandled rejection (WR-W6) */
     });
@@ -278,11 +309,14 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
       });
       if (paramKey(params) !== key) return; // location changed mid-flight; newer fetch is queued
       setOffset(offsetMs);
-      profile = p;
+      const place = new URLSearchParams(key).get("place");
+      if (place && !Object.keys(p.layers).some(isCameraLayer)) noCameraPlaces.add(place);
+      const safe = camerasOff(key) ? stripCameraLayers(p) : p;
+      profile = safe;
       profileKey = key;
       renderLocation();
       const t = wall();
-      void saveProfile(p, key);
+      void saveProfile(safe, key);
       void saveLastSync(t);
       conn.markOnline(t);
       render();
@@ -305,7 +339,9 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
   function scheduleSave(): void {
     if (saveTimer !== undefined) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      if (profile && profileKey !== null) void saveProfile(profile, profileKey);
+      if (profile && profileKey !== null) {
+        void saveProfile(camerasOff(profileKey) ? stripCameraLayers(profile) : profile, profileKey);
+      }
     }, SAVE_DEBOUNCE_MS);
   }
 
@@ -326,6 +362,7 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
           void refetch();
           return;
         }
+        if (isCameraLayer(layer.id) && camerasOff(profileKey)) return; // WR-W5
         profile = applyLayer(profile, layer);
         syncMap();
         render();

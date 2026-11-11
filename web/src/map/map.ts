@@ -382,8 +382,10 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
   function setView(v: MapView): void {
     current = v;
     // gps/search measure on the client. Saved places use the server's distances because the phone
-    // never receives the place coordinates (a pin view's lat/lon is the 0.1 degree cell centre,
-    // not the place, and must NOT be used as the origin).
+    // is not sent the place coordinates (a pin view's lat/lon is the 0.1 degree cell centre, not
+    // the place, and must NOT be used as the origin). Note: for a camera-enabled place, camera
+    // positions plus distance_m still let the phone derive the place; Home gets no camera layers
+    // (server rule, with a client backstop in app.ts, WR-W5).
     tags.setOrigin(v.kind === "gps" || v.kind === "search" ? { lat: v.lat, lon: v.lon } : v.kind === "pin" ? "server" : null);
     if (v.kind === "none") {
       setFigure(false);

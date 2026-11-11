@@ -8,7 +8,8 @@ import { withTimeout } from "./timeout";
 export type GpsStatus = "locating" | "live" | "off";
 export interface LocationState {
   mode: "gps" | "pin" | "search";
-  pin?: { id: string; label: string };
+  /** cameras: the place list's flag, kept so a cold open knows Home gets no camera layers (WR-W5). */
+  pin?: { id: string; label: string; cameras?: boolean };
   search?: { lat: number; lon: number; label: string };
   lastAccepted?: { lat: number; lon: number; ts: number };
   /** Every successful fix (not gated by the 100 m hysteresis); accuracy in metres. */
@@ -169,7 +170,9 @@ export function createLocation(deps: LocationDeps): LocationController {
       fix(true);
     },
     usePlace(p) {
-      s = { ...s, mode: "pin", pin: { id: p.id, label: p.label } };
+      const pin: NonNullable<LocationState["pin"]> = { id: p.id, label: p.label };
+      if (typeof p.cameras === "boolean") pin.cameras = p.cameras;
+      s = { ...s, mode: "pin", pin };
       changed();
     },
     useSearch(r) {
