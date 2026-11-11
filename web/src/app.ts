@@ -321,6 +321,8 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
       conn.markOnline(t);
       render();
     } catch (e) {
+      // a superseded request may not change the mode or mark off-grid; the queued one decides (WR-W7)
+      if (paramKey(params) !== key) return;
       if (e instanceof HttpError) {
         if (e.status === 422 && loc.state().mode === "pin") loc.useGps();
       } else {

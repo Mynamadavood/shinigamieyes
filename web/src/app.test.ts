@@ -104,6 +104,27 @@ describe("stream key guard (WR-04) and HTTP errors (WR-03)", () => {
     expect(vi.mocked(fetchImpl).mock.calls.filter((c) => isProfile(c[0])).length).toBeGreaterThan(before);
   });
 
+  it("a network error from a superseded request does not mark OFF-GRID (WR-W7)", async () => {
+    let n = 0;
+    let rejectStale: (e: unknown) => void = () => {};
+    const fetchImpl = vi.fn((u: string) => {
+      if (!isProfile(u)) return Promise.resolve(json([]));
+      n++;
+      if (n === 1) return Promise.resolve(json(profile([])));
+      if (n === 2) return new Promise((_r, rej) => { rejectStale = rej; });
+      return new Promise(() => {}); // the current request is still in flight
+    }) as unknown as typeof fetch;
+    const app = await bootApp(fetchImpl);
+    await vi.advanceTimersByTimeAsync(50);
+    app.setLocationParams(new URLSearchParams({ place: "a" }));
+    await vi.advanceTimersByTimeAsync(10);
+    app.setLocationParams(new URLSearchParams({ place: "b" }));
+    rejectStale(new TypeError("network"));
+    await vi.advanceTimersByTimeAsync(10);
+    expect(banner().hidden).toBe(true);
+    expect(n).toBe(3);
+  });
+
   it("a 500 does not show OFF-GRID but a network error does", async () => {
     let mode: "500" | "net" = "500";
     const fetchImpl = vi.fn(async (u: string) => {
