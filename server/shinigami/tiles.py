@@ -20,6 +20,13 @@ RECHECK_S = 30.0
 ATTRIBUTION = "© OpenStreetMap contributors · Protomaps"
 
 
+class TileUnavailable(Exception):
+    """The store cannot answer right now (not provisioned, unsupported or a read error).
+
+    Distinct from a genuinely absent tile (get() returns None), which may be cached.
+    """
+
+
 class TileStore:
     def __init__(self, path: Path) -> None:
         self._path = Path(path)
@@ -34,11 +41,10 @@ class TileStore:
         self._open()
 
     def _close(self) -> None:
-        if self._file is not None:
-            try:
-                self._file.close()
-            except OSError:
-                pass
+        # Review WR-S6: do not close the old file here. A request thread may still be
+        # reading through its copied reader; closing would make it fail with "I/O operation
+        # on closed file". Dropping the references lets refcounting close the handle as
+        # soon as the last in-flight reader finishes.
         self._file = None
         self._reader = None
         self._header = None
@@ -97,16 +103,21 @@ class TileStore:
                 self._open()
 
     def get(self, z: int, x: int, y: int) -> bytes | None:
+        """Tile bytes, or None when the tile is genuinely absent from a healthy store.
+
+        Raises TileUnavailable when the store is not ready or the read fails, so a
+        transient problem is never cached as "absent" (review WR-S6).
+        """
         with self._lock:
             reader, header = self._reader, self._header
         if self.status != "ok" or reader is None or header is None:
-            return None
+            raise TileUnavailable(self.status)
         if z < header["min_zoom"] or z > header["max_zoom"]:
             return None
         try:
             return reader.get(z, x, y)
-        except (ValueError, OSError):
-            return None
+        except (ValueError, OSError) as exc:
+            raise TileUnavailable("read error") from exc
 
     def meta(self) -> dict:
         h = self._header

@@ -31,7 +31,7 @@ async def test_security_headers(client):
 
 
 async def test_tiles_carry_csp(client):
-    r = await client.get("/tiles/0/0/0.mvt")  # 204/404 is fine, the header must still be there
+    r = await client.get("/tiles/0/0/0.mvt")  # 204/404/503 is fine, the header must still be there
     assert "blob:" not in r.headers["content-security-policy"]
     assert "connect-src 'self'" in r.headers["content-security-policy"]
 

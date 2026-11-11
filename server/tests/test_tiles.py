@@ -85,7 +85,8 @@ async def test_bad_coordinates(settings):
 async def test_missing_file(settings):
     _, c = make_client(settings)
     assert (await c.get("/api/health")).json()["tiles"] == "missing"
-    assert (await c.get(url(TILE_A))).status_code == 204
+    r = await c.get(url(TILE_A))
+    assert r.status_code == 503 and r.headers["cache-control"] == "no-store"
     assert (await c.get("/api/tiles/meta")).json()["status"] == "missing"
 
 
@@ -97,7 +98,22 @@ async def test_unsupported(settings, kw):
     write_pmtiles(settings.tiles_path, {TILE_A: DATA_A}, **kw)
     _, c = make_client(settings)
     assert (await c.get("/api/health")).json()["tiles"] == "unsupported"
-    assert (await c.get(url(TILE_A))).status_code == 204
+    r = await c.get(url(TILE_A))
+    assert r.status_code == 503 and r.headers["cache-control"] == "no-store"
+
+
+async def test_read_error_is_503_not_cached_absent(settings, monkeypatch):
+    # Review WR-S6: a transient read failure must not be cached as an absent tile.
+    write_pmtiles(settings.tiles_path, {TILE_A: DATA_A})
+    app, c = make_client(settings)
+    store = app.state.tiles
+
+    def boom(*a):
+        raise OSError("I/O operation on closed file")
+
+    monkeypatch.setattr(store._reader, "get", boom)
+    r = await c.get(url(TILE_A))
+    assert r.status_code == 503 and r.headers["cache-control"] == "no-store"
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="cannot replace an open file on Windows; prod is Linux")

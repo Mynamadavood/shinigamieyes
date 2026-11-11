@@ -2,10 +2,13 @@
 
 from fastapi import APIRouter, HTTPException, Path, Request, Response
 
+from shinigami.tiles import TileUnavailable
+
 router = APIRouter()
 
 IMMUTABLE = "public, max-age=31536000, immutable"
 ABSENT = "public, max-age=86400"
+UNAVAILABLE = "no-store"
 
 
 @router.get("/tiles/{z}/{x}/{y}.mvt")
@@ -20,7 +23,12 @@ def tile(
         raise HTTPException(status_code=404)
     store = request.app.state.tiles
     store.reload_if_changed()
-    data = store.get(z, x, y)
+    try:
+        data = store.get(z, x, y)
+    except TileUnavailable:
+        # Review WR-S6: store not ready or a read failed. Never cache this; only a
+        # genuinely missing tile gets the long-cached 204 below.
+        return Response(status_code=503, headers={"Cache-Control": UNAVAILABLE})
     if data is None:
         return Response(status_code=204, headers={"Cache-Control": ABSENT})
     return Response(
