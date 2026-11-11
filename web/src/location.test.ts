@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
-import { clear, get } from "idb-keyval";
+import { clear, get, set } from "idb-keyval";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createLocation, loadPlaces, toParams } from "./location";
+import { LIVE_FIX_MAX_AGE_MS, createLocation, loadPlaces, toParams } from "./location";
 import type { LocationState } from "./location";
 
 type Ok = (p: GeolocationPosition) => void;
@@ -151,6 +151,19 @@ describe("createLocation", () => {
     t.loc.useGps();
     expect(t.loc.state().mode).toBe("gps");
     expect(t.calls).toHaveLength(2);
+  });
+
+  it("drops a restored lastFix older than LIVE_FIX_MAX_AGE_MS but keeps lastAccepted (WR-W8)", async () => {
+    const fix = { lat: A[0], lon: A[1], ts: 0, accuracy: 15 };
+    await set("location:state", { mode: "gps", gps: "live", lastFix: fix, lastAccepted: { lat: A[0], lon: A[1], ts: 0 } });
+    const g = fakeGeo();
+    const old = createLocation({ geolocation: g.geo, onChange: vi.fn(), onGpsOff: vi.fn(), now: () => LIVE_FIX_MAX_AGE_MS + 1 });
+    await old.start();
+    expect(old.state().lastFix).toBeUndefined();
+    expect(old.state().lastAccepted).toBeDefined();
+    const recent = createLocation({ geolocation: g.geo, onChange: vi.fn(), onGpsOff: vi.fn(), now: () => 60_000 });
+    await recent.start();
+    expect(recent.state().lastFix).toEqual(fix);
   });
 
   it("restores pin mode on start without asking geolocation", async () => {

@@ -41,6 +41,8 @@ export interface LocationController {
 const STATE_KEY = "location:state";
 const PLACES_KEY = "places:list";
 export const HYSTERESIS_M = 100;
+/** A restored fix older than this is not shown as the live "YOU" figure (WR-W8). */
+export const LIVE_FIX_MAX_AGE_MS = 2 * 60_000;
 const STATE_READ_TIMEOUT_MS = 300;
 const EARTH_R = 6371008.8;
 const GEO_OPTS: PositionOptions = { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 };
@@ -151,7 +153,13 @@ export function createLocation(deps: LocationDeps): LocationController {
   return {
     async start() {
       const saved = await loadSavedState();
-      if (saved) s = { ...saved, gps: "locating" };
+      if (saved) {
+        // WR-W8: an old fix must not draw the live "YOU" figure. lastAccepted stays (it is what
+        // the cached fetch is for); lastFix is dropped unless it is recent.
+        const { lastFix, ...rest } = saved;
+        const fresh = lastFix && clock() - lastFix.ts <= LIVE_FIX_MAX_AGE_MS;
+        s = fresh ? { ...rest, lastFix, gps: "locating" } : { ...rest, gps: "locating" };
+      }
       if (!listening) {
         listening = true;
         document.addEventListener("visibilitychange", () => {
