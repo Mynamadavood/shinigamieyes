@@ -2,7 +2,10 @@
 
 Privacy: home coordinates live only in that file. Warnings name the id, never numbers.
 Home never gets camera layers: nearby camera positions would reveal its location
-(UAT gap 1, David 2026-11-10). Other places default to cameras on.
+(UAT gap 1, David 2026-11-10). A place is home when its id is "home", its label starts
+with "home", or it sets `is_home = true` (review WR-S1: any private place not named
+home must set the flag). Home is never given cameras, even with `cameras = true`.
+Other places default to cameras on.
 """
 
 import logging
@@ -20,6 +23,7 @@ class Place:
     lat: float
     lon: float
     cameras: bool = True
+    home: bool = False
 
 
 def is_home_like(pid: str, label: str) -> bool:
@@ -58,10 +62,15 @@ def load_places(path: Path) -> list[Place]:
         else:
             log.warning("place %s has a non-boolean cameras flag; cameras off", pid)
             flag = False
-        if is_home_like(pid, label):
+        raw_home = entry.get("is_home", False)
+        if not isinstance(raw_home, bool):
+            log.warning("place %s has a non-boolean is_home flag; treated as home", pid)
+            raw_home = True
+        home = raw_home or is_home_like(pid, label)
+        if home:
             if raw is True and "cameras" in entry:
                 log.warning("place %s is home; cameras stay off", pid)
             flag = False
         seen.add(pid)
-        out.append(Place(pid, label, lat, lon, flag))
+        out.append(Place(pid, label, lat, lon, flag, home))
     return out

@@ -273,7 +273,10 @@ def test_load_places_cameras_flag_rules(tmp_path, caplog):
         '[[place]]\nid = "b"\nlabel = "B"\nlat = 1.5\nlon = 2.5\ncameras = false\n\n'
         '[[place]]\nid = "c"\nlabel = "C"\nlat = 1.5\nlon = 2.5\ncameras = "yes"\n\n'
         '[[place]]\nid = "home"\nlabel = "H"\nlat = 7.7777\nlon = 8.8888\ncameras = true\n\n'
-        '[[place]]\nid = "office"\nlabel = "Home office"\nlat = 1.5\nlon = 2.5\n'
+        '[[place]]\nid = "office"\nlabel = "Home office"\nlat = 1.5\nlon = 2.5\n\n'
+        '[[place]]\nid = "base"\nlabel = "Base"\nlat = 1.5\nlon = 2.5\nis_home = true\ncameras = true\n\n'
+        '[[place]]\nid = "flat"\nlabel = "Flat"\nlat = 1.5\nlon = 2.5\nis_home = "yes"\n\n'
+        '[[place]]\nid = "shop"\nlabel = "Shop"\nlat = 1.5\nlon = 2.5\nis_home = false\n'
     )
     with caplog.at_level(logging.DEBUG):
         ps = load_places(f)
@@ -283,6 +286,10 @@ def test_load_places_cameras_flag_rules(tmp_path, caplog):
         "c": False,
         "home": False,
         "office": False,
+        "base": False,
+        "flat": False,
+        "shop": True,
     }
+    assert {p.id for p in ps if p.home} == {"home", "office", "base", "flat"}
     assert "home" in caplog.text
     assert "7.7777" not in caplog.text and "8.8888" not in caplog.text

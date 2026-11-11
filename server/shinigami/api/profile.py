@@ -57,7 +57,7 @@ def resolve_location(
         # Review CR-S1: a sharp "near X" yes/no answer is a location oracle. Camera-off and
         # home-like places are exactly the ones whose coordinates are secret, so they are
         # never matched; only public, camera-enabled places can name a GPS label.
-        if not p.cameras or is_home_like(p.id, p.label):
+        if not p.cameras or p.home or is_home_like(p.id, p.label):
             continue
         d = haversine_m(lat, lon, p.lat, p.lon)
         if d <= NEAR_M and (best is None or d < best[0]):

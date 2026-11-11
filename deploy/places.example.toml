@@ -1,6 +1,15 @@
 # Example place presets (D-09). Copy to /etc/shinigami/places.toml on the server.
 # Other places default to cameras = true.
 # Order is preserved. Required ids: home, monash, cbd, gym.
+#
+# Home detection (review WR-S1): a place counts as home, and never gets cameras or a
+# GPS "near ..." label, when ANY of these hold:
+#   - id = "home"
+#   - the label starts with "Home"
+#   - is_home = true
+# Any other private place (a family member's house, a flat, a typo'd "hmoe") MUST set
+# is_home = true, otherwise it is treated as public and shows nearby cameras.
+# is_home = true overrides cameras = true.
 
 [[place]]
 id = "home"
