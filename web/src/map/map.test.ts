@@ -47,10 +47,22 @@ vi.mock("maplibre-gl", () => {
     queryRenderedFeatures = vi.fn((..._a: unknown[]): any[] => []);
     setFeatureState = vi.fn();
     removeFeatureState = vi.fn();
-    getSource = vi.fn();
-    addSource = vi.fn();
-    getLayer = vi.fn();
-    addLayer = vi.fn();
+    // stateful sources/layers so the accuracy ring path after `load` really runs
+    sources: Record<string, { spec: unknown; setData: ReturnType<typeof vi.fn> }> = {};
+    layers: Record<string, unknown> = {};
+    getSource = vi.fn((id: string) => this.sources[id]);
+    addSource = vi.fn((id: string, spec: unknown) => {
+      this.sources[id] = { spec, setData: vi.fn() };
+    });
+    getLayer = vi.fn((id: string) => this.layers[id]);
+    addLayer = vi.fn((spec: { id: string }) => {
+      this.layers[spec.id] = spec;
+    });
+    removeLayer = vi.fn((id: string) => {
+      delete this.layers[id];
+    });
+    setPaintProperty = vi.fn();
+    off = vi.fn();
   }
   class FakeMarker {
     static all: FakeMarker[] = [];
@@ -167,6 +179,33 @@ describe("createMap", () => {
     h2.setView({ kind: "gps", lat: 1.1, lon: 2, accuracy: 1 });
     expect(h.instance.easeTo).not.toHaveBeenCalled();
     expect(h.instance.jumpTo).toHaveBeenCalledTimes(2);
+  });
+
+  it("queues the accuracy ring until load, then applies it", async () => {
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView({ kind: "gps", lat: -37.8, lon: 144.9, accuracy: 50 });
+    expect(h.instance.addSource).not.toHaveBeenCalled();
+    h.instance.emit("load");
+    expect(h.instance.addSource).toHaveBeenCalledWith("me-acc", expect.anything());
+    expect(h.instance.layers["me-acc-ring"]).toBeDefined();
+  });
+
+  it("applies ring updates after load even while tiles are loading (isStyleLoaded false)", async () => {
+    const handle = (await createMap(mkDeps()))!;
+    h.instance.emit("load");
+    handle.setView({ kind: "gps", lat: -37.8, lon: 144.9, accuracy: 50 });
+    // tiles in flight: isStyleLoaded() stays false in the fake, as it would on a real device
+    expect(h.instance.isStyleLoaded()).toBe(false);
+    handle.setView({ kind: "gps", lat: -37.81, lon: 144.91, accuracy: 40 });
+    const setData = h.instance.sources["me-acc"].setData;
+    expect(setData).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        features: [expect.objectContaining({ geometry: { type: "Point", coordinates: [144.91, -37.81] } })],
+      }),
+    );
+    // leaving gps removes the ring layer straight away
+    handle.setView({ kind: "search", lat: -37.7, lon: 144.8, label: "X" });
+    expect(h.instance.layers["me-acc-ring"]).toBeUndefined();
   });
 
   it("none on first call centres on the CBD", async () => {

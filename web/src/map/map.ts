@@ -7,7 +7,7 @@ import { withTimeout } from "../timeout";
 import type { Item } from "../types";
 import { DEFAULT_FONT, buildStyle, readStyleTokens } from "./style";
 import type { MapDeps, MapHandle, MapView } from "./types";
-import { readRingTokens, syncRing, type RingMap } from "./accuracy-ring";
+import { RING_SOURCE,readRingTokens, syncRing, type RingMap } from "./accuracy-ring";
 import { createFollow } from "./follow";
 import { Card } from "./card";
 import { BuildingSelector, buildingCardContent, buildingHeight, type BuildingMap } from "./buildings";
@@ -306,18 +306,25 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
 
   const ringTokens = readRingTokens();
   const ringMap = map as unknown as RingMap;
+  // Ring updates queue only until the style has first loaded. After that they always apply:
+  // isStyleLoaded() is false whenever any tile (or the ring's own setData) is in flight, so it must
+  // not gate updates (CR-W1). addSource/addLayer/setData are legal once the style JSON has parsed.
   let ringPending: MapView | null = null;
+  let styleReady = false;
   const applyRing = (v: MapView) => {
-    if (!map.isStyleLoaded()) {
+    if (!styleReady && !map.getSource(RING_SOURCE)) {
       ringPending = v;
       return;
     }
     ringPending = null;
     syncRing(ringMap, v, ringTokens);
   };
-  map.on("load", () => {
+  const onStyleReady = () => {
+    styleReady = true;
     if (ringPending) applyRing(ringPending);
-  });
+  };
+  map.on("style.load", onStyleReady);
+  map.on("load", onStyleReady);
 
   const tags = new TagLayer({
     map: map as unknown as ConstructorParameters<typeof TagLayer>[0]["map"],
