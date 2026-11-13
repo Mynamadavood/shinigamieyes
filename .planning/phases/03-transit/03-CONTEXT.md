@@ -44,6 +44,13 @@ Not in this phase: journey planning or routing between places, fares or myki, fa
 - **D-18:** David has the **PTV Timetable API key only**. The GTFS Realtime key (Transport Victoria open data portal) has not arrived. **Build PTV-first**: departures, disruptions and whatever vehicle positions the PTV API offers. Design the provider so the GTFS Realtime feeds can be added later behind the same screens. Use recorded fixtures for anything not yet reachable.
 - **D-19:** The key lives only in `/etc/shinigami/.env` on the CT as `PTV_DEVID` and `PTV_KEY`. David adds it himself. Never in chat, git, logs or on the phone.
 
+### Decided after research (2026-11-13)
+- **D-20:** PTV has no live tram positions (only some buses; trains need an extra package). Until the GTFS Realtime key arrives, **trams show an estimated marker** worked out from live arrival times and the run's stop pattern, **clearly marked as estimated**. Buses use real PTV positions where given. **No train markers this phase** (no pyproj). The vehicle source sits behind a seam so GTFS Realtime replaces estimates later.
+- **D-21:** Any saved place with cameras off (Home or otherwise) also gets no transit: reuse the existing fail-closed exact-location gate. No separate transit flag.
+- **D-22:** Stops come from the public GTFS Schedule download (no key), built weekly into a local stop file. Metro train, tram and bus only; V/Line is out of scope; rail-replacement stop rows are filtered out.
+- **D-23:** On first open at a new spot, the server nudges one immediate departures fetch (single-flight, rate-guarded) instead of waiting up to 30 s for the next poll. Still no upstream call inside the profile request itself.
+- **D-24:** All live PTV behaviour is unverified until David adds the key. Fixtures are schema-derived and labelled so. A manual smoke script (David runs it on the CT; prints status and shapes only, never URLs, ids or key material) is part of the phase.
+
 ### Carried forward (still binding)
 - Everything shown has a name and a countdown; countdown format, expiry pulse and stale dimming as in Phase 1 (D-04..D-07).
 - Blood red is scarce; world is desaturated blue and white (Phase 1 D-01..D-03, Phase 2 D-13).
