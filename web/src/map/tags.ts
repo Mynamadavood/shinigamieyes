@@ -1,3 +1,4 @@
+import { nowMs } from "../clock";
 import { haversineM } from "../location";
 import type { Item } from "../types";
 import type { Card } from "./card";
@@ -446,6 +447,12 @@ export class TagLayer {
 
   setCardContext(ctx: TransitCardContext | null): void {
     this.cardCtx = ctx;
+    const id = this.selectedId;
+    if (id === null || !this.deps.card.isOpen()) return;
+    const e = this.entries.get(id);
+    if (!e || e.item.layer !== "transit_stops") return;
+    const desc = descFor(e.item);
+    this.deps.card.replace(desc.cardContent(e.item, e.dist, e.walkS, ctx, nowMs()));
   }
 
   destroy(): void {

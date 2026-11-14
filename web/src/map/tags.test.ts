@@ -250,4 +250,42 @@ describe("TagLayer stops", () => {
     expect(content.caveats).toEqual(["Source: PTV"]);
     expect(layer.openById("nope")).toBe(false);
   });
+  const withCard = (replace: ReturnType<typeof vi.fn>) => {
+    const marker: any = { setLngLat: () => marker, addTo: () => marker, remove: () => marker };
+    return new TagLayer({
+      map: { project: (l) => ({ x: l[0], y: 0 }), getZoom: () => 15, on: vi.fn() },
+      card: { isOpen: () => true, update: vi.fn(), close: vi.fn(), open: vi.fn(), replace } as any,
+      createMarker: () => marker,
+      viewportWidth: () => 390,
+    });
+  };
+  it("setCardContext re-renders an open stop card only", () => {
+    const replace = vi.fn();
+    const layer = withCard(replace);
+    layer.setOrigin("server");
+    layer.update([stopItem()]);
+    layer.setCardContext({ ptvState: "ok" });
+    expect(replace).not.toHaveBeenCalled();
+    layer.openById("stop:2720");
+    layer.setCardContext({ ptvState: "no_key" });
+    expect(replace).toHaveBeenCalledTimes(1);
+    const c = replace.mock.calls[0][0];
+    expect(c.title).toBe("TRAM STOP");
+    expect(c.sections[0].lines[0].text).toBe("Departures · PTV key not set");
+  });
+  it("setCardContext does not touch an open camera card", () => {
+    const replace = vi.fn();
+    const layer = withCard(replace);
+    layer.setOrigin("server");
+    layer.update([
+      {
+        id: "cam:1", layer: "cameras", group: "cctv", name: "cam", verb: "", target_ts: null,
+        kind: "infrastructure", severity: 0, detail: { distance_m: 20 },
+        geom: { type: "Point", coordinates: [100, -37.8] }, fetched_at: 0, stale_after_s: null, computed: true,
+      } as any,
+    ]);
+    layer.openById("cam:1");
+    layer.setCardContext({ ptvState: "ok" });
+    expect(replace).not.toHaveBeenCalled();
+  });
 });
