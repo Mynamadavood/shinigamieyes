@@ -9,6 +9,11 @@ from shinigami.schema import Layer, Profile, ProfileLocation
 log = logging.getLogger("shinigami.assemble")
 
 
+def exact_allowed(provider: Provider, pin: bool, exact_ok: bool) -> bool:
+    """Shared fail-closed gate: exact-location layers never reach a pin unless allowed."""
+    return not (provider.meta.exact_location_only and pin and not exact_ok)
+
+
 def assemble_profile(
     ctx: ProviderContext,
     providers: list[Provider],
@@ -25,7 +30,7 @@ def assemble_profile(
     for p in providers:
         # Saved places get camera layers only when their Place.cameras is true (Home never);
         # default False so any caller that forgets fails closed.
-        if p.meta.exact_location_only and pin and not exact_ok:
+        if not exact_allowed(p, pin, exact_ok):
             continue
         # Review WR-S2: a pin's true point goes only to exact providers that were allowed
         # above; every other provider sees the 0.1 degree cell centre, so a future provider

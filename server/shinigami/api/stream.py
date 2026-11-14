@@ -5,6 +5,7 @@ Privacy: nothing here logs coordinates or the cell id.
 
 import asyncio
 import json
+import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Literal
@@ -13,10 +14,12 @@ from fastapi import APIRouter, Query, Request
 from sse_starlette import EventSourceResponse, ServerSentEvent
 
 from shinigami.api.profile import camera_ok, resolve_location
-from shinigami.assemble import assemble_profile
+from shinigami.assemble import assemble_profile, exact_allowed
 from shinigami.geo import snap_cell
+from shinigami.schema import Layer
 
 router = APIRouter()
+log = logging.getLogger("shinigami.stream")
 
 PING_INTERVAL_S = 15.0
 POLL_S = 1.0
@@ -47,6 +50,26 @@ async def event_stream(
             try:
                 ev = await asyncio.wait_for(queue.get(), timeout=POLL_S)
             except TimeoutError:
+                continue
+            if ev.get("type") == "touch":
+                p = next((x for x in providers if x.meta.id == ev.get("provider")), None)
+                if p is None or not p.meta.exact_location_only:
+                    continue
+                if not exact_allowed(p, location.source == "pin", exact_ok):
+                    continue
+                try:
+                    layer = p.query(ctx, lat, lon, ctx.clock())
+                except Exception as exc:  # noqa: BLE001 - never break the stream
+                    log.warning("touch failed provider=%s err=%s", p.meta.id, type(exc).__name__)
+                    layer = Layer(
+                        id=p.meta.id,
+                        status="error",
+                        rev=int(ctx.clock()),
+                        as_of=None,
+                        attribution=p.meta.attribution,
+                        items=[],
+                    )
+                yield ServerSentEvent(event="layer", data=layer.model_dump_json())
                 continue
             if ev.get("type") != "layer":
                 continue

@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import json
 import logging
@@ -152,4 +153,123 @@ def test_no_coordinates_logged(live, caplog):
     # the test's own httpx client logs the URL in-process; only server-side loggers count
     server_side = [r for r in caplog.records if not r.name.startswith(("httpx", "httpcore"))]
     text = "\n".join(r.getMessage() for r in server_side)
+    assert "37.8123" not in text and "144.9634" not in text
+
+
+from shinigami.providers.base import Provider, ProviderMeta
+from shinigami.schema import Layer
+
+
+class _Exact(Provider):
+    meta = ProviderMeta(
+        id="dep_stub",
+        tier="polled",
+        ttl_s=60,
+        stale_after_s=None,
+        attribution="x",
+        interval_s=60,
+        exact_location_only=True,
+    )
+
+    def __init__(self, boom=False):
+        self.points: list[tuple[float, float]] = []
+        self.boom = boom
+
+    def query(self, ctx, lat, lon, now):
+        self.points.append((lat, lon))
+        if self.boom:
+            raise RuntimeError("secret -37.8123")
+        return Layer(id="dep_stub", status="fresh", rev=1, as_of=now, attribution="x", items=[])
+
+
+class _Plain(Provider):
+    meta = ProviderMeta(id="plain", tier="polled", ttl_s=60, stale_after_s=None, attribution="x")
+
+    def query(self, ctx, lat, lon, now):
+        return Layer(id="plain", status="fresh", rev=1, as_of=now, attribution="x", items=[])
+
+
+async def _touch_frames(app, loc, lat, lon, providers, exact_ok=False, touch="dep_stub"):
+    ctx = app.state.ctx
+
+    async def dc():
+        return False
+
+    gen = stream_mod.event_stream(ctx, providers, loc, lat, lon, dc, exact_ok=exact_ok)
+    await gen.__anext__()  # hello
+    n = sum(
+        1
+        for p in providers
+        if not (p.meta.exact_location_only and loc.source == "pin" and not exact_ok)
+    )
+    for _ in range(n):
+        await gen.__anext__()
+    ctx.bus.publish({"type": "touch", "provider": touch})
+    ctx.bus.publish(
+        {
+            "type": "layer",
+            "provider": "x",
+            "cell": "global",
+            "layer": {
+                "id": "sentinel",
+                "status": "fresh",
+                "rev": 1,
+                "as_of": 1.0,
+                "attribution": "",
+                "items": [],
+            },
+        }
+    )
+    out = []
+    for _ in range(2):
+        try:
+            out.append(json.loads((await asyncio.wait_for(gen.__anext__(), 3)).data))
+        except TimeoutError:
+            break
+    await gen.aclose()
+    return out
+
+
+@pytest.mark.asyncio
+async def test_touch_gps_computes_at_subscriber_point(app):
+    p = _Exact()
+    out = await _touch_frames(app, _loc(), -37.81, 144.96, [p])
+    assert [o["id"] for o in out] == ["dep_stub", "sentinel"] or out[-2:][0]["id"] == "dep_stub"
+    assert p.points[-1] == (-37.81, 144.96)
+
+
+@pytest.mark.asyncio
+async def test_touch_home_pin_gets_nothing(app):
+    p = _Exact()
+    loc = ProfileLocation(source="pin", lat=-37.81, lon=144.96)
+    out = await _touch_frames(app, loc, -37.81, 144.96, [p], exact_ok=False)
+    assert [o["id"] for o in out] == ["sentinel"]
+    assert p.points == []
+
+
+@pytest.mark.asyncio
+async def test_touch_allowed_pin_uses_place_point(app):
+    p = _Exact()
+    loc = ProfileLocation(source="pin", lat=-37.81, lon=144.96)
+    await _touch_frames(app, loc, -37.8123, 144.9634, [p], exact_ok=True)
+    assert p.points[-1] == (-37.8123, 144.9634)
+
+
+@pytest.mark.asyncio
+async def test_touch_unknown_or_nonexact_ignored(app):
+    out = await _touch_frames(app, _loc(), -37.81, 144.96, [_Plain()], touch="nope")
+    assert [o["id"] for o in out] == ["plain", "sentinel"][1:]
+    out = await _touch_frames(app, _loc(), -37.81, 144.96, [_Plain()], touch="plain")
+    assert [o["id"] for o in out] == ["sentinel"]
+
+
+@pytest.mark.asyncio
+async def test_touch_query_error_is_error_layer_and_no_coords_logged(app, caplog):
+    caplog.set_level(logging.DEBUG)
+    p = _Exact(boom=True)
+    out = await _touch_frames(app, _loc(), -37.8123, 144.9634, [p])
+    assert out[0]["id"] == "dep_stub" and out[0]["status"] == "error"
+    assert out[-1]["id"] == "sentinel"
+    text = "\n".join(r.getMessage() for r in caplog.records)
+    assert "touch failed provider=dep_stub err=RuntimeError" in text
     assert "37.8123" not in text and "144.9634" not in text
