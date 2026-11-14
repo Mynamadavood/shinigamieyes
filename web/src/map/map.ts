@@ -12,7 +12,9 @@ import { createFollow } from "./follow";
 import { Card } from "./card";
 import { BuildingSelector, buildingCardContent, buildingHeight, type BuildingMap } from "./buildings";
 import { createLongPress } from "./longpress";
-import { TagLayer } from "./tags";
+import { TagLayer, type TagOrigin } from "./tags";
+import { EdgePointers, type PointerMapLike, type Rect } from "./edge-pointers";
+import type { Layer } from "../types";
 import { createFigureElement, createPinElement, setFigureAccuracy } from "./marker-figure";
 import { CBD_DEFAULT, FOLLOW, PIN_AREA_ZOOM } from "./view";
 
@@ -22,7 +24,7 @@ const EASE_MS = 400;
 const FLY_MS = 600;
 const OFFLINE_COPY = "Map tiles unavailable offline";
 const DEFAULT_PEEK_PX = 144;
-const CAMERA_LAYERS = ["cameras_cctv", "cameras_road"] as const;
+const TAG_LAYERS = ["cameras_cctv", "cameras_road", "transit_stops"] as const;
 const BUILDING_MIN_ZOOM = 15;
 const DROPPED_LABEL = "Dropped pin";
 // touches that begin on these never start the long-press ring
@@ -338,11 +340,57 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
       }) as unknown as ReturnType<ConstructorParameters<typeof TagLayer>[0]["createMarker"]>,
   });
 
+  // edge pointers (D-14): stops that are off-screen get an arrow chip on the clamp rectangle
+  const safeProbe = document.createElement("div");
+  safeProbe.setAttribute("aria-hidden", "true");
+  safeProbe.style.setProperty("position", "fixed");
+  safeProbe.style.setProperty("visibility", "hidden");
+  safeProbe.style.setProperty("pointer-events", "none");
+  safeProbe.style.setProperty("padding-left", "env(safe-area-inset-left)");
+  safeProbe.style.setProperty("padding-right", "env(safe-area-inset-right)");
+  document.body.appendChild(safeProbe);
+  const pointerRect = (): Rect | null => {
+    const readouts = document.querySelector(".readouts");
+    const drawer = document.querySelector(".drawer");
+    if (!readouts || !drawer) return null;
+    const cs = getComputedStyle(safeProbe);
+    const sl = parseFloat(cs.paddingLeft) || 0;
+    const sr = parseFloat(cs.paddingRight) || 0;
+    return {
+      top: readouts.getBoundingClientRect().bottom + 8,
+      left: 8 + sl,
+      right: window.innerWidth - 8 - sr,
+      bottom: drawer.getBoundingClientRect().top - 8,
+    };
+  };
+  let userPanned = (): void => {};
+  const pointers = new EdgePointers({
+    host: deps.host.parentElement ?? document.body,
+    map: map as unknown as PointerMapLike,
+    reducedMotion: deps.reducedMotion,
+    clampRect: pointerRect,
+    hidden: () => document.querySelector(".sheet-backdrop") !== null,
+    onTap: () => userPanned(),
+    padding: () => ({ top: 0, left: 0, right: 0, bottom: bottomPadding() }),
+    avoid: () => {
+      const r = document.querySelector(".recenter:not(.is-hidden)");
+      if (!r) return [];
+      const b = r.getBoundingClientRect();
+      return [{ top: b.top, left: b.left, right: b.right, bottom: b.bottom }];
+    },
+    onArrive: (id) => {
+      tags.openById(id);
+    },
+  });
+  let currentOrigin: TagOrigin = null;
+  let lastStopItems: Item[] = [];
+  let lastCardLayers: unknown[] = [];
+
   let current: MapView = { kind: "none" };
   let lastKind: MapView["kind"] = "none";
   let lastPinKey = "";
   let pinFramed = false;
-  let lastCamLayers: unknown[] = [];
+  let lastTagLayers: unknown[] = [];
 
   const framing = (v: { lat: number; lon: number }) => ({
     center: [v.lon, v.lat] as [number, number],
@@ -359,13 +407,17 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
     padding: { top: 0, left: 0, right: 0, bottom: 0 },
   });
 
+  // follow turns off for a user pan; an edge-pointer tap goes through the same path
+  userPanned = () => {
+    if (current.kind === "none") return;
+    showRecenter(follow.on("userGesture").showRecenter);
+  };
   // user gestures only (originalEvent set); programmatic moves carry none
   for (const ev of ["dragstart", "zoomstart", "rotatestart", "pitchstart"] as const) {
     map.on(ev, (e: { originalEvent?: unknown }) => {
       if (!e.originalEvent) return;
       press.mapGesture();
-      if (current.kind === "none") return;
-      showRecenter(follow.on("userGesture").showRecenter);
+      userPanned();
     });
   }
 
@@ -386,7 +438,9 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
     // the place, and must NOT be used as the origin). Note: for a camera-enabled place, camera
     // positions plus distance_m still let the phone derive the place; Home gets no camera layers
     // (server rule, with a client backstop in app.ts, WR-W5).
-    tags.setOrigin(v.kind === "gps" || v.kind === "search" ? { lat: v.lat, lon: v.lon } : v.kind === "pin" ? "server" : null);
+    currentOrigin = v.kind === "gps" || v.kind === "search" ? { lat: v.lat, lon: v.lon } : v.kind === "pin" ? "server" : null;
+    tags.setOrigin(currentOrigin);
+    pointers.update(lastStopItems, currentOrigin);
     if (v.kind === "none") {
       setFigure(false);
       setPin(false);
@@ -448,18 +502,34 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
   return {
     setView,
     setProfile(p) {
-      // a frame for another layer leaves the camera layer objects untouched (applyLayer copies
-      // references), so the tags (and any open tag card) are only reconciled when cameras change
-      const camLayers = CAMERA_LAYERS.map((id) => p?.layers[id]);
-      const camsChanged = camLayers.some((l, i) => l !== lastCamLayers[i]);
-      lastCamLayers = camLayers;
-      if (camsChanged) {
+      // a frame for another layer leaves the tag layer objects untouched (applyLayer copies
+      // references), so the tags (and any open tag card) are only reconciled when one changes
+      const tagLayers = TAG_LAYERS.map((id) => p?.layers[id]);
+      const tagsChanged = tagLayers.some((l, i) => l !== lastTagLayers[i]);
+      lastTagLayers = tagLayers;
+      if (tagsChanged) {
         const items: Item[] = [];
-        for (const l of camLayers) for (const it of l?.items ?? []) items.push(it);
+        for (const l of tagLayers) for (const it of l?.items ?? []) items.push(it);
         tags.update(items);
+        lastStopItems = (p?.layers["transit_stops"]?.items ?? []).slice();
+        pointers.update(lastStopItems, currentOrigin);
+      }
+      // stop card context: departures, disruptions and the PTV key state
+      const cardLayers = [p?.layers["transit_departures"], p?.layers["transit_disruptions"], p?.layers["transit_stops"]];
+      if (cardLayers.some((l, i) => l !== lastCardLayers[i])) {
+        lastCardLayers = cardLayers;
+        const summary = (cardLayers[2] as Layer | undefined)?.items.find((it) => it.detail?.["summary"] === true);
+        const ptv = summary?.detail?.["ptv"];
+        tags.setCardContext({
+          departures: cardLayers[0],
+          disruptions: cardLayers[1],
+          ptvState: typeof ptv === "string" ? ptv : null,
+        });
       }
       // saved place: the cell-centre area view shows 150 m as ~5 px, so frame the cameras once:
-      // the CCTV items, or the road cameras when no CCTV is mapped within 150 m (the common case)
+      // the CCTV items, or the road cameras when no CCTV is mapped within 150 m (the common case).
+      // Stops of a saved place are deliberately NOT added to the framing set: the camera framing
+      // stays as it was and stops are reached through the edge pointers.
       if (current.kind === "pin" && !pinFramed && follow.following()) {
         const pointsOf = (layer: string): [number, number][] => {
           const out: [number, number][] = [];
@@ -503,6 +573,8 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
       container.removeEventListener("touchmove", onTouchMove);
       container.removeEventListener("touchend", onTouchEnd);
       container.removeEventListener("touchcancel", onTouchEnd);
+      pointers.destroy();
+      safeProbe.remove();
       tags.destroy();
       card.destroy();
       figureMarker.remove();

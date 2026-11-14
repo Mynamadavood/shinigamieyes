@@ -29,6 +29,22 @@ vi.mock("maplibre-gl", () => {
     }
     emit(ev: string, e: any = {}) {
       for (const f of this.handlers[ev] ?? []) f(e);
+      const once = this.onceHandlers[ev] ?? [];
+      this.onceHandlers[ev] = [];
+      for (const f of once) f(e);
+    }
+    onceHandlers: Record<string, Array<(e: any) => void>> = {};
+    once(ev: string, fn: (e: any) => void) {
+      (this.onceHandlers[ev] ??= []).push(fn);
+    }
+    getCenter() {
+      return { lng: 144.9, lat: -37.8 };
+    }
+    getBearing() {
+      return 0;
+    }
+    getBounds() {
+      return { contains: (l: [number, number]) => Math.abs(l[0] - 144.9) < 0.002 && Math.abs(l[1] + 37.8) < 0.002 };
     }
     getCanvas() {
       return this.canvas;
@@ -85,6 +101,7 @@ const setWorkerUrlMock = vi.hoisted(() => vi.fn());
 
 import * as ml from "maplibre-gl";
 import { createMap } from "./map";
+import { TagLayer } from "./tags";
 import type { MapDeps } from "./types";
 
 function mkDeps(over: Partial<MapDeps> = {}): MapDeps {
@@ -599,5 +616,142 @@ describe("long-press, pin and building interactions", () => {
     h.instance.emit("click", { originalEvent: { target: document.createElement("canvas") }, point: { x: 1, y: 1 } });
     expect(h.instance.queryRenderedFeatures).not.toHaveBeenCalled();
     expect(dialog()).toBeNull();
+  });
+});
+
+function stopItem(id: string, lon: number, lat: number, dist: number, extra: Record<string, unknown> = {}): any {
+  return {
+    id: `stop:${id}`, layer: "transit_stops", group: "tram", name: `Stop ${id}`, verb: "", target_ts: null,
+    kind: "static", severity: 0, detail: { distance_m: dist, mode: "tram", ...extra },
+    geom: { type: "Point", coordinates: [lon, lat] }, fetched_at: 0, stale_after_s: null, computed: true,
+  };
+}
+const mkLayer = (id: string, its: any[]): any => ({ id, status: "fresh", rev: 1, as_of: 0, attribution: "", items: its });
+const stopProfile = (stops: any[], cams: any[] = [], extra: Record<string, any> = {}): any => ({
+  server_time: 0, rev: 1, location: { source: "gps", lat: null, lon: null },
+  layers: {
+    ...(cams.length ? { cameras_cctv: mkLayer("cameras_cctv", cams) } : {}),
+    transit_stops: mkLayer("transit_stops", stops),
+    ...extra,
+  },
+});
+
+describe("transit stops and edge pointers", () => {
+  const ORIGIN = { kind: "gps" as const, lat: -37.8, lon: 144.9, accuracy: 10 };
+  const pointerBtns = () => Array.from(document.querySelectorAll<HTMLButtonElement>("button.edge-pointer:not(.leave)"));
+  function chrome() {
+    const readouts = document.createElement("div");
+    readouts.className = "readouts";
+    readouts.getBoundingClientRect = () => ({ top: 0, bottom: 60, left: 0, right: 400, width: 400, height: 60, x: 0, y: 0, toJSON() {} });
+    const drawer = document.createElement("div");
+    drawer.className = "drawer";
+    drawer.getBoundingClientRect = () => ({ top: 700, bottom: 844, left: 0, right: 400, width: 400, height: 144, x: 0, y: 700, toJSON() {} });
+    document.body.append(readouts, drawer);
+  }
+  // the fake project() maps this point to (150, 150): inside the clamp rectangle
+  const near = () => stopItem("near", 144.9015, -37.7985, 20);
+  const far = () => stopItem("far", 144.91, -37.8, 900);
+
+  it("builds stop tags from transit_stops and only re-reconciles when a tag layer reference changes", async () => {
+    const upd = vi.spyOn(TagLayer.prototype, "update");
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView(ORIGIN);
+    upd.mockClear();
+    const p = stopProfile([near()], [camItem("a", 144.9, -37.79982)]);
+    handle.setProfile(p);
+    expect(upd).toHaveBeenCalledTimes(1);
+    expect(upd.mock.calls[0][0].map((i: any) => i.layer).sort()).toEqual(["cameras_cctv", "transit_stops"]);
+    expect(tagEls().some((t) => t.el.classList.contains("stop"))).toBe(true);
+    handle.setProfile({ ...p, layers: { ...p.layers } });
+    expect(upd).toHaveBeenCalledTimes(1);
+    handle.setProfile({ ...p, layers: { ...p.layers, transit_stops: mkLayer("transit_stops", [near()]) } });
+    expect(upd).toHaveBeenCalledTimes(2);
+    upd.mockRestore();
+  });
+
+  it("gives the pointers only stop items with the tag origin", async () => {
+    chrome();
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView(ORIGIN);
+    handle.setProfile(stopProfile([near(), far()], [camItem("c", 144.95, -37.8)]));
+    const b = pointerBtns();
+    expect(b).toHaveLength(1);
+    expect(b[0].getAttribute("aria-label")).toMatch(/^Show Stop far, /);
+    expect(b[0].querySelector(".ptr-dist")!.textContent).toMatch(/^ · \d/);
+  });
+
+  it("passes the transit card context when departures, disruptions or stops change", async () => {
+    const spy = vi.spyOn(TagLayer.prototype, "setCardContext");
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView(ORIGIN);
+    spy.mockClear();
+    const dep = mkLayer("transit_departures", []);
+    const dis = mkLayer("transit_disruptions", []);
+    const summary = stopItem("s", 0, 0, 0, { summary: true, ptv: "no_key" });
+    summary.geom = null;
+    const p = stopProfile([near(), summary], [], { transit_departures: dep, transit_disruptions: dis });
+    handle.setProfile(p);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenLastCalledWith({ departures: dep, disruptions: dis, ptvState: "no_key" });
+    handle.setProfile({ ...p, layers: { ...p.layers } });
+    expect(spy).toHaveBeenCalledTimes(1);
+    handle.setProfile({ ...p, layers: { ...p.layers, transit_disruptions: mkLayer("transit_disruptions", []) } });
+    expect(spy).toHaveBeenCalledTimes(2);
+    spy.mockRestore();
+  });
+
+  it("a pointer tap turns follow off and opens the stop card after arrival", async () => {
+    chrome();
+    const open = vi.spyOn(TagLayer.prototype, "openById");
+    const deps = mkDeps();
+    const handle = (await createMap(deps))!;
+    handle.setView(ORIGIN);
+    handle.setProfile(stopProfile([near(), far()]));
+    const recenter = deps.controls.querySelector<HTMLButtonElement>("button.recenter")!;
+    expect(recenter.classList.contains("is-hidden")).toBe(true);
+    pointerBtns()[0].click();
+    expect(recenter.classList.contains("is-hidden")).toBe(false);
+    expect(h.instance.easeTo).toHaveBeenCalledWith(expect.objectContaining({ center: [144.91, -37.8], duration: 600 }));
+    expect(open).not.toHaveBeenCalledWith("stop:far");
+    h.instance.emit("moveend");
+    expect(open).toHaveBeenCalledWith("stop:far");
+    open.mockRestore();
+  });
+
+  it("no transit_stops layer (Home) clears the pointers and leaves camera tags only", async () => {
+    chrome();
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView(ORIGIN);
+    handle.setProfile(stopProfile([far()]));
+    expect(pointerBtns()).toHaveLength(1);
+    handle.setProfile(profileWith([camItem("a", 144.9, -37.79982)]));
+    expect(pointerBtns()).toHaveLength(0);
+    expect(document.querySelectorAll(".map-tag")).toHaveLength(1);
+    expect(document.querySelectorAll(".map-tag.stop")).toHaveLength(0);
+  });
+
+  it("hides pointers while a sheet is open and when the view has no origin", async () => {
+    chrome();
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView(ORIGIN);
+    handle.setProfile(stopProfile([far()]));
+    expect(pointerBtns()).toHaveLength(1);
+    const sheet = document.createElement("div");
+    sheet.className = "sheet-backdrop";
+    document.body.appendChild(sheet);
+    h.instance.emit("moveend");
+    expect(pointerBtns()).toHaveLength(0);
+    sheet.remove();
+    h.instance.emit("moveend");
+    expect(pointerBtns()).toHaveLength(1);
+    handle.setView({ kind: "none" });
+    expect(pointerBtns()).toHaveLength(0);
+  });
+
+  it("pin framing uses camera items only, not stops", async () => {
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A", placeId: "a" });
+    handle.setProfile(stopProfile([stopItem("x", 144.901, -37.799, 100)]));
+    expect(h.instance.fitBounds).not.toHaveBeenCalled();
   });
 });
