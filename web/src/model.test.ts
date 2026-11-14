@@ -139,3 +139,86 @@ describe("transit rows", () => {
     expect(transitRows(tprof(null, null), NOW)).toEqual([]);
   });
 });
+
+const nowS = NOW / 1000;
+function dep(id: string, group: string, inS: number, d: Record<string, unknown> = {}, extra: Partial<Item> = {}): Item {
+  return item({
+    id, layer: "transit_departures", group, name: `Tram 96 to ${id}`, target_ts: nowS + inS, computed: false,
+    fetched_at: nowS, stale_after_s: 120, kind: "transit_vehicle",
+    detail: { live: true, delay_s: null, mode: "tram", platform: null, at_platform: null, walk_s: 120, stop_id: 1, cancelled: false, ...d },
+    ...extra,
+  });
+}
+function dprof(items: Item[], status: "fresh" | "pending" | "error" = "fresh"): Profile {
+  return tprof([stopItem, sumItem("ok")], tlayer("transit_departures", status, items));
+}
+const deps = (items: Item[], status: "fresh" | "pending" | "error" = "fresh") =>
+  transitRows(dprof(items, status), NOW).filter((r) => r.id.startsWith("transit:1:") || r.id.startsWith("transit:s"));
+
+describe("departure rows", () => {
+  it("catchable pick with leave-in", () => {
+    const r = deps([dep("A", "1:a", 240), dep("B", "1:a", 600)]);
+    expect(r).toHaveLength(1);
+    expect([r[0].id, r[0].name, r[0].countdownText, r[0].leaveText]).toEqual(["transit:1:a", "Tram 96 to A", "04:00", "leave in 02:00"]);
+    expect(r[0].stopId).toBe(1);
+  });
+  it("skips uncatchable beyond grace, keeps within grace", () => {
+    expect(deps([dep("A", "1:a", 60), dep("B", "1:a", 600)])[0].name).toBe("Tram 96 to B");
+    const g = deps([dep("A", "1:a", 100), dep("B", "1:a", 600)])[0];
+    expect(g.name).toBe("Tram 96 to A");
+    expect(g.leaveText).toBe("LEAVE NOW");
+  });
+  it("all missed shows soonest, never red", () => {
+    const r = deps([dep("A", "1:a", 30), dep("B", "1:a", 60)])[0];
+    expect([r.name, r.missed, r.leaveText, r.leaveNowRed, r.leaveNow]).toEqual(["Tram 96 to A", true, "too late to catch", false, false]);
+  });
+  it("cancelled skipped", () => {
+    expect(deps([dep("A", "1:a", 300, { cancelled: true }), dep("B", "1:a", 600)])[0].name).toBe("Tram 96 to B");
+  });
+  it("only one red row in leave-now window", () => {
+    const r = deps([dep("A", "1:a", 150), dep("B", "1:b", 170)]);
+    const a = r.find((x) => x.id === "transit:1:a")!;
+    const b = r.find((x) => x.id === "transit:1:b")!;
+    expect([a.leaveNowRed, a.leaveText]).toEqual([true, "LEAVE NOW"]);
+    expect([b.leaveNow, b.leaveNowRed, b.leaveText]).toEqual([true, false, "leave now"]);
+  });
+  it("stale rows never red and carry age", () => {
+    const r = deps([dep("A", "1:a", 150, {}, { fetched_at: nowS - 300 })])[0];
+    expect(r.stale).toBe(true);
+    expect(r.leaveNowRed).toBe(false);
+    expect(r.leaveText).toBe("leave in 00:30 · 5m old");
+    expect(deps([dep("A", "1:a", 150)], "fresh")[0].leaveNowRed).toBe(true);
+  });
+  it("kind tag and notes", () => {
+    const live = deps([dep("A", "1:a", 600, { platform: "4", delay_s: 180, mode: "train" })])[0];
+    expect([live.kindTag, live.note]).toEqual(["train · LIVE", "plat 4 · delayed 3 min"]);
+    const at = deps([dep("A", "1:a", 600, { platform: "4", at_platform: true, delay_s: -120 })])[0];
+    expect(at.note).toBe("at plat 4 · 2 min early");
+    const sched = deps([dep("A", "1:a", 600, { live: false, mode: "bus", delay_s: 300 })])[0];
+    expect([sched.kindTag, sched.note, sched.live]).toEqual(["bus · SCHED", "", false]);
+  });
+  it("caps rows per stop and overall", () => {
+    const three = deps([dep("A", "1:a", 600), dep("B", "1:b", 700), dep("C", "1:c", 500)]);
+    expect(three.map((r) => r.id).sort()).toEqual(["transit:1:a", "transit:1:c"]);
+    const many: Item[] = [];
+    for (let s = 1; s <= 5; s++) for (const g of ["a", "b"]) many.push(dep(`${s}${g}`, `${s}:${g}`, 300 + s * 10 + (g === "b" ? 5 : 0), { stop_id: s }));
+    const all = transitRows(dprof(many), NOW).filter((r) => r.id.startsWith("transit:") && /^transit:\d:/.test(r.id));
+    expect(all).toHaveLength(6);
+    expect(all.some((r) => r.id === "transit:5:b")).toBe(false);
+  });
+  it("status row disappears with departure rows", () => {
+    expect(transitRows(dprof([dep("A", "1:a", 600)]), NOW).some((r) => r.id === "transit:status")).toBe(false);
+    expect(transitRows(dprof([]), NOW).some((r) => r.id === "transit:status")).toBe(true);
+  });
+  it("transit rows never urgent; red leave-now clears generic red countdown", () => {
+    const p = dprof([dep("A", "1:a", 150)]);
+    p.layers["sun"].items.push(item({ id: "t", group: "t", target_ts: nowS + 100 }));
+    const rows = selectVisible(p, NOW);
+    expect(rows.find((r) => r.id === "t")!.urgent).toBe(true);
+    expect(rows.find((r) => r.id === "t")!.redCountdown).toBe(false);
+    expect(rows.filter((r) => r.transit).every((r) => !r.urgent && !r.redCountdown)).toBe(true);
+    const p2 = dprof([dep("A", "1:a", 900)]);
+    p2.layers["sun"].items.push(item({ id: "t", group: "t", target_ts: nowS + 100 }));
+    expect(selectVisible(p2, NOW).find((r) => r.id === "t")!.redCountdown).toBe(true);
+  });
+});
