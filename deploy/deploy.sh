@@ -50,7 +50,7 @@ fi
 
 # Weekly camera refresh (never started from here; David runs the first one, see 02-06).
 units_changed=0
-for u in shinigami-data.service shinigami-data.timer; do
+for u in shinigami-data.service shinigami-data.timer shinigami-transit.service shinigami-transit.timer; do
   if ! cmp -s "deploy/$u" "/etc/systemd/system/$u"; then
     install -m 0644 "deploy/$u" "/etc/systemd/system/$u"
     units_changed=1
@@ -58,6 +58,15 @@ for u in shinigami-data.service shinigami-data.timer; do
 done
 if [ "$units_changed" -eq 1 ]; then systemctl daemon-reload; fi
 systemctl enable --now shinigami-data.timer
+systemctl enable --now shinigami-transit.timer
+
+# First transit stop build (D-22): only when the stops file is missing. Blocking.
+if [ ! -e /var/lib/shinigami/data/transit_stops.json ]; then
+  echo "first transit stop build (about 2 min)"
+  if ! systemctl start shinigami-transit.service; then
+    echo "WARN: transit stop build failed, see journalctl -u shinigami-transit" >&2
+  fi
+fi
 
 systemctl restart shinigami
 
