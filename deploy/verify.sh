@@ -122,6 +122,36 @@ hud10_checks() {
     else pass "cameras_loaded age=${age}d"; fi
   fi
 
+  # D-21/D-24: transit. Same CBD point, same health body; never print bodies.
+  local tbody hbody tstops tage tptv
+  tbody="$(curl -s --max-time 10 "$base/api/profile?lat=-37.8136&lon=144.9631" 2>/dev/null | tr -d '\r' || true)"
+  hbody="$(curl -s --max-time 10 "$base/api/health" 2>/dev/null | tr -d '\r' || true)"
+  code="$(http_code "$base/api/profile?lat=-37.8136&lon=144.9631")"
+  if [ "$code" = "404" ]; then skip transit_layers "/api/profile not built yet"
+  elif printf '%s' "$tbody" | grep -q '"transit_stops"'; then pass transit_layers
+  else fail transit_layers "transit_stops missing"; fi
+
+  tstops="$(printf '%s' "$hbody" | grep -oE '"stops" *: *\{[^}]*\}' | head -n1 || true)"
+  if [ -z "$tstops" ]; then fail transit_loaded "health has no transit stops field"
+  elif ! printf '%s' "$tstops" | grep -qE '"loaded" *: *true'; then fail transit_loaded "transit store not loaded (run shinigami-transit.service)"
+  else
+    tage="$(printf '%s' "$tstops" | sed -n 's/.*"age_days" *: *\([0-9][0-9]*\).*/\1/p')"
+    if [ -z "$tage" ]; then fail transit_loaded "store has no build time"
+    elif [ "$tage" -gt 14 ]; then fail transit_loaded "store is ${tage} days old"
+    else pass "transit_loaded age=${tage}d"; fi
+  fi
+
+  tptv="$(printf '%s' "$hbody" | sed -n 's/.*"ptv" *: *"\([a-z_]*\)".*/\1/p' | head -n1)"
+  case "$tptv" in
+    no_key) skip transit_ptv "PTV key not set" ;;
+    ok|idle) pass transit_ptv ;;
+    error) fail transit_ptv "PTV state error" ;;
+    *) fail transit_ptv "health has no ptv state" ;;
+  esac
+
+  if printf '%s\n%s' "$hbody" "$tbody" | grep -qiE 'signature=|devid|timetableapi'; then fail transit_no_secrets "key material pattern in health/profile"
+  else pass transit_no_secrets; fi
+
   code="$(http_code "$base/api/places")"
   local lines="" line pid nocam_ids="" cam_ids="" bad=""
   if [ "$code" = "200" ]; then
@@ -145,7 +175,7 @@ EOF_PLACES
   else
     for pid in $nocam_ids; do
       body="$(curl -s --max-time 10 "$base/api/profile?place=$pid" 2>/dev/null || true)"
-      if printf '%s' "$body" | grep -qE 'cameras_|distance_m'; then bad="$bad $pid"; fi
+      if printf '%s' "$body" | grep -qE 'cameras_|transit_|distance_m'; then bad="$bad $pid"; fi
     done
     if [ -n "$bad" ]; then fail place_no_cameras "camera data for:$bad"; else pass place_no_cameras; fi
   fi
