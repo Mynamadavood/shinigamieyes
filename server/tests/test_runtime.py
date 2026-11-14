@@ -133,3 +133,105 @@ async def test_lifespan_wiring(settings):
     app2 = create_app(settings, start_runtime=True)
     async with app2.router.lifespan_context(app2):
         assert app2.state.ctx.runtime is not None
+
+
+class ExactPolled(Provider):
+    meta = ProviderMeta(
+        id="dep_stub",
+        tier="polled",
+        ttl_s=300,
+        stale_after_s=None,
+        attribution="x",
+        interval_s=300,
+        exact_location_only=True,
+    )
+
+    def __init__(self, fail=False, gate=None):
+        self.calls = 0
+        self.queries: list[tuple[float, float]] = []
+        self.fail = fail
+        self.gate = gate
+
+    async def refresh(self, ctx):
+        self.calls += 1
+        if self.gate is not None:
+            await self.gate.wait()
+        if self.fail:
+            raise ValueError("secret message text")
+
+    def query(self, ctx, lat, lon, now):
+        self.queries.append((lat, lon))
+        return Layer(id="dep_stub", status="fresh", rev=1, as_of=now, attribution="x", items=[])
+
+
+async def test_exact_polled_publishes_touch_only(tmp_path):
+    ctx = make_ctx(tmp_path)
+    q = ctx.bus.subscribe()
+    p = ExactPolled()
+    runtime = Runtime(ctx, [p])
+    await runtime.start()
+    ev = await asyncio.wait_for(q.get(), 2)
+    assert ev == {"type": "touch", "provider": "dep_stub"}
+    assert q.empty()
+    assert p.queries == []
+    await runtime.stop()
+
+
+async def test_nudge_rate_guard_and_unknown(tmp_path):
+    ctx = make_ctx(tmp_path)
+    now = {"t": 1000.0}
+    ctx.clock = lambda: now["t"]
+    q = ctx.bus.subscribe()
+    gate = asyncio.Event()
+    gate.set()
+    p = ExactPolled(gate=gate)
+    runtime = Runtime(ctx, [p])
+    runtime._loop = asyncio.get_running_loop()
+    runtime._loop_thread = __import__("threading").get_ident()
+    runtime.nudge("nope")
+    runtime.nudge("dep_stub")
+    runtime.nudge("dep_stub")
+    await asyncio.sleep(0.05)
+    assert p.calls == 1
+    assert q.get_nowait() == {"type": "touch", "provider": "dep_stub"}
+    runtime.nudge("dep_stub")
+    await asyncio.sleep(0.05)
+    assert p.calls == 1
+    now["t"] += rt.NUDGE_MIN_GAP_S + 1
+    runtime.nudge("dep_stub")
+    await asyncio.sleep(0.05)
+    assert p.calls == 2
+    await runtime.stop()
+
+
+async def test_nudge_skips_while_refreshing(tmp_path):
+    ctx = make_ctx(tmp_path)
+    gate = asyncio.Event()
+    p = ExactPolled(gate=gate)
+    runtime = Runtime(ctx, [p])
+    await runtime.start()
+    await asyncio.sleep(0.05)  # poll loop refresh is now blocked on the gate
+    assert p.calls == 1
+    runtime.nudge("dep_stub")
+    await asyncio.sleep(0.05)
+    assert p.calls == 1
+    await runtime.stop()
+
+
+async def test_nudge_from_thread_and_failure_log(tmp_path, caplog):
+    ctx = make_ctx(tmp_path)
+    p = ExactPolled(fail=True)
+    runtime = Runtime(ctx, [])
+    runtime.providers = {"dep_stub": p}
+    runtime._loop = asyncio.get_running_loop()
+    runtime._loop_thread = -1  # force the thread-safe path
+    caplog.set_level("DEBUG")
+    runtime.nudge("dep_stub")
+    await asyncio.sleep(0.1)
+    msgs = [r.getMessage() for r in caplog.records if r.name == "shinigami.runtime"]
+    assert msgs == ["nudge failed provider=dep_stub err=ValueError"]
+    await runtime.stop()
+
+
+def test_nudge_before_start_is_noop(tmp_path):
+    Runtime(make_ctx(tmp_path), [ExactPolled()]).nudge("dep_stub")

@@ -7,6 +7,10 @@ from shinigami.settings import Settings
 class FakeRuntime:
     def __init__(self) -> None:
         self.requests: list[tuple[str, object]] = []
+        self.nudges: list[str] = []
+
+    def nudge(self, provider_id) -> None:
+        self.nudges.append(provider_id)
 
     def request_cell(self, provider_id, cell) -> None:
         self.requests.append((provider_id, cell))

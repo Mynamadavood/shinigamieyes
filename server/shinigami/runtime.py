@@ -16,6 +16,7 @@ log = logging.getLogger("shinigami.runtime")
 BACKOFF_BASE_S = 30.0
 BACKOFF_CAP_S = 1800.0
 JITTER = 0.1
+NUDGE_MIN_GAP_S = 10.0
 
 
 async def _sleep(seconds: float) -> None:
@@ -56,6 +57,8 @@ class Runtime:
         self._loop_thread: int | None = None
         self._tasks: set[asyncio.Task] = set()
         self._inflight: dict[tuple[str, str], asyncio.Task] = {}
+        self._refreshing: set[str] = set()
+        self._last_nudge: dict[str, float] = {}
 
     # lifecycle -------------------------------------------------------------
     async def start(self) -> None:
@@ -81,6 +84,11 @@ class Runtime:
         bus = self.ctx.bus
         if bus is None:
             return
+        if provider.meta.exact_location_only:
+            # an exact-location layer depends on each phone's own point: tell the streams to
+            # compute it per subscriber (behind the Home gate) instead of broadcasting (0, 0)
+            bus.publish({"type": "touch", "provider": provider.meta.id})
+            return
         layer = provider.query(self.ctx, lat, lon, self.ctx.clock())
         bus.publish(
             {
@@ -97,7 +105,11 @@ class Runtime:
         interval = float(p.meta.interval_s or p.meta.ttl_s)
         while True:
             try:
-                await p.refresh(self.ctx)
+                self._refreshing.add(p.meta.id)
+                try:
+                    await p.refresh(self.ctx)
+                finally:
+                    self._refreshing.discard(p.meta.id)
                 self._publish_layer(p, "global", 0.0, 0.0)
                 backoff = BACKOFF_BASE_S
                 delay = interval * random.uniform(1 - JITTER, 1 + JITTER)
@@ -119,6 +131,41 @@ class Runtime:
             self._spawn(provider_id, cell)
         else:
             loop.call_soon_threadsafe(self._spawn, provider_id, cell)
+
+    def nudge(self, provider_id: str) -> None:
+        """Fire-and-forget immediate refresh (rate guarded); safe to call from any thread."""
+        loop = self._loop
+        if loop is None:
+            return
+        if threading.get_ident() == self._loop_thread:
+            self._start_nudge(provider_id)
+        else:
+            loop.call_soon_threadsafe(self._start_nudge, provider_id)
+
+    def _start_nudge(self, provider_id: str) -> None:
+        p = self.providers.get(provider_id)
+        if p is None or provider_id in self._refreshing:
+            return
+        now = self.ctx.clock()
+        last = self._last_nudge.get(provider_id)
+        if last is not None and now - last < NUDGE_MIN_GAP_S:
+            return
+        self._last_nudge[provider_id] = now
+        self._refreshing.add(provider_id)
+        task = asyncio.create_task(self._nudge_run(p), name=f"nudge:{provider_id}")
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+
+    async def _nudge_run(self, p: Provider) -> None:
+        try:
+            await p.refresh(self.ctx)
+            self._publish_layer(p, "global", 0.0, 0.0)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            log.warning("nudge failed provider=%s err=%s", p.meta.id, type(exc).__name__)
+        finally:
+            self._refreshing.discard(p.meta.id)
 
     def _spawn(self, provider_id: str, cell: Cell) -> None:
         key = (provider_id, cell.id)
