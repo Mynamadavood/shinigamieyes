@@ -128,3 +128,15 @@ describe("NextList.setState idempotence", () => {
     expect(host.querySelector(".list-state")).not.toBeNull();
   });
 });
+
+describe("NextList transit classes", () => {
+  it("toggles transit/none classes", () => {
+    list.update([vm({ id: "t", targetMs: null, transit: true, none: true })], NOW);
+    const el = host.querySelector(".row") as HTMLElement;
+    expect(el.className).toContain("transit");
+    expect(el.classList.contains("none")).toBe(true);
+    list.update([vm({ id: "t", targetMs: null })], NOW + 1000);
+    expect(el.classList.contains("transit")).toBe(false);
+    expect(el.classList.contains("none")).toBe(false);
+  });
+});

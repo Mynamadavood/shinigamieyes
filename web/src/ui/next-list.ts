@@ -138,6 +138,8 @@ export class NextList {
       r.root.classList.toggle("stale", vm.stale);
       r.root.classList.toggle("urgent", vm.urgent);
       r.root.classList.toggle("red-countdown", vm.redCountdown);
+      r.root.classList.toggle("transit", vm.transit === true);
+      r.root.classList.toggle("none", vm.none === true);
       if (r.labelMinute !== minute) {
         r.root.setAttribute("aria-label", `${vm.name}, ${vm.countdownText}, ${vm.ageTag}`);
         r.labelMinute = minute;

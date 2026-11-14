@@ -18,6 +18,13 @@ describe("cornerRows", () => {
   });
 });
 
+describe("cornerRows transit", () => {
+  it("ignores transit rows", () => {
+    const out = cornerRows([row("t", 50, { transit: true }), row("n", null, { transit: true, none: true }), row("a", 100)]);
+    expect(out.map((r) => r.id)).toEqual(["a"]);
+  });
+});
+
 describe("Readouts", () => {
   it("renders name/countdown, urgent class, in-place update, aria once a minute", () => {
     const l = document.createElement("div");

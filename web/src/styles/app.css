@@ -112,6 +112,9 @@ html, body {
 .row.urgent { border-left-color: var(--c-red); }
 .row.red-countdown .row-count { color: var(--c-red); }
 /* stale: dimmed, keeps counting */
+.row.transit.none { border-left-color: var(--c-frame); }
+.row.transit.none .row-name, .row.transit.none .row-count { color: var(--c-dim); }
+.row.transit.none .row-count { font-size: var(--fs-label); line-height: var(--lh-label); }
 .row.stale { opacity: 0.55; border-left-color: var(--c-frame); }
 .row.stale .row-name, .row.stale .row-count { color: var(--c-dim); }
 /* expiry: red flash x2 (600 ms), dim (400 ms), collapse (200 ms) = 1.2 s */

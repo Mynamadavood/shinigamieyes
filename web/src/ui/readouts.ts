@@ -6,6 +6,7 @@ const ARIA_REFRESH_MS = 60_000;
 
 /** Max 2 rows, timed rows first (soonest), then value-only rows. */
 export function cornerRows(rows: RowVM[]): RowVM[] {
+  rows = rows.filter((r) => r.transit !== true); // transit rows never take a corner
   const timed = rows.filter((r) => r.targetMs !== null).sort((a, b) => (a.targetMs as number) - (b.targetMs as number));
   const valued = rows.filter((r) => r.targetMs === null);
   return [...timed, ...valued].slice(0, MAX_CORNER);

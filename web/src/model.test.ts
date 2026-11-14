@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { selectVisible } from "./model";
+import { selectVisible, transitRows, transitStatusText } from "./model";
 import type { Item, Profile } from "./types";
 
 function item(p: Partial<Item> & { id: string }): Item {
@@ -86,5 +86,56 @@ describe("selectVisible", () => {
     const [r] = selectVisible(prof([item({ id: "c", target_ts: NOW / 1000 + 5000 })]), NOW);
     expect(r.ageTag).toBe("computed");
     expect(r.stale).toBe(false);
+  });
+});
+
+function tlayer(id: string, status: "fresh" | "pending" | "error", items: Item[]) {
+  return { id, status, rev: 1, as_of: 0, attribution: "", items };
+}
+const stopItem = item({ id: "stop:1", layer: "transit_stops", geom: { type: "Point", coordinates: [1, 2] }, detail: { mode: "tram", stop_id: 1 } });
+const noneItem = item({ id: "none:tram", layer: "transit_stops", name: "No tram stop within 800 m", detail: { mode: "tram", none: true, limit_m: 800 } });
+const sumItem = (ptv: string) => item({ id: "sum", layer: "transit_stops", detail: { summary: true, ptv } });
+function tprof(stops: Item[] | null, deps: ReturnType<typeof tlayer> | null, extra: Item[] = []): Profile {
+  const p = prof(extra);
+  if (stops) p.layers["transit_stops"] = tlayer("transit_stops", "fresh", stops);
+  if (deps) p.layers["transit_departures"] = deps;
+  return p;
+}
+
+describe("transit rows", () => {
+  it("generic loop skips transit_* layers", () => {
+    const p = tprof([], null);
+    p.layers["transit_departures"] = tlayer("transit_departures", "fresh", [
+      item({ id: "d1", layer: "transit_departures", group: "x", target_ts: NOW / 1000 + 60 }),
+    ]);
+    expect(selectVisible(p, NOW).map((r) => r.id)).toEqual([]);
+  });
+
+  it("none item gives a quiet none row sorted after timed rows", () => {
+    const p = tprof([noneItem, sumItem("ok")], null, [item({ id: "t", group: "t", target_ts: NOW / 1000 + 5 })]);
+    const rows = selectVisible(p, NOW);
+    expect(rows.map((r) => r.id)).toEqual(["t", "transit:none:tram"]);
+    const n = rows[1];
+    expect(n.name).toBe("No tram stop within 800 m");
+    expect(n.countdownText).toBe("--");
+    expect(n.kindTag).toBe("tram · none nearby");
+    expect([n.transit, n.none, n.targetMs, n.urgent, n.redCountdown]).toEqual([true, true, null, false, false]);
+  });
+
+  it("status row precedence", () => {
+    const dep = (s: "fresh" | "pending" | "error", items: Item[] = []) => tlayer("transit_departures", s, items);
+    const st = (p: Profile) => transitRows(p, NOW).find((r) => r.id === "transit:status");
+    expect(st(tprof([stopItem, sumItem("no_key")], dep("fresh")))?.kindTag).toBe("PTV key not set");
+    expect(st(tprof([stopItem, sumItem("ok")], null))?.kindTag).toBe("loading");
+    expect(st(tprof([stopItem, sumItem("ok")], dep("pending")))?.kindTag).toBe("loading");
+    expect(st(tprof([stopItem, sumItem("ok")], dep("error")))?.kindTag).toBe("unavailable");
+    expect(st(tprof([stopItem, sumItem("ok")], dep("fresh")))?.kindTag).toBe("no services listed");
+    expect(st(tprof([stopItem, sumItem("ok")], dep("fresh")))?.name).toBe("Departures");
+    expect(st(tprof([noneItem, sumItem("ok")], dep("fresh")))).toBeUndefined();
+    expect(transitStatusText(tprof([noneItem], null))).toBeNull();
+  });
+
+  it("no transit_stops layer (Home) gives no transit rows", () => {
+    expect(transitRows(tprof(null, null), NOW)).toEqual([]);
   });
 });
