@@ -29,4 +29,36 @@
     <path d="M12 22L6 12V4h12v8z"/>
     <path d="M10 8h4v4h-4z"/>
   </symbol>
+  <symbol id="stop-train" viewBox="0 0 24 24">
+    <path d="M6 3h12v14H6z"/>
+    <path d="M6 10h12M9 13h1M14 13h1"/>
+    <path d="M8 17l-2 4M16 17l2 4M7 21h10"/>
+  </symbol>
+  <symbol id="stop-tram" viewBox="0 0 24 24">
+    <path d="M12 2v3M8 5h8"/>
+    <path d="M5 8h14v10H5z"/>
+    <path d="M5 13h14M8 15h1M15 15h1"/>
+    <path d="M7 18v3M17 18v3M5 21h14"/>
+  </symbol>
+  <symbol id="stop-bus" viewBox="0 0 24 24">
+    <path d="M4 4h16v14H4z"/>
+    <path d="M4 10h16M7 14h1M16 14h1"/>
+    <path d="M6 18v3M18 18v3"/>
+  </symbol>
+  <symbol id="veh-tram" viewBox="0 0 24 24">
+    <path d="M12 2v3M8 5h8"/>
+    <path d="M5 8h14v9H5z"/>
+    <path d="M8 12h8M5 21h14"/>
+  </symbol>
+  <symbol id="veh-bus" viewBox="0 0 24 24">
+    <path d="M4 5h16v13H4z"/>
+    <path d="M4 10h16M7 18v3M17 18v3"/>
+  </symbol>
+  <symbol id="warn" viewBox="0 0 24 24">
+    <path d="M12 3L2 21h20z"/>
+    <path d="M12 9v5M12 17v2"/>
+  </symbol>
+  <symbol id="pointer" viewBox="0 0 24 24">
+    <path d="M12 3L4 21h16z" fill="currentColor"/>
+  </symbol>
 </svg>

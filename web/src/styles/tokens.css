@@ -60,4 +60,13 @@
   --tag-hit: 48px;
   --card-w: 224px;
   --card-gap: 16px;
+
+  /* Phase 3 transit */
+  --tag-stop: 40px;
+  --tag-veh: 24px;
+  --card-w-wide: 240px;
+  --pointer-h: 32px;
+  --pointer-max-w: 208px;
+  --o-stale: 0.55;
+  --o-fade: 0.35;
 }
