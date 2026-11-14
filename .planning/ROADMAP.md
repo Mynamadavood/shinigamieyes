@@ -147,7 +147,7 @@ Plans:
   3. Vehicles approaching the nearest stops are visible on the map
   4. Current disruptions affecting nearby routes are listed
 
-**Plans:** 8/20 plans executed
+**Plans:** 13/20 plans executed
 
 Plans:
 **Wave 1**
@@ -166,11 +166,11 @@ Plans:
 
 **Wave 3**
 
-- [ ] 03-09-PLAN.md — transit_departures: watch set, DepartureSource seam, 30 s poll, nudge, no-leak tests
-- [ ] 03-10-PLAN.md — Web: stop card departures with ticking card sections and states
-- [ ] 03-11-PLAN.md — Web: departure row tap -> map focus + stop card
-- [ ] 03-12-PLAN.md — Deploy: weekly transit stop timer, deploy.sh, verify.sh transit checks, PTV smoke script
-- [ ] 03-13-PLAN.md — Web: disruption marks on drawer rows + end-time rows
+- [x] 03-09-PLAN.md — transit_departures: watch set, DepartureSource seam, 30 s poll, nudge, no-leak tests
+- [x] 03-10-PLAN.md — Web: stop card departures with ticking card sections and states
+- [x] 03-11-PLAN.md — Web: departure row tap -> map focus + stop card
+- [x] 03-12-PLAN.md — Deploy: weekly transit stop timer, deploy.sh, verify.sh transit checks, PTV smoke script
+- [x] 03-13-PLAN.md — Web: disruption marks on drawer rows + end-time rows
 
 **Wave 4**
 
@@ -264,7 +264,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation and Flat HUD Slice | 11/11 | Complete    | 2026-11-06 |
 | 2. 3D Map, Hero and Surveillance | 18/18 | Complete    | 2026-11-11 |
-| 3. Transit | 8/20 | In Progress|  |
+| 3. Transit | 13/20 | In Progress|  |
 | 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
 | 5. Hazards, Sky and Bay | 0/0 | Not started | - |
 | 6. Context and Coverage | 0/0 | Not started | - |
