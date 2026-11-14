@@ -24,7 +24,33 @@ def settings(tmp_path) -> Settings:
         places_path=tmp_path / "places.toml",
         tiles_path=tmp_path / "tiles" / "t.pmtiles",
         cameras_path=tmp_path / "cameras.json",
+        transit_stops_path=tmp_path / "transit_stops.json",
+        ptv_devid=None,
+        ptv_key=None,
     )
+
+
+@pytest.fixture
+def transit_store_file(tmp_path):
+    """Write a small synthetic version-1 transit_stops.json; returns the writer's path."""
+    import json
+    import time
+
+    def write(stops=None, path=None):
+        p = path or (tmp_path / "transit_stops.json")
+        p.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "built_at": time.time() - 2 * 86400 - 60,
+                    "source": "t",
+                    "stops": stops if stops is not None else [],
+                }
+            )
+        )
+        return p
+
+    return write
 
 
 @pytest.fixture

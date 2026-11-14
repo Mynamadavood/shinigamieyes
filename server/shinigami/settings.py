@@ -3,19 +3,30 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="SHINIGAMI_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="SHINIGAMI_", env_file=".env", extra="ignore", populate_by_name=True
+    )
 
     static_dir: Path = REPO_ROOT / "web" / "dist"
     db_path: Path = REPO_ROOT / "var" / "shinigami.db"
     places_path: Path = REPO_ROOT / "var" / "places.toml"
     tiles_path: Path = REPO_ROOT / "var" / "tiles" / "greater-melbourne.pmtiles"
     cameras_path: Path = REPO_ROOT / "var" / "cameras.json"
+    transit_stops_path: Path = REPO_ROOT / "var" / "transit_stops.json"
+    # PTV credentials use the un-prefixed names from .env.example; both optional (D-18, D-19).
+    ptv_devid: SecretStr | None = Field(
+        None, validation_alias=AliasChoices("PTV_DEVID", "SHINIGAMI_PTV_DEVID")
+    )
+    ptv_key: SecretStr | None = Field(
+        None, validation_alias=AliasChoices("PTV_KEY", "SHINIGAMI_PTV_KEY")
+    )
     contact_email: str = ""
     default_lat: float = -37.8136
     default_lon: float = 144.9631
