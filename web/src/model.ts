@@ -24,6 +24,8 @@ export type RowVM = {
   leaveNow?: boolean;
   leaveNowRed?: boolean;
   note?: string;
+  warn?: 0 | 1 | 3;
+  endRow?: boolean;
 };
 
 const URGENT_MS = 900_000;
@@ -31,6 +33,8 @@ export const LEAVE_NOW_MS = 60_000;
 export const CATCH_GRACE_MS = 30_000;
 export const ROWS_PER_STOP = 2;
 export const MAX_DEP_ROWS = 6;
+export const MAX_END_ROWS = 2;
+export const END_WINDOW_MS = 86_400_000;
 
 function kindTag(layer: string): string {
   if (layer === "uv_now" || layer === "uv_window") return "uv";
@@ -118,12 +122,14 @@ export function transitRows(profile: Profile, nowMs: number): RowVM[] {
     out.push(base(`transit:${item.id}`, item.name, `${mode} · none nearby`, item, { none: true, stopId: null }));
   }
   const depRows = departureRows(profile, nowMs);
+  applyWarnings(depRows, profile);
   out.push(...depRows);
   const text = depRows.length ? null : transitStatusText(profile);
   if (text) {
     const item = stops.items.find((i) => i.geom && !isSummary(i)) ?? stops.items[0];
     out.push(base("transit:status", "Departures", text, item, { stopId: null }));
   }
+  out.push(...endRows(profile, nowMs));
   return out;
 }
 
@@ -203,4 +209,70 @@ function departureRows(profile: Profile, nowMs: number): RowVM[] {
     c.vm.leaveText = i === 0 ? "LEAVE NOW" : "leave now";
   });
   return kept.map((c) => c.vm);
+}
+
+function nums(v: unknown): number[] {
+  return Array.isArray(v) ? v.filter((n): n is number => typeof n === "number") : [];
+}
+
+function disruptionItems(profile: Profile): Item[] {
+  const layer = profile.layers["transit_disruptions"];
+  if (!layer) return [];
+  return layer.items.filter((i) => !!i.detail && !isSummary(i));
+}
+
+/** Mark departure rows hit by a shown disruption: 1 info, 3 service-stopping; highest wins (D-16, D-17). */
+function applyWarnings(rows: RowVM[], profile: Profile): void {
+  const dis = disruptionItems(profile);
+  for (const r of rows) {
+    r.warn = 0;
+    if (!dis.length) continue;
+    const d = r.item.detail as Record<string, unknown>;
+    const routeId = typeof d.route_id === "number" ? d.route_id : null;
+    const stopId = typeof d.stop_id === "number" ? d.stop_id : null;
+    const ids = nums(d.disruption_ids);
+    let warn: 0 | 1 | 3 = 0;
+    for (const x of dis) {
+      const xd = x.detail as Record<string, unknown>;
+      const hit =
+        (routeId !== null && nums(xd.route_ids).includes(routeId)) ||
+        (stopId !== null && nums(xd.stop_ids).includes(stopId)) ||
+        (typeof xd.disruption_id === "number" && ids.includes(xd.disruption_id));
+      if (!hit) continue;
+      const w: 1 | 3 = x.severity === 3 ? 3 : 1;
+      if (w > warn) warn = w;
+    }
+    r.warn = warn;
+  }
+}
+
+function endName(d: Record<string, unknown>): string {
+  const labels = Array.isArray(d.route_labels) ? d.route_labels : [];
+  const modes = Array.isArray(d.modes) ? d.modes : [];
+  const label = typeof labels[0] === "string" ? labels[0] : "";
+  const m = label.match(/^\s*([A-Za-z]+)/);
+  const word = (m ? m[1] : typeof modes[0] === "string" ? modes[0] : "").toLowerCase();
+  const mode = word ? word.charAt(0).toUpperCase() + word.slice(1) : "Transit";
+  const num = label.match(/\d+/);
+  return `${mode}${num ? ` ${num[0]}` : ""} disruption`;
+}
+
+/** Up to MAX_END_ROWS countdown rows for disruptions ending within 24 h (D-16). Never red, never urgent. */
+function endRows(profile: Profile, nowMs: number): RowVM[] {
+  const out: RowVM[] = [];
+  for (const item of disruptionItems(profile)) {
+    if (item.target_ts === null) continue;
+    const targetMs = item.target_ts * 1000;
+    const left = targetMs - nowMs;
+    if (left <= 0 || left > END_WINDOW_MS) continue;
+    const d = item.detail as Record<string, unknown>;
+    out.push({
+      id: `transit-end:${String(d.disruption_id ?? item.id)}`, name: endName(d), kindTag: "disruption · ends",
+      countdownText: fmtCountdown(left / 1000), targetMs, display: null, isFirst: false, item,
+      ageTag: ageTag(item, nowMs), stale: false, urgent: false, redCountdown: false, transit: true,
+      endRow: true, stopId: null,
+    });
+  }
+  out.sort((a, b) => (a.targetMs as number) - (b.targetMs as number));
+  return out.slice(0, MAX_END_ROWS);
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { selectVisible, transitRows, transitStatusText } from "./model";
+import { fmtCountdown } from "./format";
 import type { Item, Profile } from "./types";
 
 function item(p: Partial<Item> & { id: string }): Item {
@@ -220,5 +221,64 @@ describe("departure rows", () => {
     const p2 = dprof([dep("A", "1:a", 900)]);
     p2.layers["sun"].items.push(item({ id: "t", group: "t", target_ts: nowS + 100 }));
     expect(selectVisible(p2, NOW).find((r) => r.id === "t")!.redCountdown).toBe(true);
+  });
+});
+
+function disItem(id: number, over: Partial<Item> = {}, d: Record<string, unknown> = {}): Item {
+  return item({
+    id: `dis:${id}`, layer: "transit_disruptions", group: "disruption", name: `Disruption ${id}`, verb: "ends",
+    target_ts: null, kind: "infrastructure", severity: 0, geom: null, stale_after_s: 600,
+    detail: {
+      disruption_id: id, title: `Disruption ${id}`, status: "Current", updated_ts: nowS, from_ts: null, to_ts: null,
+      route_ids: [], route_labels: ["Tram 96"], stop_ids: [], stop_names: [], modes: ["tram"], service_stopped: false, ...d,
+    },
+    ...over,
+  });
+}
+function wprof(deps_: Item[], dis: Item[] | null): Profile {
+  const p = dprof(deps_);
+  if (dis) p.layers["transit_disruptions"] = tlayer("transit_disruptions", "fresh", dis);
+  return p;
+}
+const wrow = (p: Profile) => transitRows(p, NOW).find((r) => r.id === "transit:1:a");
+
+describe("disruption warnings and end rows", () => {
+  it("no disruptions layer gives warn 0", () => {
+    expect(wrow(wprof([dep("A", "1:a", 600, { route_id: 7 })], null))?.warn).toBe(0);
+  });
+  it("matches by route, stop, and disruption_ids; severity maps to 1 or 3", () => {
+    const d = dep("A", "1:a", 600, { route_id: 7 });
+    expect(wrow(wprof([d], [disItem(1, {}, { route_ids: [7] })]))?.warn).toBe(1);
+    expect(wrow(wprof([d], [disItem(1, { severity: 3 }, { route_ids: [7] })]))?.warn).toBe(3);
+    expect(wrow(wprof([d], [disItem(2, {}, { stop_ids: [1] })]))?.warn).toBe(1);
+    const viaIds = dep("A", "1:a", 600, { route_id: 9, stop_id: 5, disruption_ids: [3] });
+    expect(wrow(wprof([viaIds], [disItem(3)]))?.warn).toBe(1);
+    expect(wrow(wprof([d], [disItem(4, {}, { route_ids: [8] })]))?.warn).toBe(0);
+  });
+  it("highest severity wins", () => {
+    const d = dep("A", "1:a", 600, { route_id: 7 });
+    const p = wprof([d], [disItem(1, {}, { route_ids: [7] }), disItem(2, { severity: 3 }, { route_ids: [7] })]);
+    expect(wrow(p)?.warn).toBe(3);
+  });
+  it("end row for a disruption ending in 2 h", () => {
+    const p = wprof([], [disItem(5, { target_ts: nowS + 7200 }, { to_ts: nowS + 7200 })]);
+    const r = transitRows(p, NOW).find((x) => x.id === "transit-end:5");
+    expect(r).toBeDefined();
+    expect([r!.name, r!.kindTag, r!.countdownText, r!.urgent, r!.redCountdown, r!.transit, r!.endRow]).toEqual([
+      "Tram 96 disruption", "disruption · ends", fmtCountdown(7200), false, false, true, true,
+    ]);
+  });
+  it("no end row beyond 24 h or with null end; train label has no number", () => {
+    const p = wprof([], [disItem(6, { target_ts: nowS + 90000 }), disItem(7)]);
+    expect(transitRows(p, NOW).some((r) => r.endRow)).toBe(false);
+    const t = wprof([], [disItem(8, { target_ts: nowS + 600 }, { route_labels: ["Train"], modes: ["train"] })]);
+    expect(transitRows(t, NOW).find((r) => r.endRow)?.name).toBe("Train disruption");
+    const b = wprof([], [disItem(9, { target_ts: nowS + 600 }, { route_labels: ["Bus 907"], modes: ["bus"] })]);
+    expect(transitRows(b, NOW).find((r) => r.endRow)?.name).toBe("Bus 907 disruption");
+  });
+  it("caps at 2 soonest end rows; never become generic rows", () => {
+    const p = wprof([], [3000, 1000, 2000].map((s, i) => disItem(10 + i, { target_ts: nowS + s })));
+    expect(transitRows(p, NOW).filter((r) => r.endRow).map((r) => r.id)).toEqual(["transit-end:11", "transit-end:12"]);
+    expect(selectVisible(p, NOW).filter((r) => r.id.startsWith("dis:"))).toEqual([]);
   });
 });
