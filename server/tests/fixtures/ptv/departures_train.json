@@ -1,0 +1,18 @@
+{
+  "_fixture": "schema-derived from PTV v3 swagger 2026-11-13, not recorded (D-24)",
+  "departures": [
+    {"stop_id": 1900, "route_id": 31, "run_ref": "R-X1", "direction_id": 1, "disruption_ids": [], "scheduled_departure_utc": "2026-11-13T01:10:00Z", "estimated_departure_utc": "2026-11-13T01:10:00Z", "at_platform": true, "platform_number": "4"},
+    {"stop_id": 1900, "route_id": 31, "run_ref": "R-X2", "direction_id": 1, "disruption_ids": [], "scheduled_departure_utc": "2026-11-13T01:25:00Z", "estimated_departure_utc": null, "at_platform": false, "platform_number": "4"},
+    {"stop_id": 1900, "route_id": 31, "run_ref": "R-X3", "direction_id": 1, "disruption_ids": [], "scheduled_departure_utc": "2026-11-13T01:40:00Z", "estimated_departure_utc": null, "at_platform": false, "platform_number": "4"}
+  ],
+  "stops": {"1900": {"stop_id": 1900, "stop_name": "Synthetic Junction Station"}},
+  "routes": {"31": {"route_id": 31, "route_type": 0, "route_name": "Synthetic", "route_number": ""}},
+  "runs": {
+    "R-X1": {"run_ref": "R-X1", "route_id": 31, "route_type": 0, "final_stop_id": 1000, "destination_name": "Synthetic City", "status": "scheduled", "direction_id": 1, "vehicle_position": {"latitude": null, "longitude": null, "easting": 320000.5, "northing": 5810000.5, "datetime_utc": "2026-11-13T01:09:30Z"}},
+    "R-X2": {"run_ref": "R-X2", "route_id": 31, "route_type": 0, "final_stop_id": 1000, "destination_name": "Synthetic City", "status": "Scheduled", "direction_id": 1},
+    "R-X3": {"run_ref": "R-X3", "route_id": 31, "route_type": 0, "final_stop_id": 1000, "destination_name": "Synthetic City", "status": "Cancelled", "direction_id": 1}
+  },
+  "directions": {"1": {"direction_id": 1, "direction_name": "Synthetic City"}},
+  "disruptions": {},
+  "status": {"version": "3.0", "health": 1}
+}

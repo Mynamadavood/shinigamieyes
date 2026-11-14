@@ -130,7 +130,9 @@ class PtvClient:
         return parse_pattern(js, route_type)
 
     async def disruptions(self, route_types: Iterable[int] = (0, 1, 2)) -> list[Disruption]:
-        js = await self._get_json(_build("/v3/disruptions", [("route_types", t) for t in route_types]))
+        js = await self._get_json(
+            _build("/v3/disruptions", [("route_types", t) for t in route_types])
+        )
         return parse_disruptions(js)
 
     async def route_types(self) -> int:

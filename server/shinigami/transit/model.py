@@ -226,12 +226,7 @@ def parse_departures(js: dict, route_type: int) -> StopDepartures:
                 )
             )
             vp = run.vehicle_position
-            if (
-                vp is not None
-                and vp.latitude
-                and vp.longitude
-                and d.run_ref not in positions
-            ):
+            if vp is not None and vp.latitude and vp.longitude and d.run_ref not in positions:
                 positions[d.run_ref] = RunPosition(
                     d.run_ref, vp.latitude, vp.longitude, ts(vp.datetime_utc)
                 )
@@ -302,7 +297,9 @@ def parse_disruptions(js: dict) -> list[Disruption]:
                         updated_ts=ts(d.last_updated),
                         from_ts=ts(d.from_date),
                         to_ts=ts(d.to_date),
-                        route_ids=tuple(r.route_id for r in d.routes or [] if r.route_id is not None),
+                        route_ids=tuple(
+                            r.route_id for r in d.routes or [] if r.route_id is not None
+                        ),
                         route_labels=tuple(labels),
                         stop_ids=tuple(s.stop_id for s in d.stops or [] if s.stop_id is not None),
                         stop_names=tuple(s.stop_name for s in d.stops or [] if s.stop_name),

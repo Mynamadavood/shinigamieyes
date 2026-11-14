@@ -1,0 +1,19 @@
+{
+  "_fixture": "schema-derived from PTV v3 swagger 2026-11-13, not recorded (D-24)",
+  "departures": [
+    {"stop_id": 3101, "run_ref": "R-T1", "route_id": 721, "direction_id": 5, "scheduled_departure_utc": "2026-11-13T01:00:00Z", "estimated_departure_utc": "2026-11-13T01:01:00Z"},
+    {"stop_id": 3102, "run_ref": "R-T1", "route_id": 721, "direction_id": 5, "scheduled_departure_utc": "2026-11-13T01:03:00Z", "estimated_departure_utc": null},
+    {"stop_id": 3103, "run_ref": "R-T1", "route_id": 721, "direction_id": 5, "scheduled_departure_utc": "2026-11-13T01:06:00Z", "estimated_departure_utc": null},
+    {"stop_id": 3104, "run_ref": "R-T1", "route_id": 721, "direction_id": 5, "scheduled_departure_utc": "2026-11-13T01:09:00Z"}
+  ],
+  "stops": {
+    "3101": {"stop_id": 3101, "stop_name": "Synthetic A", "stop_latitude": -37.7001, "stop_longitude": 144.7001},
+    "3102": {"stop_id": 3102, "stop_name": "Synthetic B", "stop_latitude": -37.7011, "stop_longitude": 144.7011},
+    "3103": {"stop_id": 3103, "stop_name": "Synthetic C", "stop_latitude": -37.7021, "stop_longitude": 144.7021},
+    "3104": {"stop_id": 3104, "stop_name": "Synthetic D (no coords)", "stop_latitude": 0, "stop_longitude": 0}
+  },
+  "runs": {"R-T1": {"run_ref": "R-T1", "route_id": 721, "route_type": 1, "destination_name": "Synthetic Park"}},
+  "directions": {"5": {"direction_id": 5, "direction_name": "Synthetic Park"}},
+  "disruptions": {},
+  "status": {"version": "3.0", "health": 1}
+}

@@ -1,0 +1,22 @@
+{
+  "_fixture": "schema-derived from PTV v3 swagger 2026-11-13, not recorded (D-24)",
+  "disruptions": {
+    "general": [
+      {"disruption_id": 9001, "title": "Synthetic tram diversion", "description": "Trams diverted, synthetic.", "disruption_status": "Current", "disruption_type": "Route Diversion", "published_on": "2026-11-12T20:00:00Z", "last_updated": "2026-11-13T00:30:00Z", "from_date": "2026-11-12T20:00:00Z", "to_date": null,
+       "routes": [{"route_type": 1, "route_id": 721, "route_name": "Synthetic Town - Synthetic Park", "route_number": "96", "direction": null}], "stops": [{"stop_id": 2720, "stop_name": "Synthetic Mall"}]}
+    ],
+    "metro_train": [
+      {"disruption_id": 9002, "title": "Synthetic line delays", "description": "Delays up to 20 minutes, synthetic.", "disruption_status": "Current", "disruption_type": "Minor Delays", "last_updated": "2026-11-13T00:45:00Z", "from_date": "2026-11-13T00:40:00Z", "to_date": "2026-11-13T03:00:00Z",
+       "routes": [{"route_type": 0, "route_id": 31, "route_name": "Hurstbridge", "route_number": ""}], "stops": []},
+      {"disruption_id": 9001, "title": "dup of general entry", "routes": []}
+    ],
+    "metro_tram": [],
+    "metro_bus": [
+      {"disruption_id": 9003, "title": "Synthetic bus stop closed", "description": "", "disruption_status": "Planned", "disruption_type": "Stop Closure", "last_updated": "2026-11-12T22:00:00Z", "from_date": "2026-11-14T00:00:00Z", "to_date": "2026-11-20T00:00:00Z",
+       "routes": [{"route_type": 2, "route_id": 907, "route_name": "Synthetic Express", "route_number": "907"}], "stops": [{"stop_id": 4400, "stop_name": "Synthetic Uni"}]}
+    ],
+    "night_bus": [],
+    "regional_train": [{"disruption_id": 9100, "title": "regional ignored", "routes": []}],
+    "metro_ferry": [{"disruption_id": 9101, "title": "ferry ignored", "routes": []}]
+  }
+}

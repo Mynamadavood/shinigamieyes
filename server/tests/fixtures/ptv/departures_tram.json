@@ -1,0 +1,31 @@
+{
+  "_fixture": "schema-derived from PTV v3 swagger 2026-11-13, not recorded (D-24)",
+  "departures": [
+    {"stop_id": 2720, "route_id": 721, "run_ref": "R-T1", "direction_id": 5, "disruption_ids": [9001], "scheduled_departure_utc": "2026-11-13T01:00:00Z", "estimated_departure_utc": "2026-11-13T01:01:30Z", "at_platform": false, "platform_number": null},
+    {"stop_id": 2720, "route_id": 721, "run_ref": "R-T2", "direction_id": 6, "disruption_ids": [], "scheduled_departure_utc": "2026-11-13T01:04:00Z", "estimated_departure_utc": null, "at_platform": false, "platform_number": null},
+    {"stop_id": 2720, "route_id": 722, "run_ref": "R-T3", "direction_id": 7, "disruption_ids": [], "scheduled_departure_utc": "2026-11-13T01:06:00Z", "estimated_departure_utc": "2026-11-13T01:05:30Z", "at_platform": false, "platform_number": null},
+    {"stop_id": 2720, "route_id": 722, "run_ref": "R-T4", "direction_id": 8, "disruption_ids": [], "scheduled_departure_utc": "2026-11-13T01:12:00Z", "estimated_departure_utc": null},
+    {"stop_id": 2720, "route_id": 722, "run_ref": null, "direction_id": 8, "scheduled_departure_utc": "2026-11-13T01:13:00Z"},
+    {"stop_id": 2720, "route_id": 722, "run_ref": "R-T5", "direction_id": 8, "scheduled_departure_utc": "not-a-time"},
+    {"stop_id": null, "route_id": 722, "run_ref": "R-T6", "direction_id": 8, "scheduled_departure_utc": "2026-11-13T01:14:00Z"}
+  ],
+  "stops": {"2720": {"stop_id": 2720, "stop_name": "Synthetic Mall/Synthetic St #3"}},
+  "routes": {
+    "721": {"route_id": 721, "route_type": 1, "route_name": "Synthetic Town - Synthetic Park", "route_number": "96"},
+    "722": {"route_id": 722, "route_type": 1, "route_name": "Synthetic Dock - Synthetic Heights", "route_number": "109"}
+  },
+  "runs": {
+    "R-T1": {"run_ref": "R-T1", "route_id": 721, "route_type": 1, "final_stop_id": 3001, "destination_name": "Synthetic Park", "status": "scheduled", "direction_id": 5},
+    "R-T2": {"run_ref": "R-T2", "route_id": 721, "route_type": 1, "final_stop_id": 3002, "destination_name": "Synthetic Town", "status": "scheduled", "direction_id": 6},
+    "R-T3": {"run_ref": "R-T3", "route_id": 722, "route_type": 1, "final_stop_id": 3003, "destination_name": "Synthetic Heights", "status": "scheduled", "direction_id": 7},
+    "R-T4": {"run_ref": "R-T4", "route_id": 722, "route_type": 1, "final_stop_id": 3004, "destination_name": "Synthetic Dock", "status": "scheduled", "direction_id": 8}
+  },
+  "directions": {
+    "5": {"direction_id": 5, "direction_name": "Synthetic Park"},
+    "6": {"direction_id": 6, "direction_name": "Synthetic Town"},
+    "7": {"direction_id": 7, "direction_name": "Synthetic Heights"},
+    "8": {"direction_id": 8, "direction_name": "Synthetic Dock"}
+  },
+  "disruptions": {},
+  "status": {"version": "3.0", "health": 1}
+}

@@ -12,8 +12,10 @@ VECTORS = [
         "3CBCFCAAD4E49A23034FFCCFB481DE7EB3AEFCF8",
     ),
     (
-        ("/v3/departures/route_type/1/stop/2720?max_results=20&expand=Run&expand=Route"
-        "&expand=Direction&expand=Disruption&expand=VehiclePosition"),
+        (
+            "/v3/departures/route_type/1/stop/2720?max_results=20&expand=Run&expand=Route"
+            "&expand=Direction&expand=Disruption&expand=VehiclePosition"
+        ),
         "2E233A9C90E8356BC38C8FAD87DE980DE11EE99F",
     ),
 ]

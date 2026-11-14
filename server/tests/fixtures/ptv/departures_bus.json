@@ -1,0 +1,19 @@
+{
+  "_fixture": "schema-derived from PTV v3 swagger 2026-11-13, not recorded (D-24)",
+  "departures": [
+    {"stop_id": 4400, "route_id": 907, "run_ref": "R-B1", "direction_id": 2, "disruption_ids": [], "scheduled_departure_utc": "2026-11-13T01:02:00Z", "estimated_departure_utc": "2026-11-13T01:03:00Z"},
+    {"stop_id": 4400, "route_id": 907, "run_ref": "R-B2", "direction_id": 2, "disruption_ids": [], "scheduled_departure_utc": "2026-11-13T01:22:00Z", "estimated_departure_utc": null}
+  ],
+  "stops": {"4400": {"stop_id": 4400, "stop_name": "Synthetic Uni"}},
+  "routes": {"907": {"route_id": 907, "route_type": 2, "route_name": "Synthetic Express", "route_number": "907"}},
+  "runs": {
+    "R-B1": {"run_ref": "R-B1", "route_id": 907, "route_type": 2, "final_stop_id": 4500, "destination_name": "Synthetic Terminal", "status": "scheduled", "direction_id": 2,
+      "vehicle_position": {"latitude": -37.5, "longitude": 144.5, "bearing": 90.0, "datetime_utc": "2026-11-13T01:01:45Z"},
+      "vehicle_descriptor": {"operator": "OPERATOR-SYNTH-ZZ", "id": "VEHICLE-SYNTH-777", "low_floor": true, "air_conditioned": true}},
+    "R-B2": {"run_ref": "R-B2", "route_id": 907, "route_type": 2, "final_stop_id": 4500, "destination_name": "Synthetic Terminal", "status": "scheduled", "direction_id": 2,
+      "vehicle_position": null, "vehicle_descriptor": {"operator": "OPERATOR-SYNTH-ZZ", "id": "VEHICLE-SYNTH-778"}}
+  },
+  "directions": {"2": {"direction_id": 2, "direction_name": "Synthetic Terminal"}},
+  "disruptions": {},
+  "status": {"version": "3.0", "health": 1}
+}

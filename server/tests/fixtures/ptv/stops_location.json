@@ -1,0 +1,8 @@
+{
+  "_fixture": "schema-derived from PTV v3 swagger 2026-11-13, not recorded (D-24)",
+  "stops": [
+    {"stop_id": 2720, "stop_name": "Synthetic Mall/Synthetic St #3", "route_type": 1, "stop_latitude": -37.8001, "stop_longitude": 144.9001, "stop_distance": 27},
+    {"stop_id": 1900, "stop_name": "Synthetic Junction Station", "route_type": 0, "stop_latitude": -37.8101, "stop_longitude": 144.9101, "stop_distance": 409}
+  ],
+  "status": {"version": "3.0", "health": 1}
+}
