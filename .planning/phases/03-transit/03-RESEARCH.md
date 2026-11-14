@@ -504,17 +504,23 @@ def _publish_layer(self, provider, cell_id, lat, lon):
 | A11 | `disruption_status` param 0/1 meaning (Planned/Current order) | PTV reference | Not used; filter locally instead |
 | A12 | Non-home place with `cameras=false` should also lose transit | Home gate | Over-gating a public place; easy to loosen with a dedicated flag |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Tram vehicle markers with PTV only?**
    - Known: PTV exposes no tram positions; buses only "some"; trains CIS coordinates needing pyproj.
    - Unclear: whether David accepts labelled "estimated position" markers interpolated from timetable/live estimates, or prefers only real bus positions until GTFS-R.
    - Recommendation: build interpolation behind `VehicleSource`, labelled `estimated`; skip train positions (avoids adding pyproj).
+   - RESOLVED: D-20 (estimated tram markers labelled as estimated; real bus positions; no train markers).
 2. **Should `Place.cameras=false` (non-home) also block transit?** Recommendation: yes, reuse the existing `exact_ok` gate (fail-closed); add a `transit` flag only if David wants Home-like places that still show buses.
+   - RESOLVED: D-21 (any camera-off saved place gets no transit; existing exact gate reused, no separate flag).
 3. **Rail replacement buses and V/Line:** metro GTFS only; V/Line stations out of scope. OK?
+   - RESOLVED: D-22 (metro train, tram and bus only; V/Line out; rail-replacement rows filtered).
 4. **First-open latency for a brand-new place:** departures appear after the first refresh (<= 30 s) unless `query()` nudges an immediate fetch. Recommendation: add the nudge (single-flight, rate-guarded).
+   - RESOLVED: D-23 (server nudges one immediate fetch; no upstream call in the profile request).
 5. **PTV rate limit and ToS wording:** unpublished; confirm in practice (watch for 429s) and keep attribution text.
+   - RESOLVED: accepted: client rate guard (plan 03-06), observe 429s in practice, CC BY attribution kept.
 6. **Key arrival unknown:** all live behaviour is unverified until David adds the key; plan a manual "first live smoke" step (3 calls, prints status and shapes only).
+   - RESOLVED: D-24 and plan 03-20 (fixtures schema-derived and labelled; David runs the redacted smoke script after adding the key).
 
 ## Environment Availability
 

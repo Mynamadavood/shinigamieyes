@@ -147,7 +147,50 @@ Plans:
   3. Vehicles approaching the nearest stops are visible on the map
   4. Current disruptions affecting nearby routes are listed
 
-**Plans**: TBD
+**Plans:** 20 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 03-01-PLAN.md — GTFS stop build job + TransitStore (nearest per mode, direction pairs, walk time)
+- [ ] 03-02-PLAN.md — Runtime touch events + rate-guarded nudge; stream per-subscriber touch behind the Home gate
+- [ ] 03-03-PLAN.md — Web: transit helpers, sprites, tokens, TagLayer priority + stop tags, static stop card
+- [ ] 03-04-PLAN.md — Web: none-nearby/status rows, transit kept out of red/corner rules, client Home backstop
+
+**Wave 2**
+
+- [ ] 03-05-PLAN.md — transit_stops layer: settings (PTV_DEVID/PTV_KEY), TransitService, main/health wiring
+- [ ] 03-06-PLAN.md — PTV client: signing, rate guard, leak-proof errors, tolerant parsers, schema-derived fixtures
+- [ ] 03-07-PLAN.md — Web: catchable departure rows, leave-in, LIVE/SCHED, single red leave-now
+- [ ] 03-08-PLAN.md — Web: map wiring for stops + edge pointers to off-screen stops
+
+**Wave 3**
+
+- [ ] 03-09-PLAN.md — transit_departures: watch set, DepartureSource seam, 30 s poll, nudge, no-leak tests
+- [ ] 03-10-PLAN.md — Web: stop card departures with ticking card sections and states
+- [ ] 03-11-PLAN.md — Web: departure row tap -> map focus + stop card
+- [ ] 03-12-PLAN.md — Deploy: weekly transit stop timer, deploy.sh, verify.sh transit checks, PTV smoke script
+- [ ] 03-13-PLAN.md — Web: disruption marks on drawer rows + end-time rows
+
+**Wave 4**
+
+- [ ] 03-14-PLAN.md — transit_disruptions: severity classifier, global fetch, per-client route/stop filter
+- [ ] 03-15-PLAN.md — Web: disruption readout + sheet, PTV attribution, end-row taps
+- [ ] 03-16-PLAN.md — Web: stop card alerts + stop tag warning badge
+
+**Wave 5**
+
+- [ ] 03-17-PLAN.md — transit_vehicles: VehicleSource seam, real bus positions, estimated trams, selection
+- [ ] 03-18-PLAN.md — Web: moving vehicle markers (glide, fade, EST) + vehicle card
+
+**Wave 6**
+
+- [ ] 03-19-PLAN.md — Ship: local gates, David's "push", deploy to CT 110, first stop build, verify
+
+**Wave 7**
+
+- [ ] 03-20-PLAN.md — David adds PTV key + smoke run; device UAT (Gate 4)
+
 **UI hint**: yes
 
 ### Phase 4: Environment, Grid/Water and Ranking
