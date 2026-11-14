@@ -147,15 +147,15 @@ Plans:
   3. Vehicles approaching the nearest stops are visible on the map
   4. Current disruptions affecting nearby routes are listed
 
-**Plans:** 20 plans
+**Plans:** 4/20 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — GTFS stop build job + TransitStore (nearest per mode, direction pairs, walk time)
-- [ ] 03-02-PLAN.md — Runtime touch events + rate-guarded nudge; stream per-subscriber touch behind the Home gate
-- [ ] 03-03-PLAN.md — Web: transit helpers, sprites, tokens, TagLayer priority + stop tags, static stop card
-- [ ] 03-04-PLAN.md — Web: none-nearby/status rows, transit kept out of red/corner rules, client Home backstop
+- [x] 03-01-PLAN.md — GTFS stop build job + TransitStore (nearest per mode, direction pairs, walk time)
+- [x] 03-02-PLAN.md — Runtime touch events + rate-guarded nudge; stream per-subscriber touch behind the Home gate
+- [x] 03-03-PLAN.md — Web: transit helpers, sprites, tokens, TagLayer priority + stop tags, static stop card
+- [x] 03-04-PLAN.md — Web: none-nearby/status rows, transit kept out of red/corner rules, client Home backstop
 
 **Wave 2**
 
@@ -264,7 +264,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation and Flat HUD Slice | 11/11 | Complete    | 2026-11-06 |
 | 2. 3D Map, Hero and Surveillance | 18/18 | Complete    | 2026-11-11 |
-| 3. Transit | 0/0 | Not started | - |
+| 3. Transit | 4/20 | In Progress|  |
 | 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
 | 5. Hazards, Sky and Bay | 0/0 | Not started | - |
 | 6. Context and Coverage | 0/0 | Not started | - |
