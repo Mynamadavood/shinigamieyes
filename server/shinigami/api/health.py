@@ -20,12 +20,23 @@ async def health(request: Request) -> dict:
     age_days = None
     if cams.loaded and cams.built_at is not None:
         age_days = max(0, int((now - cams.built_at) // 86400))
+    transit = request.app.state.transit
+    tstore = transit.store
+    t_age = None
+    if tstore.loaded and tstore.built_at is not None:
+        t_age = max(0, int((now - tstore.built_at) // 86400))
+    live_age = None if transit.last_live_ts is None else max(0, int(now - transit.last_live_ts))
     return {
         "status": "ok",
         "version": settings.version,
         "server_time": now,
         "tiles": request.app.state.tiles.status,
         "cameras": {"loaded": cams.loaded, "count": cams.count, "age_days": age_days},
+        "transit": {
+            "stops": {"loaded": tstore.loaded, "count": tstore.count, "age_days": t_age},
+            "ptv": transit.ptv_state,
+            "live_age_s": live_age,
+        },
     }
 
 

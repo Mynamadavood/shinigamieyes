@@ -1,4 +1,9 @@
+import json
+import logging
+
+import httpx
 import pytest
+from shinigami.main import create_app
 from shinigami.providers.base import ProviderContext
 from shinigami.providers.transit import TransitStopsProvider
 from shinigami.settings import Settings
@@ -95,3 +100,137 @@ def test_service_repr_hides_secrets(tmp_path):
     assert svc.ptv_configured
     assert "fake-key-value" not in repr(svc) and "1000001" not in repr(svc)
     assert not TransitService(TransitStore(tmp_path / "x.json"), "1", "  ").ptv_configured
+
+
+# ---- integration: profile, Home gate, stream, health ----
+
+HOME = (-10.5321, 120.5432)  # fictional point, open sea
+CBD = (-37.8136, 144.9631)
+
+
+def _stop(i, mode, lat, lon, name, dirs):
+    return {
+        "id": i,
+        "mode": mode,
+        "name": name,
+        "poles": [[lat, lon, dirs]],
+        "gtfs_ids": [str(i)],
+        "routes": sorted({d.split(":")[0] for d in dirs}),
+    }
+
+
+def _world(settings, transit_store_file):
+    transit_store_file(
+        [
+            _stop(11, "tram", CBD[0] + 0.0003, CBD[1], "Synthetic Tram Stop", ["96:0", "96:1"]),
+            _stop(12, "tram", HOME[0] + 0.0003, HOME[1], "Home Side Stop", ["5:0", "5:1"]),
+        ]
+    )
+    h, c = HOME, CBD
+    toml = (
+        '[[place]]\nid = "home"\nlabel = "Home"\nis_home = true\n'
+        f'lat = {h[0]}\nlon = {h[1]}\n\n'
+        '[[place]]\nid = "cbd"\nlabel = "CBD"\n'
+        f'lat = {c[0]}\nlon = {c[1]}\n\n'
+        '[[place]]\nid = "nocam"\nlabel = "N"\ncameras = false\n'
+        f'lat = {c[0]}\nlon = {c[1]}\n'
+    )
+    settings.places_path.write_text(toml)
+    app = create_app(settings, start_runtime=False)
+    return app, httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t")
+
+
+async def test_profile_gps_has_transit_stops(settings, transit_store_file):
+    _app, c = _world(settings, transit_store_file)
+    r = await c.get("/api/profile", params={"lat": CBD[0], "lon": CBD[1]})
+    layer = r.json()["layers"]["transit_stops"]
+    assert layer["status"] == "fresh"
+    ids = {i["id"] for i in layer["items"]}
+    assert {"stop:11", "none:train", "none:bus", "transit:summary"} <= ids
+    stop = next(i for i in layer["items"] if i["id"] == "stop:11")
+    assert stop["detail"]["distance_m"] > 0 and stop["detail"]["mode"] == "tram"
+
+
+async def test_profile_non_home_place_gets_stops(settings, transit_store_file):
+    _app, c = _world(settings, transit_store_file)
+    r = await c.get("/api/profile", params={"place": "cbd"})
+    body = r.json()
+    assert body["location"]["lat"] is None and body["location"]["lon"] is None
+    items = body["layers"]["transit_stops"]["items"]
+    assert any(i["detail"].get("distance_m") for i in items)
+
+
+@pytest.mark.parametrize("place", ["home", "nocam"])
+async def test_profile_home_and_camera_off_have_no_transit(settings, transit_store_file, place):
+    _app, c = _world(settings, transit_store_file)
+    r = await c.get("/api/profile", params={"place": place})
+    assert not [k for k in r.json()["layers"] if k.startswith("transit_")]
+    assert "distance_m" not in r.text
+    assert str(HOME[0]) not in r.text and str(HOME[1]) not in r.text
+
+
+async def test_stream_home_has_no_transit_frame(settings, transit_store_file):
+    from shinigami.api.profile import camera_ok, resolve_location
+    from shinigami.api.stream import event_stream
+
+    app, _ = _world(settings, transit_store_file)
+
+    class Req:
+        pass
+
+    req = Req()
+    req.app = app
+
+    async def dc():
+        return False
+
+    for pid, expect in (("home", False), ("cbd", True)):
+        location, la, lo = resolve_location(req, None, None, pid)
+        ctx = app.state.ctx
+        gen = event_stream(
+            ctx, app.state.providers, location, la, lo, dc, exact_ok=camera_ok(req, location)
+        )
+        first = await gen.__anext__()
+        assert first.event == "hello"
+        ids = []
+        n = sum(1 for p in app.state.providers if expect or not p.meta.exact_location_only)
+        for _ in range(n):
+            ev = await gen.__anext__()
+            ids.append(json.loads(ev.data)["id"])
+        await gen.aclose()
+        assert ("transit_stops" in ids) is expect
+
+
+async def test_health_transit_block(settings, transit_store_file):
+    _app, c = _world(settings, transit_store_file)
+    r = await c.get("/api/health")
+    t = r.json()["transit"]
+    assert t == {
+        "stops": {"loaded": True, "count": 2, "age_days": 2},
+        "ptv": "no_key",
+        "live_age_s": None,
+    }
+    low = r.text.lower()
+    assert "devid" not in low and "signature" not in low
+    assert str(CBD[0])[:7] not in r.text and str(HOME[0])[:7] not in r.text
+
+
+async def test_health_transit_missing_file(client):
+    t = (await client.get("/api/health")).json()["transit"]
+    assert t["stops"]["loaded"] is False and t["stops"]["age_days"] is None
+
+
+async def test_no_file_layer_pending(client):
+    r = await client.get("/api/profile", params={"lat": CBD[0], "lon": CBD[1]})
+    assert r.json()["layers"]["transit_stops"]["status"] == "pending"
+
+
+async def test_no_stop_names_or_coords_in_logs(settings, transit_store_file, caplog):
+    _app, c = _world(settings, transit_store_file)
+    with caplog.at_level(logging.DEBUG):
+        await c.get("/api/profile", params={"lat": CBD[0], "lon": CBD[1]})
+        await c.get("/api/profile", params={"place": "cbd"})
+        await c.get("/api/health")
+    text = caplog.text
+    assert "Synthetic Tram Stop" not in text and "Home Side Stop" not in text
+    assert str(CBD[0]) not in text and str(HOME[0]) not in text

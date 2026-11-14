@@ -14,6 +14,11 @@ async def test_health_payload(client):
     assert abs(body["server_time"] - time.time()) < 5
     assert r.headers["cache-control"] == "no-store"
     assert body["cameras"] == {"loaded": False, "count": 0, "age_days": None}
+    assert body["transit"] == {
+        "stops": {"loaded": False, "count": 0, "age_days": None},
+        "ptv": "no_key",
+        "live_age_s": None,
+    }
 
 
 async def test_health_reports_camera_store(settings):

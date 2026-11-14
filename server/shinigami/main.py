@@ -17,11 +17,14 @@ from shinigami.providers.arpansa import ArpansaUvProvider
 from shinigami.providers.base import ProviderContext
 from shinigami.providers.cameras import CctvCameraProvider, RoadCameraProvider
 from shinigami.providers.sun import SunProvider
+from shinigami.providers.transit import TransitStopsProvider
 from shinigami.providers.uv_window import UvWindowProvider
 from shinigami.runtime import EventBus, Runtime
 from shinigami.settings import Settings, get_settings
 from shinigami.store import Store
 from shinigami.tiles import TileStore
+from shinigami.transit.service import TransitService
+from shinigami.transit.store import TransitStore
 
 log = logging.getLogger("shinigami")
 # httpx logs full request URLs at INFO, which would leak geocode queries (privacy).
@@ -39,18 +42,27 @@ def create_app(settings: Settings | None = None, start_runtime: bool = True) -> 
     settings = settings or get_settings()
     cameras = CameraStore(settings.cameras_path)
     cameras.load()  # startup file read, never in the request path
+    transit_store = TransitStore(settings.transit_stops_path)
+    transit_store.load()  # startup file read, never in the request path
+    transit = TransitService(
+        transit_store,
+        settings.ptv_devid.get_secret_value() if settings.ptv_devid else None,
+        settings.ptv_key.get_secret_value() if settings.ptv_key else None,
+    )
     providers = [
         SunProvider(),
         ArpansaUvProvider(),
         UvWindowProvider(),
         CctvCameraProvider(cameras),
         RoadCameraProvider(cameras),
+        TransitStopsProvider(transit),
     ]
 
-    async def _reload_cameras() -> None:
+    async def _reload_stores() -> None:
         while True:
             await asyncio.sleep(300)
             await asyncio.to_thread(cameras.reload_if_changed)
+            await asyncio.to_thread(transit_store.reload_if_changed)
 
     ctx = ProviderContext(
         settings=settings,
@@ -72,7 +84,7 @@ def create_app(settings: Settings | None = None, start_runtime: bool = True) -> 
             ctx.runtime = runtime
             app.state.runtime = runtime
             await runtime.start()
-        reload_task = asyncio.create_task(_reload_cameras()) if start_runtime else None
+        reload_task = asyncio.create_task(_reload_stores()) if start_runtime else None
         try:
             yield
         finally:
@@ -91,6 +103,7 @@ def create_app(settings: Settings | None = None, start_runtime: bool = True) -> 
     app.state.ctx = ctx
     app.state.providers = providers
     app.state.cameras = cameras
+    app.state.transit = transit
     app.state.tiles = TileStore(settings.tiles_path)
     app.state.places = {p.id: p for p in load_places(settings.places_path)}
 
