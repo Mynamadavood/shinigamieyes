@@ -96,12 +96,12 @@ export function locationIdentity(key: string): string {
   return "none";
 }
 
-const isCameraLayer = (id: string): boolean => id.startsWith("cameras_");
+const isExactLayer = (id: string): boolean => id.startsWith("cameras_") || id.startsWith("transit_");
 
-/** The profile without its camera layers (WR-W5 client backstop for camera-off places). */
-export function stripCameraLayers(p: Profile): Profile {
+/** The profile without its cameras_* and transit_* layers (WR-W5, D-04 client backstop for camera-off places). */
+export function stripExactLayers(p: Profile): Profile {
   const layers: Record<string, Layer> = {};
-  for (const [id, l] of Object.entries(p.layers)) if (!isCameraLayer(id)) layers[id] = l;
+  for (const [id, l] of Object.entries(p.layers)) if (!isExactLayer(id)) layers[id] = l;
   return { ...p, layers };
 }
 
@@ -269,7 +269,7 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
   const restoredKey = paramKey(toParams(savedLoc ?? { mode: "gps", gps: "locating" }));
   if (cached && cachedIdentity(cached) === locationIdentity(restoredKey)) {
     const savedPin = savedLoc?.mode === "pin" ? savedLoc.pin : undefined;
-    profile = savedPin?.cameras === false ? stripCameraLayers(cached.profile) : cached.profile;
+    profile = savedPin?.cameras === false ? stripExactLayers(cached.profile) : cached.profile;
     // the exact key it was fetched for: stream frames merge only while params match it
     profileKey = cached.key;
     renderLocation();
@@ -317,8 +317,8 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
       if (paramKey(params) !== key) return; // location changed mid-flight; newer fetch is queued
       setOffset(offsetMs);
       const place = new URLSearchParams(key).get("place");
-      if (place && !Object.keys(p.layers).some(isCameraLayer)) noCameraPlaces.add(place);
-      const safe = camerasOff(key) ? stripCameraLayers(p) : p;
+      if (place && !Object.keys(p.layers).some(isExactLayer)) noCameraPlaces.add(place);
+      const safe = camerasOff(key) ? stripExactLayers(p) : p;
       profile = safe;
       profileKey = key;
       renderLocation();
@@ -349,7 +349,7 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
     if (saveTimer !== undefined) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       if (profile && profileKey !== null) {
-        void saveProfile(camerasOff(profileKey) ? stripCameraLayers(profile) : profile, profileKey);
+        void saveProfile(camerasOff(profileKey) ? stripExactLayers(profile) : profile, profileKey);
       }
     }, SAVE_DEBOUNCE_MS);
   }
@@ -371,7 +371,7 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
           void refetch();
           return;
         }
-        if (isCameraLayer(layer.id) && camerasOff(profileKey)) return; // WR-W5
+        if (isExactLayer(layer.id) && camerasOff(profileKey)) return; // WR-W5
         profile = applyLayer(profile, layer);
         syncMap();
         render();

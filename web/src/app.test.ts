@@ -13,7 +13,9 @@ vi.mock("idb-keyval", () => ({
   set: vi.fn(async () => {}),
 }));
 
-import { IDB_TIMEOUT_MS, boot, deriveListState, resetHeroPlayed } from "./app";
+import { get as idbGet } from "idb-keyval";
+import { loadCachedProfile, saveProfile } from "./store";
+import { IDB_TIMEOUT_MS, boot, deriveListState, resetHeroPlayed, stripExactLayers } from "./app";
 
 type SunItem = ReturnType<typeof sunItem>;
 const sunItem = (id: string, ts: number) => ({
@@ -237,5 +239,74 @@ describe("cold-open hero (HUD-03)", () => {
   it("is not mounted when deps.hero is false", async () => {
     void boot(root, { fetchImpl: okFetch(), EventSourceImpl: ES, geolocation, hero: false });
     expect(root.querySelector(".hero")).toBeNull();
+  });
+});
+
+describe("exact-layer backstop (WR-W5, D-04, D-21)", () => {
+  const NONE_NAME = "No tram stop within 800 m";
+  const transitLayer = (id: string): Layer =>
+    ({
+      id, status: "fresh", rev: 9, as_of: 1, attribution: "",
+      items: [{
+        id: "none:tram", layer: id, group: "tram", name: NONE_NAME, verb: "", target_ts: null, kind: "transit_vehicle",
+        severity: 0, detail: { mode: "tram", none: true, limit_m: 800 }, geom: null, fetched_at: 1, stale_after_s: null, computed: false,
+      }],
+    }) as unknown as Layer;
+  const withTransit = (p: Profile): Profile => ({
+    ...p,
+    layers: { ...p.layers, transit_stops: transitLayer("transit_stops"), transit_departures: transitLayer("transit_departures") },
+  });
+  const savedWith = (cameras: boolean) => ({ mode: "pin", gps: "off", pin: { id: "home", label: "Home", cameras } });
+
+  afterEach(() => {
+    vi.mocked(idbGet).mockImplementation(() => new Promise(() => {}));
+    vi.mocked(loadCachedProfile).mockImplementation(() => new Promise(() => {}));
+    vi.mocked(saveProfile).mockClear();
+  });
+
+  it("stripExactLayers removes cameras_* and transit_* and keeps the rest", () => {
+    const p = withTransit(profile([]));
+    p.layers["cameras_cctv"] = layer("cameras_cctv", 1);
+    const out = stripExactLayers(p);
+    expect(Object.keys(out.layers)).toEqual(["sun"]);
+  });
+
+  it("a cached profile for a camera-off pin renders no transit layer", async () => {
+    vi.mocked(idbGet).mockResolvedValue(savedWith(false) as never);
+    vi.mocked(loadCachedProfile).mockResolvedValue({ profile: withTransit(profile([])), key: "place=home" });
+    const fetchImpl = vi.fn(() => new Promise(() => {})) as unknown as typeof fetch;
+    await bootApp(fetchImpl);
+    expect(root.textContent).not.toContain(NONE_NAME);
+  });
+
+  async function camOffPlace() {
+    const fetchImpl = vi.fn(async (u: string) => (isProfile(u) ? json(profile([])) : json([]))) as unknown as typeof fetch;
+    const app = await bootApp(fetchImpl);
+    app.setLocationParams(new URLSearchParams({ place: "home" }));
+    await vi.advanceTimersByTimeAsync(50);
+    return fetchImpl;
+  }
+
+  it("transit frames for a camera-off place are neither applied nor saved", async () => {
+    await camOffPlace();
+    vi.mocked(saveProfile).mockClear();
+    const es = FakeES.all.at(-1)!;
+    es.emit("layer", transitLayer("transit_stops"));
+    es.emit("layer", transitLayer("transit_departures"));
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(root.textContent).not.toContain(NONE_NAME);
+    for (const c of vi.mocked(saveProfile).mock.calls) {
+      expect(Object.keys(c[0].layers).some((k) => k.startsWith("transit_"))).toBe(false);
+    }
+  });
+
+  it("transit frames for a GPS location are applied normally", async () => {
+    const fetchImpl = vi.fn(async (u: string) => (isProfile(u) ? json(profile([])) : json([]))) as unknown as typeof fetch;
+    const app = await bootApp(fetchImpl);
+    app.setLocationParams(new URLSearchParams({ lat: "1", lon: "2" }));
+    await vi.advanceTimersByTimeAsync(50);
+    FakeES.all.at(-1)!.emit("layer", transitLayer("transit_stops"));
+    await vi.advanceTimersByTimeAsync(50);
+    expect(root.textContent).toContain(NONE_NAME);
   });
 });
