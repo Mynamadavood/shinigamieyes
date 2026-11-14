@@ -12,6 +12,7 @@ interface RowEls {
   leaveWords: Text;
   leaveVal: HTMLElement;
   chip: HTMLElement;
+  warn: SVGSVGElement | null;
   vm: RowVM | null;
   labelMinute: number;
   targetMs: number | null;
@@ -63,10 +64,10 @@ export class NextList {
     l1.append(name, count);
     l2.append(kind, leave, fresh);
     root.append(l1, l2);
-    const els: RowEls = { root, name, count, kind, fresh, live, note, leave, leaveWords, leaveVal, chip, vm: null, labelMinute: -1, targetMs: null };
+    const els: RowEls = { root, name, count, kind, fresh, live, note, leave, leaveWords, leaveVal, chip, warn: null, vm: null, labelMinute: -1, targetMs: null };
     const tap = (): void => {
       const vm = els.vm;
-      if (vm && vm.transit && !vm.none && vm.stopId != null && this.opts.onRowTap) this.opts.onRowTap(vm);
+      if (vm && vm.transit && !vm.none && (vm.stopId != null || vm.endRow === true) && this.opts.onRowTap) this.opts.onRowTap(vm);
     };
     root.addEventListener("click", tap);
     root.addEventListener("keydown", (e) => {
@@ -139,7 +140,34 @@ export class NextList {
       const leave = vm.leaveText.startsWith("leave in") ? vm.leaveText.split(" · ")[0] : vm.leaveText.toLowerCase();
       return `${vm.name}, departs in ${vm.countdownText}, ${vm.live ? "live" : "scheduled"}, ${leave}`;
     }
-    return `${vm.name}, ${vm.countdownText}, ${vm.ageTag}`;
+    const base = vm.endRow ? `${vm.name}, ends in ${vm.countdownText}` : `${vm.name}, ${vm.countdownText}, ${vm.ageTag}`;
+    return base;
+  }
+
+  private warnSuffix(vm: RowVM): string {
+    return vm.warn === 3 ? ", service stopped" : vm.warn === 1 ? ", disruption" : "";
+  }
+
+  private updateWarn(r: RowEls, vm: RowVM): void {
+    const w = vm.warn ?? 0;
+    if (w === 0) {
+      if (r.warn) {
+        r.warn.remove();
+        r.warn = null;
+      }
+      return;
+    }
+    if (!r.warn) {
+      const NS = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(NS, "svg");
+      svg.setAttribute("aria-hidden", "true");
+      const use = document.createElementNS(NS, "use");
+      use.setAttribute("href", "/icons.svg#warn");
+      svg.append(use);
+      r.warn = svg;
+    }
+    r.warn.setAttribute("class", w === 3 ? "row-warn stop" : "row-warn info");
+    if (r.kind.firstChild !== r.warn) r.kind.prepend(r.warn);
   }
 
   private updateDeparture(r: RowEls, vm: RowVM): void {
@@ -153,7 +181,7 @@ export class NextList {
       r.kind.append(document.createTextNode(`${mode} · `), r.live, r.note);
     }
     const mode = vm.kindTag.split(" · ")[0];
-    const head = r.kind.firstChild as Text;
+    const head = r.live.previousSibling as Text;
     if (head.data !== `${mode} · `) head.data = `${mode} · `;
     if (r.note.data !== note) r.note.data = note;
     const text = vm.leaveText ?? "";
@@ -207,7 +235,8 @@ export class NextList {
         if (r.fresh.textContent !== vm.ageTag) r.fresh.textContent = vm.ageTag;
         r.leave.hidden = true;
       }
-      const tappable = vm.transit === true && !vm.none && vm.stopId != null;
+      this.updateWarn(r, vm);
+      const tappable = vm.transit === true && !vm.none && (vm.stopId != null || vm.endRow === true);
       if (tappable && r.root.getAttribute("role") !== "button") {
         r.root.setAttribute("role", "button");
         r.root.tabIndex = 0;
@@ -223,10 +252,12 @@ export class NextList {
       r.root.classList.toggle("urgent", vm.urgent);
       r.root.classList.toggle("red-countdown", vm.redCountdown);
       r.root.classList.toggle("transit", vm.transit === true);
+      r.root.classList.toggle("end", vm.endRow === true);
       r.root.classList.toggle("none", vm.none === true);
-      if (r.labelMinute !== minute) {
-        r.root.setAttribute("aria-label", this.label(vm));
-        r.labelMinute = minute;
+      const labelKey = minute * 4 + (vm.warn ?? 0);
+      if (r.labelMinute !== labelKey) {
+        r.root.setAttribute("aria-label", this.label(vm) + this.warnSuffix(vm));
+        r.labelMinute = labelKey;
       }
       while (cursor && cursor !== r.root && cursor.classList.contains("expiring")) cursor = cursor.nextElementSibling;
       if (cursor === r.root) {

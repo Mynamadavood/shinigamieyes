@@ -206,3 +206,48 @@ describe("NextList departure rows", () => {
     expect(onRowTap.mock.calls[0][0].id).toBe("transit:1:a");
   });
 });
+
+describe("NextList disruption warnings", () => {
+  const dvm = (p: Partial<RowVM> = {}) =>
+    vm({
+      id: "transit:1:a", name: "Tram 96 to St Kilda", kindTag: "tram · LIVE", countdownText: "06:12", transit: true,
+      stopId: 1, live: true, leaveText: "leave in 01:40", note: "", missed: false, leaveNow: false, leaveNowRed: false, ...p,
+    });
+  const row = () => host.querySelector(".row") as HTMLElement;
+  const warn = () => row().querySelector("svg.row-warn");
+
+  it("warn 1 renders info glyph first in row-kind; warn 3 stop; 0 removes; toggles in place", () => {
+    list.update([dvm({ warn: 1 })], NOW);
+    const g = warn() as SVGElement;
+    expect(g.classList.contains("info")).toBe(true);
+    expect(row().querySelector(".row-kind")!.firstElementChild).toBe(g);
+    expect(g.querySelector("use")!.getAttribute("href")).toBe("/icons.svg#warn");
+    expect(row().getAttribute("aria-label")).toMatch(/, disruption$/);
+    list.update([dvm({ warn: 3 })], NOW);
+    expect(warn()).toBe(g);
+    expect(g.classList.contains("stop")).toBe(true);
+    expect(g.classList.contains("info")).toBe(false);
+    expect(row().getAttribute("aria-label")).toMatch(/, service stopped$/);
+    list.update([dvm({ warn: 0 })], NOW);
+    expect(warn()).toBeNull();
+    expect(row().getAttribute("aria-label")).not.toMatch(/disruption|service stopped/);
+  });
+  it("end rows are tappable buttons with class transit end", () => {
+    const taps: RowVM[] = [];
+    document.body.innerHTML = "";
+    host = document.createElement("div");
+    document.body.append(host);
+    list = new NextList(host, { onRowTap: (r) => taps.push(r) });
+    const end = vm({
+      id: "transit-end:5", name: "Tram 96 disruption", kindTag: "disruption · ends", countdownText: "2h 0m",
+      transit: true, endRow: true, stopId: null,
+    });
+    list.update([end], NOW);
+    expect(row().classList.contains("transit")).toBe(true);
+    expect(row().classList.contains("end")).toBe(true);
+    expect(row().getAttribute("role")).toBe("button");
+    expect(row().querySelector(".row-kind")!.textContent).toBe("disruption · ends");
+    row().click();
+    expect(taps.map((t) => t.id)).toEqual(["transit-end:5"]);
+  });
+});

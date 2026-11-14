@@ -160,3 +160,7 @@ html, body {
   .row.expiring { animation: row-fill 300ms linear 1 both; }
 }
 @keyframes row-fill { from { background: var(--c-red-deep); } to { background: var(--c-red-deep); opacity: 0.35; } }
+/* disruption warning glyph (D-16, D-17): white info, red only for service stopped */
+.row-warn { width: 16px; height: 16px; vertical-align: text-bottom; margin-right: var(--s-xs); fill: none; stroke: currentColor; stroke-width: 2; }
+.row-warn.info { color: var(--c-text); }
+.row-warn.stop { color: var(--c-red); }
