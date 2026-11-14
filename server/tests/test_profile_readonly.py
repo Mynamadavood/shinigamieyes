@@ -3,6 +3,7 @@ import time
 
 import httpx
 import pytest
+from pydantic import SecretStr
 
 
 def _boom(*a, **k):
@@ -75,3 +76,65 @@ async def test_cold_cell_pending_and_requests_fetch(client, fake_runtime, monkey
     assert all(pid == "uv_window" for pid, _ in fake_runtime.requests)
     durations.sort()
     assert durations[int(len(durations) * 0.95) - 1] <= 0.050
+
+
+def _transit_world(settings, transit_store_file, devid="1000001"):
+    import respx  # noqa: F401
+    from shinigami.main import create_app
+
+    pt = (-37.0, 144.0)
+    home = (-10.5321, 120.5432)
+    transit_store_file(
+        [
+            {"id": 2720, "mode": "tram", "name": "S", "poles": [[pt[0] + 0.0003, pt[1], ["96:0"]]],
+             "gtfs_ids": [], "routes": ["96"]},
+            {"id": 7, "mode": "tram", "name": "H", "poles": [[home[0] + 0.0003, home[1], ["5:0"]]],
+             "gtfs_ids": [], "routes": ["5"]},
+        ]
+    )  # fmt: skip
+    settings.places_path.write_text(
+        '[[place]]\nid = "home"\nlabel = "Home"\nis_home = true\n'
+        f"lat = {home[0]}\nlon = {home[1]}\n\n"
+        f'[[place]]\nid = "pub"\nlabel = "Pub"\nlat = {pt[0]}\nlon = {pt[1]}\n'
+    )
+    s = settings.model_copy(
+        update={
+            "ptv_devid": SecretStr(devid),
+            "ptv_key": SecretStr("0" * 8 + "-0000-0000-0000-" + "0" * 12),
+        }
+    )
+    app = create_app(s, start_runtime=False)
+    rt = type("RT", (), {"nudges": [], "nudge": lambda self, p: self.nudges.append(p)})()
+    app.state.ctx.runtime = rt
+    client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t")
+    return app, client, rt, pt
+
+
+async def test_profile_with_transit_makes_no_http_call(settings, transit_store_file):
+    import respx
+
+    _app, client, rt, pt = _transit_world(settings, transit_store_file)
+    with respx.mock(assert_all_called=False) as router:
+        route = router.route().mock(return_value=httpx.Response(200, json={}))
+        r = await client.get("/api/profile", params={"lat": pt[0], "lon": pt[1]})
+    assert r.status_code == 200
+    assert route.call_count == 0
+    assert r.json()["layers"]["transit_departures"]["status"] == "pending"
+    assert rt.nudges == ["transit_departures"]
+
+
+async def test_home_place_never_watches_or_nudges(settings, transit_store_file):
+    app, client, rt, _pt = _transit_world(settings, transit_store_file)
+    r = await client.get("/api/profile", params={"place": "home"})
+    assert r.status_code == 200
+    assert "transit_departures" not in r.json()["layers"]
+    assert app.state.transit.watch.active(time.time()) == []
+    assert rt.nudges == []
+
+
+def test_httpx_logger_is_warning():
+    import logging
+
+    import shinigami.main  # noqa: F401
+
+    assert logging.getLogger("httpx").level == logging.WARNING
