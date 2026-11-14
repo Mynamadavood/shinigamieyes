@@ -158,7 +158,7 @@ describe("lazy map wiring (02-08)", () => {
       return {
         createMap: async (d: unknown) => {
           captured = d;
-          return { setView, setProfile: vi.fn(), resize: vi.fn(), destroy: vi.fn() };
+          return { setView, setProfile: vi.fn(), resize: vi.fn(), destroy: vi.fn(), focusStop: vi.fn(() => false) };
         },
       };
     });
