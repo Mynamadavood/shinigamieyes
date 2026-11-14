@@ -147,7 +147,7 @@ Plans:
   3. Vehicles approaching the nearest stops are visible on the map
   4. Current disruptions affecting nearby routes are listed
 
-**Plans:** 4/20 plans executed
+**Plans:** 8/20 plans executed
 
 Plans:
 **Wave 1**
@@ -159,10 +159,10 @@ Plans:
 
 **Wave 2**
 
-- [ ] 03-05-PLAN.md — transit_stops layer: settings (PTV_DEVID/PTV_KEY), TransitService, main/health wiring
-- [ ] 03-06-PLAN.md — PTV client: signing, rate guard, leak-proof errors, tolerant parsers, schema-derived fixtures
-- [ ] 03-07-PLAN.md — Web: catchable departure rows, leave-in, LIVE/SCHED, single red leave-now
-- [ ] 03-08-PLAN.md — Web: map wiring for stops + edge pointers to off-screen stops
+- [x] 03-05-PLAN.md — transit_stops layer: settings (PTV_DEVID/PTV_KEY), TransitService, main/health wiring
+- [x] 03-06-PLAN.md — PTV client: signing, rate guard, leak-proof errors, tolerant parsers, schema-derived fixtures
+- [x] 03-07-PLAN.md — Web: catchable departure rows, leave-in, LIVE/SCHED, single red leave-now
+- [x] 03-08-PLAN.md — Web: map wiring for stops + edge pointers to off-screen stops
 
 **Wave 3**
 
@@ -264,7 +264,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation and Flat HUD Slice | 11/11 | Complete    | 2026-11-06 |
 | 2. 3D Map, Hero and Surveillance | 18/18 | Complete    | 2026-11-11 |
-| 3. Transit | 4/20 | In Progress|  |
+| 3. Transit | 8/20 | In Progress|  |
 | 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
 | 5. Hazards, Sky and Bay | 0/0 | Not started | - |
 | 6. Context and Coverage | 0/0 | Not started | - |
