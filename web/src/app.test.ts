@@ -189,6 +189,74 @@ describe("lazy map wiring (02-08)", () => {
   });
 });
 
+describe("departure row tap (D-06)", () => {
+  const tItem = (layerId: string, id: string, extra: Record<string, unknown>, ts: number | null, geom: unknown = null): any => ({
+    id, layer: layerId, group: "g1", name: "Tram 96 to St Kilda", verb: "arrives", target_ts: ts, kind: "scheduled",
+    severity: 0, detail: extra, geom, fetched_at: 1, stale_after_s: null, computed: false,
+  });
+  const transitProfile = (): Profile => {
+    const ts = Math.floor(Date.now() / 1000) + 900;
+    const mk = (id: string, items: any[]): Layer => ({ id, status: "fresh", rev: 1, as_of: 1, attribution: "", items }) as unknown as Layer;
+    return {
+      server_time: Math.floor(Date.now() / 1000), rev: 1, location: { source: "default", lat: null, lon: null },
+      layers: {
+        transit_stops: mk("transit_stops", [tItem("transit_stops", "stop:2720", { mode: "tram", distance_m: 50 }, null, { type: "Point", coordinates: [144.9, -37.8] })]),
+        transit_departures: mk("transit_departures", [tItem("transit_departures", "dep:1", { mode: "tram", stop_id: 2720, live: true, walk_s: 60 }, ts)]),
+      },
+    } as unknown as Profile;
+  };
+  const fetchFor = () => vi.fn(async (u: string) => (isProfile(u) ? json(transitProfile()) : json([]))) as unknown as typeof fetch;
+
+  it("collapses the drawer and focuses the stop on the map", async () => {
+    const focusStop = vi.fn(() => true);
+    const mapLoader = vi.fn(async () => ({
+      createMap: async () => ({ setView: vi.fn(), setProfile: vi.fn(), resize: vi.fn(), destroy: vi.fn(), focusStop }),
+    }));
+    const { Drawer } = await import("./ui/drawer");
+    const collapse = vi.spyOn(Drawer.prototype, "collapse");
+    const p = boot(root, { fetchImpl: fetchFor(), EventSourceImpl: ES, geolocation, mapLoader, hero: false });
+    await vi.advanceTimersByTimeAsync(IDB_TIMEOUT_MS + 100);
+    await p;
+    await vi.advanceTimersByTimeAsync(200);
+    const row = root.querySelector<HTMLElement>('[role="button"].transit');
+    expect(row).not.toBeNull();
+    row!.click();
+    expect(collapse).toHaveBeenCalledTimes(1);
+    expect(focusStop).toHaveBeenCalledWith(2720);
+    collapse.mockRestore();
+  });
+
+  it("a tap before the map handle exists collapses and does not throw", async () => {
+    const mapLoader = vi.fn(() => new Promise<never>(() => {}));
+    const { Drawer } = await import("./ui/drawer");
+    const collapse = vi.spyOn(Drawer.prototype, "collapse");
+    const p = boot(root, { fetchImpl: fetchFor(), EventSourceImpl: ES, geolocation, mapLoader, hero: false });
+    await vi.advanceTimersByTimeAsync(IDB_TIMEOUT_MS + 100);
+    await p;
+    await vi.advanceTimersByTimeAsync(200);
+    const row = root.querySelector<HTMLElement>('[role="button"].transit');
+    expect(row).not.toBeNull();
+    expect(() => row!.click()).not.toThrow();
+    expect(collapse).toHaveBeenCalledTimes(1);
+    collapse.mockRestore();
+  });
+
+  it("non-departure rows never call focusStop", async () => {
+    const focusStop = vi.fn(() => true);
+    const mapLoader = vi.fn(async () => ({
+      createMap: async () => ({ setView: vi.fn(), setProfile: vi.fn(), resize: vi.fn(), destroy: vi.fn(), focusStop }),
+    }));
+    const t0 = Date.now();
+    const fetchImpl = vi.fn(async (u: string) => (isProfile(u) ? json(profile([sunItem("sun-row", t0 + 600_000)])) : json([]))) as unknown as typeof fetch;
+    const p = boot(root, { fetchImpl, EventSourceImpl: ES, geolocation, mapLoader, hero: false });
+    await vi.advanceTimersByTimeAsync(IDB_TIMEOUT_MS + 100);
+    await p;
+    await vi.advanceTimersByTimeAsync(200);
+    for (const r of Array.from(root.querySelectorAll<HTMLElement>(".row"))) r.click();
+    expect(focusStop).not.toHaveBeenCalled();
+  });
+});
+
 describe("deriveListState (WR-07)", () => {
   it.each([
     [0, false, "offgrid", "no-data-offline"],

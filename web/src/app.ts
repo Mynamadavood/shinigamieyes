@@ -1,6 +1,6 @@
 import { nowMs, setOffset } from "./clock";
 import { pad2 } from "./format";
-import { selectVisible } from "./model";
+import { selectVisible, type RowVM } from "./model";
 import { HttpError, applyLayer, fetchProfile, openStream } from "./net";
 import type { StreamHandle } from "./net";
 import { createLocation, haversineM, loadPlaces, loadSavedState, toParams } from "./location";
@@ -136,8 +136,16 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
       },
     );
   }
-  const list = new NextList(slots.listHost);
+  let mapHandle: MapHandle | null = null;
   const drawer = new Drawer(slots.drawer);
+  // single routing point for drawer row taps (D-06); departure rows go to the stop card
+  const onRowTap = (row: RowVM): void => {
+    if (row.transit && !row.none && typeof row.stopId === "number") {
+      drawer.collapse();
+      mapHandle?.focusStop(row.stopId);
+    }
+  };
+  const list = new NextList(slots.listHost, { onRowTap: (row) => onRowTap(row) });
   const readouts = new Readouts(slots.readoutsLeft, slots.readoutsRight);
   const conn = createConnectivity();
   const banner = new OffgridBanner(slots.bannerSlot, conn, wall);
@@ -146,7 +154,6 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
   let profileKey: string | null = null;
   let stream: StreamHandle | null = null;
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
-  let mapHandle: MapHandle | null = null;
   let mapViewKey = "";
   let inflight = false;
   let queued = false;
