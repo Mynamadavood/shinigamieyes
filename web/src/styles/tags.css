@@ -165,3 +165,26 @@ svg.leader line { stroke: var(--c-blue); stroke-width: var(--bw); }
 svg.leader rect { fill: var(--c-blue); }
 svg.leader.near line { stroke: var(--c-red); }
 svg.leader.near rect { fill: var(--c-red); }
+
+/* stop tags (D-05, D-13): 40px box, two-line chip, always blue, always labelled */
+.map-tag.stop { z-index: 3; }
+.map-tag.stop .tag-icon {
+  width: var(--tag-stop);
+  height: var(--tag-stop);
+}
+.map-tag.stop .tag-icon svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 2; }
+.map-tag.stop .tag-icon use { fill: none; stroke: currentColor; stroke-width: 2; }
+.map-tag.stop .tag-label {
+  left: calc(50% + var(--tag-stop) / 2 - var(--bw));
+  top: calc(50% - var(--tag-stop) / 2);
+  height: var(--tag-stop);
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 1px var(--s-sm);
+}
+.map-tag.stop.flip .tag-label { left: auto; right: calc(50% + var(--tag-stop) / 2 - var(--bw)); }
+.map-tag.stop .tag-tick { top: calc(50% + var(--tag-stop) / 2); }
+.map-tag.stop .stop-name,
+.map-tag.stop .stop-meta { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.map-tag.stop .stop-meta { color: var(--c-dim); font-variant-numeric: tabular-nums; }

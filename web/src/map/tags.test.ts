@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { MAX_FULL, MAX_TOTAL, NEAR_M, RED_CAP, EXPAND_ZOOM, assignTags, labelSide, rankTags, TagLayer, type TagCand } from "./tags";
 
 function cand(i: number, p: Partial<TagCand> = {}): TagCand {
-  return { id: `c${i}`, x: i * 300, y: 0, dist: 100 + i, label: "Camera", icon: "cctv", ...p };
+  return { id: `c${i}`, x: i * 300, y: 0, dist: 100 + i, label: "Camera", icon: "cctv", prio: 2, ...p };
 }
 const many = (n: number) => Array.from({ length: n }, (_, i) => cand(i));
 
@@ -149,5 +149,105 @@ describe("TagLayer flip and guard", () => {
     const { layer, added } = setup();
     layer.update([mk("g", 100, "guard")]);
     expect(added[0].getAttribute("aria-label")).toMatch(/^Guard post, /);
+  });
+});
+
+describe("stops and priority", () => {
+  const stop = (i: number, p: Partial<TagCand> = {}): TagCand =>
+    ({ id: `s${i}`, x: i * 10, y: 0, dist: 50 + i, label: "Stop", icon: "stop-tram", prio: 0, ...p });
+
+  it("ranks by prio first", () => {
+    const r = rankTags([cand(1, { dist: 5 }), stop(1, { dist: 300 })]);
+    expect(r.map((c) => c.id)).toEqual(["s1", "c1"]);
+  });
+  it("never demotes stops, even overlapping or past the cap", () => {
+    const stops = Array.from({ length: 12 }, (_, i) => stop(i, { x: 100, y: 100 }));
+    const r = assignTags(rankTags(stops), 15);
+    expect(r.full.size).toBe(12);
+    expect(r.red.size).toBe(0);
+  });
+  it("demotes a camera overlapping a 40px stop box vertically", () => {
+    const s = stop(0, { x: 100, y: 100 });
+    const near = cand(1, { x: 100, y: 138, dist: 100 });
+    const clear = cand(2, { x: 100, y: 145, dist: 100 });
+    const r = assignTags(rankTags([s, near, clear]), 18);
+    expect(r.full.has("c1")).toBe(false);
+    expect(r.full.has("c2")).toBe(true);
+  });
+  it("keeps within-30 m red cameras labelled when stops use the cap", () => {
+    const stops = Array.from({ length: 10 }, (_, i) => stop(i, { x: i * 300, y: 500 }));
+    const cams = Array.from({ length: 3 }, (_, i) => cand(i, { x: i * 300, y: 0, dist: 5 + i }));
+    const r = assignTags(rankTags([...stops, ...cams]), 15);
+    expect([...r.red].sort()).toEqual(["c0", "c1", "c2"]);
+    for (const id of r.red) expect(r.full.has(id)).toBe(true);
+  });
+});
+
+describe("TagLayer stops", () => {
+  const stopItem = (extra: Record<string, unknown> = {}): any => ({
+    id: "stop:2720", layer: "transit_stops", group: "tram", name: "Bourke Street Mall/Elizabeth St #3",
+    verb: "", target_ts: null, kind: "infrastructure", severity: 0,
+    detail: { mode: "tram", stop_id: 2720, distance_m: 27, walk_s: 25, routes: ["96"], ...extra },
+    geom: { type: "Point", coordinates: [100, -37.8] }, fetched_at: 0, stale_after_s: null, computed: true,
+  });
+  const setup = () => {
+    const added: HTMLElement[] = [];
+    const marker: any = { setLngLat: () => marker, addTo: () => marker, remove: () => marker };
+    const open = vi.fn();
+    const layer = new TagLayer({
+      map: { project: (l) => ({ x: l[0], y: 0 }), getZoom: () => 15, on: vi.fn() },
+      card: { isOpen: () => false, update: vi.fn(), close: vi.fn(), open } as any,
+      createMarker: (el) => {
+        added.push(el);
+        return marker;
+      },
+      viewportWidth: () => 390,
+    });
+    return { layer, added, open };
+  };
+
+  it("renders a full stop tag with name, meta and aria-label", () => {
+    const { layer, added } = setup();
+    layer.setOrigin("server");
+    layer.update([stopItem()]);
+    const el = added[0];
+    expect(el.classList.contains("stop")).toBe(true);
+    expect(el.classList.contains("full")).toBe(true);
+    expect(el.classList.contains("near")).toBe(false);
+    expect(el.querySelector(".stop-name")!.textContent).toBe("Bourke St Mall");
+    expect(el.querySelector(".stop-meta")!.textContent).toBe("27 m · 1 min");
+    expect(el.getAttribute("aria-label")).toBe(
+      "Tram stop, Bourke Street Mall/Elizabeth St #3, 27 metres away, 1 minute walk",
+    );
+  });
+  it("never marks a stop near, even within 30 m", () => {
+    const { layer, added } = setup();
+    layer.setOrigin("server");
+    layer.update([stopItem({ distance_m: 3 })]);
+    expect(added[0].classList.contains("near")).toBe(false);
+  });
+  it("uses live distance and walk for a GPS origin", () => {
+    const { layer, added } = setup();
+    layer.setOrigin({ lat: -37.8, lon: 99.99 });
+    layer.update([stopItem()]);
+    expect(added[0].querySelector(".stop-meta")!.textContent).toBe("879 m · 14 min");
+  });
+  it("skips none and summary items", () => {
+    const { layer, added } = setup();
+    layer.setOrigin("server");
+    layer.update([stopItem({ none: true }), stopItem({ summary: true })]);
+    expect(added).toHaveLength(0);
+  });
+  it("openById opens the stop card; unknown id returns false", () => {
+    const { layer, open } = setup();
+    layer.setOrigin("server");
+    layer.update([stopItem()]);
+    expect(layer.openById("stop:2720")).toBe(true);
+    const content = open.mock.calls[0][1];
+    expect(content.title).toBe("TRAM STOP");
+    expect(content.primary).toBe("Bourke Street Mall/Elizabeth St #3");
+    expect(content.extra).toBe("27 m · 1 min walk");
+    expect(content.caveats).toEqual(["Source: PTV"]);
+    expect(layer.openById("nope")).toBe(false);
   });
 });
