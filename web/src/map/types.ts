@@ -34,5 +34,7 @@ export interface MapHandle {
   setView(v: MapView): void;
   setProfile(p: Profile | null): void;
   resize(): void;
+  /** ease to a transit stop in the current profile and open its card; false when absent */
+  focusStop(stopId: number): boolean;
   destroy(): void;
 }

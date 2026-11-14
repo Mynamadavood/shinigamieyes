@@ -499,8 +499,29 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
     else map.easeTo({ ...centre, duration: EASE_MS });
   }
 
+  const STOP_EASE_MS = 600; // same as the edge pointer ease
+  // ease (or jump) to a stop, turn follow off and open its card on arrival (D-06)
+  function goToStop(item: Item): boolean {
+    const g = item.geom as { type?: unknown; coordinates?: unknown } | null;
+    if (!g || g.type !== "Point" || !Array.isArray(g.coordinates)) return false;
+    const [lo, la] = g.coordinates as unknown[];
+    if (typeof lo !== "number" || typeof la !== "number" || !Number.isFinite(lo) || !Number.isFinite(la)) return false;
+    userPanned();
+    const opts = { center: [lo, la] as [number, number], padding: { top: 0, left: 0, right: 0, bottom: bottomPadding() } };
+    map.once("moveend", () => {
+      tags.openById(item.id);
+    });
+    if (deps.reducedMotion) map.jumpTo(opts);
+    else map.easeTo({ ...opts, duration: STOP_EASE_MS });
+    return true;
+  }
+
   return {
     setView,
+    focusStop(stopId: number): boolean {
+      const item = lastStopItems.find((it) => it.id === `stop:${stopId}`);
+      return item ? goToStop(item) : false;
+    },
     setProfile(p) {
       // a frame for another layer leaves the tag layer objects untouched (applyLayer copies
       // references), so the tags (and any open tag card) are only reconciled when one changes

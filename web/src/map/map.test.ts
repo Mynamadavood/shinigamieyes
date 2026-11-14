@@ -748,6 +748,52 @@ describe("transit stops and edge pointers", () => {
     expect(pointerBtns()).toHaveLength(0);
   });
 
+  it("focusStop eases to the stop, turns follow off and opens its card on moveend", async () => {
+    chrome();
+    const open = vi.spyOn(TagLayer.prototype, "openById");
+    const deps = mkDeps();
+    const handle = (await createMap(deps))!;
+    handle.setView(ORIGIN);
+    handle.setProfile(stopProfile([near(), stopItem("2720", 144.91, -37.8, 900)]));
+    const recenter = deps.controls.querySelector<HTMLButtonElement>("button.recenter")!;
+    expect(handle.focusStop(2720)).toBe(true);
+    expect(h.instance.easeTo).toHaveBeenCalledWith(expect.objectContaining({ center: [144.91, -37.8], duration: 600 }));
+    expect(recenter.classList.contains("is-hidden")).toBe(false);
+    expect(open).not.toHaveBeenCalledWith("stop:2720");
+    h.instance.emit("moveend");
+    expect(open).toHaveBeenCalledWith("stop:2720");
+    open.mockRestore();
+  });
+
+  it("focusStop jumps under reduced motion and still opens the card", async () => {
+    chrome();
+    const open = vi.spyOn(TagLayer.prototype, "openById");
+    const handle = (await createMap(mkDeps({ reducedMotion: true })))!;
+    handle.setView(ORIGIN);
+    handle.setProfile(stopProfile([stopItem("2720", 144.91, -37.8, 900)]));
+    h.instance.easeTo.mockClear();
+    expect(handle.focusStop(2720)).toBe(true);
+    expect(h.instance.easeTo).not.toHaveBeenCalled();
+    expect(h.instance.jumpTo).toHaveBeenCalledWith(expect.objectContaining({ center: [144.91, -37.8] }));
+    h.instance.emit("moveend");
+    expect(open).toHaveBeenCalledWith("stop:2720");
+    open.mockRestore();
+  });
+
+  it("focusStop for an absent stop, or with no transit layer (Home), returns false and moves nothing", async () => {
+    chrome();
+    const handle = (await createMap(mkDeps()))!;
+    expect(handle.focusStop(1)).toBe(false);
+    handle.setView(ORIGIN);
+    handle.setProfile(stopProfile([near()]));
+    h.instance.easeTo.mockClear();
+    expect(handle.focusStop(9999)).toBe(false);
+    handle.setProfile(profileWith([camItem("a", 144.9, -37.79982)]));
+    expect(handle.focusStop(2720)).toBe(false);
+    expect(h.instance.easeTo).not.toHaveBeenCalled();
+    expect(h.instance.jumpTo).not.toHaveBeenCalledWith(expect.objectContaining({ center: [144.91, -37.8] }));
+  });
+
   it("pin framing uses camera items only, not stops", async () => {
     const handle = (await createMap(mkDeps()))!;
     handle.setView({ kind: "pin", lat: -37.8, lon: 144.9, label: "A", placeId: "a" });
