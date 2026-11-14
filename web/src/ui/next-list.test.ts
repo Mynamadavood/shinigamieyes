@@ -140,3 +140,69 @@ describe("NextList transit classes", () => {
     expect(el.classList.contains("none")).toBe(false);
   });
 });
+
+describe("NextList departure rows", () => {
+  const dvm = (p: Partial<RowVM> = {}) =>
+    vm({
+      id: "transit:1:a", name: "Tram 96 to St Kilda", kindTag: "tram · LIVE", countdownText: "06:12", transit: true,
+      stopId: 1, live: true, leaveText: "leave in 01:40", note: "plat 4", missed: false, leaveNow: false, leaveNowRed: false, ...p,
+    });
+  const row = () => host.querySelector(".row") as HTMLElement;
+
+  it("renders live mark, note and leave-in value", () => {
+    list.update([dvm()], NOW);
+    expect(row().querySelector(".row-live")!.textContent).toBe("LIVE");
+    expect(row().querySelector(".row-kind")!.textContent).toBe("tram · LIVE plat 4");
+    expect(row().querySelector(".row-leave")!.textContent).toBe("leave in 01:40");
+    expect(row().querySelector(".leave-val")!.textContent).toBe("01:40");
+    expect(row().querySelector(".row-fresh")!.textContent).toBe("");
+    expect(row().getAttribute("aria-label")).toBe("Tram 96 to St Kilda, departs in 06:12, live, leave in 01:40");
+  });
+  it("sched mark", () => {
+    list.update([dvm({ live: false, kindTag: "bus · SCHED" })], NOW);
+    expect(row().querySelector(".row-live")!.classList.contains("sched")).toBe(true);
+    expect(row().classList.contains("sched")).toBe(true);
+  });
+  it("leave-now red shows chip and class", () => {
+    list.update([dvm({ leaveNow: true, leaveNowRed: true, leaveText: "LEAVE NOW" })], NOW);
+    expect(row().classList.contains("leave-now")).toBe(true);
+    expect(row().querySelector(".leave-chip")!.textContent).toBe("LEAVE NOW");
+    expect(row().getAttribute("aria-label")).toContain("leave now");
+  });
+  it("second leave-now row is white text, no chip", () => {
+    list.update([dvm({ leaveNow: true, leaveText: "leave now" })], NOW);
+    expect(row().classList.contains("leave-now")).toBe(false);
+    expect(row().querySelector(".row-leave")!.textContent).toBe("leave now");
+  });
+  it("missed state", () => {
+    list.update([dvm({ missed: true, leaveText: "too late to catch" })], NOW);
+    expect(row().classList.contains("missed")).toBe(true);
+    expect(row().getAttribute("aria-label")).toContain("too late to catch");
+  });
+  it("rolling to next departure keeps node, no pulse", () => {
+    list.update([dvm()], NOW);
+    const el = row();
+    list.update([dvm({ countdownText: "12:00", targetMs: NOW + 700_000 })], NOW + 1000);
+    expect(row()).toBe(el);
+    expect(el.classList.contains("expiring")).toBe(false);
+    expect(el.querySelectorAll(".row-live")).toHaveLength(1);
+  });
+  it("tap and Enter call onRowTap only for tappable rows", () => {
+    const onRowTap = vi.fn();
+    document.body.innerHTML = "";
+    host = document.createElement("div");
+    document.body.append(host);
+    list = new NextList(host, { onRowTap });
+    list.update([dvm(), dvm({ id: "transit:none:tram", none: true, stopId: null, leaveText: undefined }), dvm({ id: "transit:status", stopId: null, leaveText: undefined })], NOW);
+    const rows = [...host.querySelectorAll<HTMLElement>(".row")];
+    expect(rows[0].getAttribute("role")).toBe("button");
+    expect(rows[1].getAttribute("role")).toBe("listitem");
+    expect(rows[2].getAttribute("role")).toBe("listitem");
+    rows[0].click();
+    rows[0].dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    rows[1].click();
+    rows[2].click();
+    expect(onRowTap).toHaveBeenCalledTimes(2);
+    expect(onRowTap.mock.calls[0][0].id).toBe("transit:1:a");
+  });
+});

@@ -6,6 +6,13 @@ interface RowEls {
   count: HTMLElement;
   kind: HTMLElement;
   fresh: HTMLElement;
+  live: HTMLElement;
+  note: Text;
+  leave: HTMLElement;
+  leaveWords: Text;
+  leaveVal: HTMLElement;
+  chip: HTMLElement;
+  vm: RowVM | null;
   labelMinute: number;
   targetMs: number | null;
 }
@@ -30,7 +37,7 @@ export class NextList {
   private stateEl: HTMLElement | null = null;
   private lastState: ListState | null = null;
 
-  constructor(private host: HTMLElement) {
+  constructor(private host: HTMLElement, private opts: { onRowTap?(row: RowVM): void } = {}) {
     host.setAttribute("role", "list");
   }
 
@@ -46,10 +53,29 @@ export class NextList {
     const count = span("row-count");
     const kind = span("row-kind");
     const fresh = span("row-fresh");
+    const live = span("row-live");
+    const note = document.createTextNode("");
+    const leave = span("row-leave");
+    const leaveWords = document.createTextNode("");
+    const leaveVal = span("leave-val");
+    const chip = span("leave-chip");
+    leave.append(leaveWords, leaveVal, chip);
     l1.append(name, count);
-    l2.append(kind, fresh);
+    l2.append(kind, leave, fresh);
     root.append(l1, l2);
-    return { root, name, count, kind, fresh, labelMinute: -1, targetMs: null };
+    const els: RowEls = { root, name, count, kind, fresh, live, note, leave, leaveWords, leaveVal, chip, vm: null, labelMinute: -1, targetMs: null };
+    const tap = (): void => {
+      const vm = els.vm;
+      if (vm && vm.transit && !vm.none && vm.stopId != null && this.opts.onRowTap) this.opts.onRowTap(vm);
+    };
+    root.addEventListener("click", tap);
+    root.addEventListener("keydown", (e) => {
+      if ((e.key === "Enter" || e.key === " ") && root.getAttribute("role") === "button") {
+        e.preventDefault();
+        tap();
+      }
+    });
+    return els;
   }
 
   private clearState(): void {
@@ -108,6 +134,46 @@ export class NextList {
     }
   }
 
+  private label(vm: RowVM): string {
+    if (vm.transit && vm.leaveText !== undefined) {
+      const leave = vm.leaveText.startsWith("leave in") ? vm.leaveText.split(" · ")[0] : vm.leaveText.toLowerCase();
+      return `${vm.name}, departs in ${vm.countdownText}, ${vm.live ? "live" : "scheduled"}, ${leave}`;
+    }
+    return `${vm.name}, ${vm.countdownText}, ${vm.ageTag}`;
+  }
+
+  private updateDeparture(r: RowEls, vm: RowVM): void {
+    const kindText = vm.live ? "LIVE" : "SCHED";
+    if (r.live.textContent !== kindText) r.live.textContent = kindText;
+    r.live.classList.toggle("sched", !vm.live);
+    const note = vm.note ? ` ${vm.note}` : "";
+    if (r.live.parentNode !== r.kind) {
+      r.kind.textContent = "";
+      const mode = vm.kindTag.split(" · ")[0];
+      r.kind.append(document.createTextNode(`${mode} · `), r.live, r.note);
+    }
+    const mode = vm.kindTag.split(" · ")[0];
+    const head = r.kind.firstChild as Text;
+    if (head.data !== `${mode} · `) head.data = `${mode} · `;
+    if (r.note.data !== note) r.note.data = note;
+    const text = vm.leaveText ?? "";
+    r.leave.hidden = false;
+    let words = "";
+    let val = "";
+    let chip = "";
+    if (vm.leaveNowRed) chip = "LEAVE NOW";
+    else if (text.startsWith("leave in ")) {
+      words = "leave in ";
+      val = text.slice(9);
+    } else words = text;
+    if (r.leaveWords.data !== words) r.leaveWords.data = words;
+    if (r.leaveVal.textContent !== val) r.leaveVal.textContent = val;
+    if (r.chip.textContent !== chip) r.chip.textContent = chip;
+    r.chip.hidden = chip === "";
+    const fresh = vm.stale ? vm.ageTag : "";
+    if (r.fresh.textContent !== fresh) r.fresh.textContent = fresh;
+  }
+
   private expire(r: RowEls): void {
     r.root.classList.add("expiring");
     const ms = reducedMotion() ? EXPIRE_REDUCED_MS : EXPIRE_MS;
@@ -132,8 +198,26 @@ export class NextList {
       r.targetMs = vm.targetMs;
       if (r.name.textContent !== vm.name) r.name.textContent = vm.name;
       if (r.count.textContent !== vm.countdownText) r.count.textContent = vm.countdownText;
-      if (r.kind.textContent !== vm.kindTag) r.kind.textContent = vm.kindTag;
-      if (r.fresh.textContent !== vm.ageTag) r.fresh.textContent = vm.ageTag;
+      r.vm = vm;
+      const departure = vm.transit === true && vm.leaveText !== undefined;
+      if (departure) {
+        this.updateDeparture(r, vm);
+      } else {
+        if (r.kind.textContent !== vm.kindTag) r.kind.textContent = vm.kindTag;
+        if (r.fresh.textContent !== vm.ageTag) r.fresh.textContent = vm.ageTag;
+        r.leave.hidden = true;
+      }
+      const tappable = vm.transit === true && !vm.none && vm.stopId != null;
+      if (tappable && r.root.getAttribute("role") !== "button") {
+        r.root.setAttribute("role", "button");
+        r.root.tabIndex = 0;
+      } else if (!tappable && r.root.getAttribute("role") === "button") {
+        r.root.setAttribute("role", "listitem");
+        r.root.removeAttribute("tabindex");
+      }
+      r.root.classList.toggle("leave-now", vm.leaveNowRed === true);
+      r.root.classList.toggle("missed", vm.missed === true);
+      r.root.classList.toggle("sched", vm.transit === true && vm.live === false);
       r.root.classList.toggle("first", vm.isFirst);
       r.root.classList.toggle("stale", vm.stale);
       r.root.classList.toggle("urgent", vm.urgent);
@@ -141,7 +225,7 @@ export class NextList {
       r.root.classList.toggle("transit", vm.transit === true);
       r.root.classList.toggle("none", vm.none === true);
       if (r.labelMinute !== minute) {
-        r.root.setAttribute("aria-label", `${vm.name}, ${vm.countdownText}, ${vm.ageTag}`);
+        r.root.setAttribute("aria-label", this.label(vm));
         r.labelMinute = minute;
       }
       while (cursor && cursor !== r.root && cursor.classList.contains("expiring")) cursor = cursor.nextElementSibling;

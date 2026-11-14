@@ -108,6 +108,20 @@ html, body {
   line-height: var(--lh-body);
   color: var(--c-dim);
 }
+/* transit departure rows */
+.row.transit .row-count { font-weight: 700; }
+.row.transit.sched .row-count { font-weight: 400; }
+.row-live { font-weight: 700; color: var(--c-text); }
+.row-live.sched { font-weight: 400; color: var(--c-dim); }
+.row-leave { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--c-dim); margin-left: auto; }
+.leave-val { font-weight: 700; color: var(--c-text); font-variant-numeric: tabular-nums; }
+.row.leave-now { border-left-color: var(--c-red); }
+.row.leave-now .row-count { color: var(--c-red); }
+.leave-chip { background: var(--c-red-deep); color: var(--c-on-red); font-weight: 700; padding: 0 var(--s-xs); }
+.row.missed { border-left-color: var(--c-frame); }
+.row.missed .row-name, .row.missed .row-count { color: var(--c-dim); font-weight: 400; }
+.row[role="button"] { cursor: pointer; }
+.row[role="button"]:active { background: var(--c-surface); }
 /* urgent: red marker; red countdown text only on the soonest urgent row */
 .row.urgent { border-left-color: var(--c-red); }
 .row.red-countdown .row-count { color: var(--c-red); }
