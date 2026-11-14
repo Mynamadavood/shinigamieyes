@@ -149,6 +149,54 @@
   cursor: pointer;
 }
 
+/* departure sections on stop cards (D-07, D-10) */
+.card-sections.scroll {
+  max-height: var(--card-max-h);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.card-dep-head {
+  margin-top: var(--s-sm);
+  font-size: var(--fs-label);
+  line-height: var(--lh-label);
+  font-weight: 700;
+  color: var(--c-text);
+}
+.card-dep {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-sm);
+  font-size: var(--fs-label);
+  line-height: var(--lh-label);
+}
+.card-dep.dep-text { color: var(--c-dim); }
+.card-dep-group.stale { opacity: var(--o-stale); }
+.dep-count {
+  flex: 0 0 48px;
+  width: 48px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--c-blue);
+}
+.card-dep.sched .dep-count { font-weight: 400; }
+.dep-warn { width: 16px; height: 16px; fill: currentColor; align-self: center; }
+.dep-warn.info { color: var(--c-text); }
+.dep-warn.stop { color: var(--c-red); }
+.dep-mark { font-weight: 700; color: var(--c-text); }
+.dep-mark.sched { font-weight: 400; color: var(--c-dim); }
+.dep-note { color: var(--c-dim); flex: 1 1 0; min-width: 0; }
+.dep-chip {
+  padding: 0 var(--s-xs);
+  background: var(--c-red-deep);
+  color: var(--c-on-red);
+  font-weight: 700;
+}
+.card-dep.missed .dep-count,
+.card-dep.missed .dep-mark,
+.card-dep.missed .dep-note,
+.card-dep.cancelled .dep-count { color: var(--c-dim); font-weight: 400; }
+
 /* leader line overlay: one SVG, never intercepts pointers */
 svg.leader {
   position: fixed;

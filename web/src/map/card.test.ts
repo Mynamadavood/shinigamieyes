@@ -151,3 +151,95 @@ describe("Card", () => {
     expect(card.isOpen()).toBe(false);
   });
 });
+
+describe("Card sections", () => {
+  let anchor: HTMLElement;
+  let card: Card;
+  const base = { title: "TRAM STOP", secondary: [] as Array<[string, string]>, caveats: ["Source: PTV"] };
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-15T00:00:00.000Z"));
+    document.body.innerHTML = "";
+    anchor = document.createElement("div");
+    anchor.tabIndex = 0;
+    document.body.append(anchor);
+    card = new Card(document.body);
+  });
+  afterEach(() => {
+    card.destroy();
+    vi.useRealTimers();
+  });
+  const target = () => Date.now() + 192_500;
+  const secs = (t: number) => [
+    {
+      head: "96 to St Kilda Beach",
+      lines: [
+        { cls: ["live"], countTargetMs: t, mark: { text: "LIVE", cls: "live" }, note: "delayed 3 min", warn: 1 as const },
+        { cls: ["missed"], countTargetMs: t + 60_000, mark: { text: "LIVE", cls: "live" }, note: "too late" },
+        { cls: ["cancelled"], countTargetMs: t + 90_000, chip: "CANCELLED" },
+      ],
+    },
+    { cls: "stale", lines: [{ cls: [], text: "Departures 3m old" }] },
+  ];
+
+  it("renders heads, lines, chips and classes", () => {
+    card.open(anchor, { ...base, extra: "27 m", sections: secs(target()) });
+    const root = document.querySelector<HTMLElement>(".card")!;
+    expect(root.querySelector(".card-dep-head")!.textContent).toBe("96 to St Kilda Beach");
+    expect(root.querySelectorAll(".card-dep")).toHaveLength(4);
+    expect(root.querySelector(".card-dep.missed")).not.toBeNull();
+    expect(root.querySelector(".dep-chip")!.textContent).toBe("CANCELLED");
+    expect(root.querySelector(".dep-warn")).not.toBeNull();
+    expect(root.querySelector(".dep-mark")!.textContent).toBe("LIVE");
+    expect(root.querySelector(".card-dep-group.stale")).not.toBeNull();
+    expect(root.querySelector(".dep-count")!.textContent).toBe("03:12");
+    expect(root.querySelector(".card-extra")!.nextElementSibling!.className).toContain("card-sections");
+    expect(root.getAttribute("style") ?? "").not.toContain("max-h");
+  });
+
+  it("ticks the same node once a second and stops on close", () => {
+    card.open(anchor, { ...base, sections: secs(target()) });
+    const c = document.querySelector<HTMLElement>(".dep-count")!;
+    expect(c.textContent).toBe("03:12");
+    vi.advanceTimersByTime(1100);
+    expect(document.querySelector(".dep-count")).toBe(c);
+    expect(c.textContent).toBe("03:11");
+    card.close();
+    vi.advanceTimersByTime(5000);
+    expect(c.textContent).toBe("03:11");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("replace keeps the root and restarts ticking for the new targets", () => {
+    card.open(anchor, { ...base, sections: secs(target()) });
+    const root = document.querySelector(".card")!;
+    card.replace({ ...base, title: "TRAM STOP", extra: "new", sections: secs(Date.now() + 60_500) });
+    expect(document.querySelector(".card")).toBe(root);
+    expect(card.isOpen()).toBe(true);
+    expect(root.querySelector(".card-extra")!.textContent).toBe("new");
+    const c = root.querySelector<HTMLElement>(".dep-count")!;
+    expect(c.textContent).toBe("01:00");
+    vi.advanceTimersByTime(1100);
+    expect(c.textContent).toBe("00:59");
+  });
+
+  it("scrolls the groups block when it is taller than the space", () => {
+    const sec = secs(target());
+    const orig = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const h = this.classList.contains("card-sections") ? 600 : this.classList.contains("card") ? 700 : 0;
+      return { ...orig.call(this), height: h, width: 224 } as DOMRect;
+    });
+    card.open(anchor, { ...base, sections: sec });
+    const g = document.querySelector<HTMLElement>(".card-sections")!;
+    expect(g.classList.contains("scroll")).toBe(true);
+    expect(g.style.getPropertyValue("--card-max-h")).toMatch(/px$/);
+    expect(document.querySelector(".card")!.getAttribute("style") ?? "").not.toContain("--card-max-h");
+    vi.restoreAllMocks();
+  });
+
+  it("cards without sections do not start a ticker", () => {
+    card.open(anchor, { ...base });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});

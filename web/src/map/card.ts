@@ -1,3 +1,5 @@
+import { fmtCountdown } from "../format";
+import { startTicker } from "../ticker";
 import { Leader, type LRect } from "./leader";
 
 export interface Rect {
@@ -7,6 +9,23 @@ export interface Rect {
   h: number;
 }
 
+export interface CardLine {
+  cls: string[];
+  countTargetMs?: number;
+  countText?: string;
+  mark?: { text: string; cls: string };
+  chip?: string;
+  note?: string;
+  warn?: 0 | 1 | 3;
+  text?: string;
+}
+
+export interface CardSection {
+  head?: string;
+  cls?: string;
+  lines: CardLine[];
+}
+
 export interface CardContent {
   title: string;
   primary?: string;
@@ -14,6 +33,7 @@ export interface CardContent {
   extra?: string;
   secondary: Array<[string, string]>;
   caveats: string[];
+  sections?: CardSection[];
   action?: { label: string; onClick(): void };
 }
 
@@ -88,6 +108,53 @@ function row(cls: string, text: string): HTMLElement {
   return el;
 }
 
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function depLine(line: CardLine, targets: WeakMap<HTMLElement, number>): HTMLElement {
+  const el = document.createElement("div");
+  el.className = ["card-dep", ...line.cls].join(" ");
+  if (line.text !== undefined && line.countTargetMs === undefined && line.countText === undefined) {
+    el.classList.add("dep-text");
+    el.textContent = line.text;
+    return el;
+  }
+  const count = document.createElement("span");
+  count.className = "dep-count";
+  if (line.countTargetMs !== undefined) {
+    targets.set(count, line.countTargetMs);
+    count.textContent = fmtCountdown(Math.max(0, line.countTargetMs - Date.now()) / 1000);
+  }
+  if (line.countText !== undefined) count.textContent = line.countText;
+  el.appendChild(count);
+  if (line.warn) {
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("class", `dep-warn ${line.warn === 3 ? "stop" : "info"}`);
+    svg.setAttribute("aria-hidden", "true");
+    const use = document.createElementNS(SVG_NS, "use");
+    use.setAttribute("href", "/icons.svg#warn");
+    svg.appendChild(use);
+    el.appendChild(svg);
+  }
+  if (line.chip) {
+    const chip = document.createElement("span");
+    chip.className = "dep-chip";
+    chip.textContent = line.chip;
+    el.appendChild(chip);
+  } else if (line.mark) {
+    const m = document.createElement("span");
+    m.className = `dep-mark ${line.mark.cls}`;
+    m.textContent = line.mark.text;
+    el.appendChild(m);
+  }
+  if (line.note) {
+    const n = document.createElement("span");
+    n.className = "dep-note";
+    n.textContent = line.note;
+    el.appendChild(n);
+  }
+  return el;
+}
+
 /** Floating framed card (role dialog, not modal). All content via textContent. */
 export class Card {
   private readonly root: HTMLElement;
@@ -96,6 +163,10 @@ export class Card {
   private opts: CardOpts = {};
   private openState = false;
   private side: Side | undefined;
+  private readonly targets = new WeakMap<HTMLElement, number>();
+  private counts: HTMLElement[] = [];
+  private stopTicker: (() => void) | null = null;
+  private sectionsEl: HTMLElement | null = null;
 
   constructor(
     parent: HTMLElement = document.body,
@@ -136,7 +207,22 @@ export class Card {
     if (this.anchor !== anchor) this.side = undefined;
     this.anchor = anchor;
     this.opts = opts;
-    const near = opts.near === true;
+    this.render(content);
+    this.openState = true;
+    this.place();
+    this.root.focus({ preventScroll: true });
+  }
+
+  /** Re-render the open card in place: same root, anchor, opts and leader. */
+  replace(content: CardContent): void {
+    if (!this.openState) return;
+    this.render(content);
+    this.place();
+  }
+
+  private render(content: CardContent): void {
+    const near = this.opts.near === true;
+    this.stopCounting();
     this.root.replaceChildren();
     this.root.className = near ? "card near" : "card";
     this.root.setAttribute("aria-label", content.title);
@@ -144,6 +230,25 @@ export class Card {
     this.root.appendChild(row("card-title", content.title));
     if (content.primary) this.root.appendChild(row("card-primary", content.primary));
     if (content.extra) this.root.appendChild(row("card-primary card-extra", content.extra));
+    this.sectionsEl = null;
+    if (content.sections && content.sections.length > 0) {
+      const wrap = document.createElement("div");
+      wrap.className = "card-sections";
+      for (const sec of content.sections) {
+        const g = document.createElement("div");
+        g.className = ["card-dep-group", sec.cls].filter(Boolean).join(" ");
+        if (sec.head) g.appendChild(row("card-dep-head", sec.head));
+        for (const ln of sec.lines) {
+          const el = depLine(ln, this.targets);
+          const c = el.querySelector<HTMLElement>(".dep-count");
+          if (c && this.targets.has(c)) this.counts.push(c);
+          g.appendChild(el);
+        }
+        wrap.appendChild(g);
+      }
+      this.root.appendChild(wrap);
+      this.sectionsEl = wrap;
+    }
     for (const [k, v] of content.secondary) {
       const r = document.createElement("div");
       r.className = "card-row";
@@ -166,10 +271,39 @@ export class Card {
       b.addEventListener("click", onClick);
       this.root.appendChild(b);
     }
+    if (this.counts.length > 0) {
+      this.stopTicker = startTicker((now) => this.tick(now));
+    }
+  }
 
-    this.openState = true;
-    this.place();
-    this.root.focus({ preventScroll: true });
+  private tick(now: number): void {
+    for (const c of this.counts) {
+      const t = this.targets.get(c);
+      if (t === undefined) continue;
+      const text = fmtCountdown(Math.max(0, t - now) / 1000);
+      if (c.textContent !== text) c.textContent = text;
+    }
+  }
+
+  private stopCounting(): void {
+    this.stopTicker?.();
+    this.stopTicker = null;
+    this.counts = [];
+  }
+
+  /** Cap the card height so it fits above the drawer; the groups block scrolls. */
+  private fitHeight(): void {
+    const sec = this.sectionsEl;
+    if (!sec) return;
+    sec.classList.remove("scroll");
+    sec.style.removeProperty("--card-max-h");
+    const space = window.innerHeight - this.safe().top - this.safe().bottom;
+    const total = this.root.getBoundingClientRect().height;
+    if (total > space && space > 0) {
+      const secH = sec.getBoundingClientRect().height;
+      sec.style.setProperty("--card-max-h", `${Math.max(48, Math.round(secH - (total - space)))}px`);
+      sec.classList.add("scroll");
+    }
   }
 
   /** Recompute placement and leader; cheap, intended to run in rAF on map move. */
@@ -180,6 +314,7 @@ export class Card {
   private place(): void {
     const a = this.anchor;
     if (!a) return;
+    this.fitHeight();
     const icon = a.querySelector<HTMLElement>(".tag-icon") ?? a;
     const r = icon.getBoundingClientRect();
     const tag: LRect = { x: r.left, y: r.top, w: r.width, h: r.height };
@@ -216,6 +351,7 @@ export class Card {
   close(): void {
     if (!this.openState) return;
     this.openState = false;
+    this.stopCounting();
     this.root.classList.add("is-hidden");
     this.leader.hide();
     const anchor = this.anchor;
@@ -228,6 +364,7 @@ export class Card {
   }
 
   destroy(): void {
+    this.stopCounting();
     document.removeEventListener("keydown", this.onKey);
     document.removeEventListener("pointerdown", this.onPointer, true);
     this.root.remove();
