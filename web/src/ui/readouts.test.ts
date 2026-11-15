@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { RowVM } from "../model";
 import type { Profile } from "../types";
-import { Readouts, cameraCountText, cornerRows } from "./readouts";
+import { Readouts, cameraCountText, cornerRows, disruptionReadout } from "./readouts";
 
 function row(id: string, targetMs: number | null, extra: Partial<RowVM> = {}): RowVM {
   return {
@@ -83,5 +83,51 @@ describe("cameraCountText", () => {
     ro.update([], prof(6), 1);
     expect(r.querySelectorAll(".readout-cameras").length).toBe(1);
     expect(el.querySelector(".count-num")?.textContent).toBe("6");
+  });
+});
+
+describe("disruption readout", () => {
+  const di = (sev: number, n = 0) => ({
+    id: `dis:${sev}:${n}`, layer: "transit_disruptions", group: "disruption", name: "x", verb: "ends",
+    target_ts: null, kind: "infrastructure" as const, severity: sev, detail: { title: "t" }, geom: null,
+    fetched_at: 0, stale_after_s: 600, computed: false,
+  });
+  const prof = (items: ReturnType<typeof di>[] | null, status = "fresh"): Profile => ({
+    server_time: 0, rev: 0, location: { source: "gps", lat: null, lon: null },
+    layers: items === null ? {} : {
+      transit_disruptions: { id: "transit_disruptions", status: status as "fresh", rev: 0, as_of: 0, attribution: "", items },
+    },
+  });
+  it("computes visibility, count copy and red", () => {
+    expect(disruptionReadout(prof([di(0, 1), di(0, 2)]))).toMatchObject({ visible: true, n: 2, red: false, text: { num: "2", rest: " disruptions · your routes" } });
+    expect(disruptionReadout(prof([di(0)])).text.rest).toBe(" disruption · your routes");
+    expect(disruptionReadout(prof([])).visible).toBe(false);
+    expect(disruptionReadout(prof([di(0)], "pending")).visible).toBe(false);
+    expect(disruptionReadout(prof(null)).visible).toBe(false);
+    expect(disruptionReadout(null).visible).toBe(false);
+    expect(disruptionReadout(prof([di(0), di(3)])).red).toBe(true);
+  });
+  it("renders a button below cameras, hides, toggles red, taps", () => {
+    const l = document.createElement("div");
+    const r = document.createElement("div");
+    const tap = vi.fn();
+    const ro = new Readouts(l, r, { onDisruptionsTap: tap });
+    ro.update([], prof([di(0, 1), di(0, 2)]), 0);
+    const b = r.querySelector("button.readout.readout-disruptions") as HTMLButtonElement;
+    expect(r.children[0]).toBe(r.querySelector(".readout-cameras"));
+    expect(r.children[1]).toBe(b);
+    expect(b.hidden).toBe(false);
+    expect(b.querySelector(".count-num")?.textContent).toBe("2");
+    expect(b.getAttribute("aria-label")).toBe("2 disruptions on your routes, show list");
+    expect(b.classList.contains("red")).toBe(false);
+    ro.update([], prof([di(3)]), 1);
+    expect(b.classList.contains("red")).toBe(true);
+    expect(b.getAttribute("aria-label")).toBe("1 disruption on your routes, show list, service stopped on at least one");
+    b.click();
+    expect(tap).toHaveBeenCalledTimes(1);
+    ro.update([], prof([]), 2);
+    expect(b.hidden).toBe(true);
+    ro.update([], null, 3);
+    expect(b.hidden).toBe(true);
   });
 });

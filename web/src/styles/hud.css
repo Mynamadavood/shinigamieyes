@@ -128,3 +128,50 @@
 @media (prefers-reduced-motion: reduce) {
   .drawer.snapping { transition: none; }
 }
+
+.readout-disruptions {
+  pointer-events: auto;
+  min-height: 48px;
+  max-width: 176px;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--s-xs);
+  text-align: left;
+  font-family: inherit;
+  font-size: var(--fs-label);
+  line-height: var(--lh-label);
+  color: var(--c-dim);
+  background: var(--c-panel);
+  border: 1px solid var(--c-frame);
+  cursor: pointer;
+}
+.readout-disruptions[hidden] { display: none; }
+.readout-disruptions:active { background: var(--c-surface); }
+.readout-disruptions .count-num { color: var(--c-text); font-weight: 700; }
+.readout-disruptions .count-rest { color: var(--c-dim); }
+.dis-glyph { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; color: var(--c-text); }
+.readout-disruptions.red { border-color: var(--c-red); }
+.readout-disruptions.red .dis-glyph, .dis-row.red .dis-glyph { color: var(--c-red); }
+.dis-row {
+  min-height: 48px;
+  padding: var(--s-sm) var(--s-md);
+  border-bottom: 1px solid var(--c-frame);
+  border-left: 4px solid var(--c-blue);
+  font-size: var(--fs-label);
+  line-height: var(--lh-label);
+}
+.dis-row.red { border-left-color: var(--c-red); }
+.dis-line1 { display: flex; justify-content: space-between; align-items: center; gap: var(--s-sm); font-weight: 700; }
+.dis-routes { display: flex; align-items: center; gap: var(--s-xs); }
+.no-service { padding: 0 var(--s-xs); background: var(--c-red-deep); color: var(--c-on-red); font-weight: 700; }
+.dis-title {
+  color: var(--c-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.dis-meta { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-sm); color: var(--c-dim); }
+.dis-countdown { font-size: var(--fs-countdown); font-weight: 700; color: var(--c-blue); font-variant-numeric: tabular-nums; }
+.dis-foot { margin: 0; padding: var(--s-md); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--c-dim); }

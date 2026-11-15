@@ -1,5 +1,6 @@
 import type { RowVM } from "../model";
 import type { Profile } from "../types";
+import { disruptionItems } from "./disruption-sheet";
 
 const MAX_CORNER = 2;
 const ARIA_REFRESH_MS = 60_000;
@@ -27,6 +28,24 @@ export function cameraCountText(profile: Profile | null): { num: string | null; 
   return { num: String(n), rest: ` ${n === 1 ? "camera" : "cameras"} · ${radius} m · mapped, not exhaustive` };
 }
 
+export function disruptionReadout(profile: Profile | null): {
+  visible: boolean;
+  n: number;
+  red: boolean;
+  text: { num: string; rest: string };
+} {
+  const layer = profile?.layers["transit_disruptions"];
+  const items = layer && layer.status !== "pending" ? disruptionItems(layer) : [];
+  const n = items.length;
+  const red = items.some((i) => i.severity >= 3 || i.detail?.["service_stopped"] === true);
+  return {
+    visible: n >= 1,
+    n,
+    red,
+    text: { num: String(n), rest: n === 1 ? " disruption · your routes" : " disruptions · your routes" },
+  };
+}
+
 interface ReadoutEls {
   root: HTMLElement;
   name: HTMLElement;
@@ -39,15 +58,25 @@ export class Readouts {
   private camRoot: HTMLElement | null = null;
   private camNum: HTMLElement | null = null;
   private camRest: HTMLElement | null = null;
+  private disRoot: HTMLButtonElement | null = null;
+  private disNum: HTMLElement | null = null;
+  private disRest: HTMLElement | null = null;
 
   constructor(
     private left: HTMLElement,
     // right column is filled by the camera count readout (02-07)
     readonly right: HTMLElement,
+    private opts: { onDisruptionsTap?(): void } = {},
   ) {}
+
+  /** The disruption readout button, once built (the sheet returns focus to it). */
+  get disruptionsEl(): HTMLElement | null {
+    return this.disRoot;
+  }
 
   update(rows: RowVM[], profile: Profile | null, now: number): void {
     this.updateCameras(profile);
+    this.updateDisruptions(profile);
     const want = cornerRows(rows);
     const ids = new Set(want.map((r) => r.id));
     for (const [id, e] of this.els) {
@@ -104,5 +133,42 @@ export class Readouts {
     if (this.camRest && this.camRest.textContent !== t.rest) this.camRest.textContent = t.rest;
     const label = `${num}${t.rest}`;
     if (this.camRoot && this.camRoot.getAttribute("aria-label") !== label) this.camRoot.setAttribute("aria-label", label);
+  }
+
+  private updateDisruptions(profile: Profile | null): void {
+    if (!this.disRoot) {
+      const root = document.createElement("button");
+      root.type = "button";
+      root.className = "readout readout-disruptions";
+      root.hidden = true;
+      const NS = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(NS, "svg");
+      svg.setAttribute("aria-hidden", "true");
+      svg.setAttribute("class", "dis-glyph");
+      const use = document.createElementNS(NS, "use");
+      use.setAttribute("href", "/icons.svg#warn");
+      svg.append(use);
+      const num = document.createElement("span");
+      num.className = "count-num";
+      const rest = document.createElement("span");
+      rest.className = "count-rest";
+      const text = document.createElement("span");
+      text.className = "dis-text";
+      text.append(num, rest);
+      root.append(svg, text);
+      root.addEventListener("click", () => this.opts.onDisruptionsTap?.());
+      this.right.append(root);
+      this.disRoot = root;
+      this.disNum = num;
+      this.disRest = rest;
+    }
+    const r = disruptionReadout(profile);
+    this.disRoot.hidden = !r.visible;
+    this.disRoot.classList.toggle("red", r.visible && r.red);
+    if (!r.visible) return;
+    if (this.disNum && this.disNum.textContent !== r.text.num) this.disNum.textContent = r.text.num;
+    if (this.disRest && this.disRest.textContent !== r.text.rest) this.disRest.textContent = r.text.rest;
+    const label = `${r.n} ${r.n === 1 ? "disruption" : "disruptions"} on your routes, show list${r.red ? ", service stopped on at least one" : ""}`;
+    if (this.disRoot.getAttribute("aria-label") !== label) this.disRoot.setAttribute("aria-label", label);
   }
 }
