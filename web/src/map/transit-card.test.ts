@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { depLines, MAX_CARD_LINES, stopCardContent } from "./transit-card";
+import { depLines, MAX_CARD_LINES, stopCardContent, vehicleCardContent } from "./transit-card";
 
 const item: any = {
   id: "stop:2720", layer: "transit_stops", group: "tram", name: "Bourke Street Mall/Elizabeth St #3",
@@ -180,5 +180,43 @@ describe("alerts and line warnings (D-16, D-17)", () => {
   it("never puts links in the card", () => {
     const c = stopCardContent(item, 5, 5, actx([dep({ route_id: 96 }, at(300))], [dis(1, { title: "Details" })]), NOW);
     expect(JSON.stringify(c)).not.toMatch(/https?:|www\./);
+  });
+});
+
+describe("vehicleCardContent", () => {
+  const veh = (o: Record<string, unknown> = {}): any => ({
+    id: "veh:abc", layer: "transit_vehicles", group: "tram", name: "Tram 96 to St Kilda Beach", verb: "arrives",
+    target_ts: NOW / 1000 + 192, kind: "transit_vehicle", severity: 0,
+    detail: {
+      route_number: "96", route_type: 1, mode: "tram", destination: "St Kilda Beach", heading_stop_id: 2720,
+      heading_stop_name: "Bourke Street Mall/Elizabeth St #3", eta_ts: NOW / 1000 + 192, eta_live: true,
+      pos_ts: NOW / 1000 - 20, pos_src: "ptv", ...o,
+    },
+    geom: { type: "Point", coordinates: [144.9, -37.8] }, fetched_at: 0, stale_after_s: null, computed: true,
+  });
+  it("renders a live real-position tram", () => {
+    const c = vehicleCardContent(veh(), NOW);
+    expect(c.title).toBe("TRAM 96");
+    expect(c.primary).toBe("to St Kilda Beach");
+    const line = c.sections![0].lines[0];
+    expect(line.text).toBe("Bourke St Mall in");
+    expect(line.countTargetMs).toBe((NOW / 1000 + 192) * 1000);
+    expect(c.secondary).toEqual([["Arrival", "LIVE"], ["Position", "20 s ago"]]);
+    expect(c.caveats).toEqual(["Source: PTV"]);
+  });
+  it("shows minutes for an older position and SCHED for scheduled arrivals", () => {
+    const c = vehicleCardContent(veh({ pos_ts: NOW / 1000 - 130, eta_live: false }), NOW);
+    expect(c.secondary).toEqual([["Arrival", "SCHED"], ["Position", "2 min ago"]]);
+  });
+  it("marks an estimated position", () => {
+    const c = vehicleCardContent(veh({ pos_src: "est" }), NOW);
+    expect(c.title).toBe("TRAM 96 · EST");
+    expect(c.secondary).toContainEqual(["Position", "estimated"]);
+    expect(c.caveats).toContain("Estimated from arrival times, not GPS.");
+  });
+  it("titles buses and never says stops away or shows an id", () => {
+    expect(vehicleCardContent(veh({ mode: "bus", route_number: "907" }), NOW).title).toBe("BUS 907");
+    const j = JSON.stringify(vehicleCardContent(veh(), NOW));
+    expect(j).not.toMatch(/stops? away|veh:|abc/);
   });
 });

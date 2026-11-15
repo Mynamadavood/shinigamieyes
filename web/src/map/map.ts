@@ -24,7 +24,7 @@ const EASE_MS = 400;
 const FLY_MS = 600;
 const OFFLINE_COPY = "Map tiles unavailable offline";
 const DEFAULT_PEEK_PX = 144;
-const TAG_LAYERS = ["cameras_cctv", "cameras_road", "transit_stops"] as const;
+const TAG_LAYERS = ["cameras_cctv", "cameras_road", "transit_stops", "transit_vehicles"] as const;
 const BUILDING_MIN_ZOOM = 15;
 const DROPPED_LABEL = "Dropped pin";
 // touches that begin on these never start the long-press ring
@@ -331,6 +331,7 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
   const tags = new TagLayer({
     map: map as unknown as ConstructorParameters<typeof TagLayer>[0]["map"],
     card,
+    reducedMotion: deps.reducedMotion,
     createMarker: (element) =>
       new Marker({
         element,

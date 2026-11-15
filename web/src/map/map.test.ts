@@ -669,6 +669,43 @@ describe("transit stops and edge pointers", () => {
     upd.mockRestore();
   });
 
+  it("passes transit_vehicles items to tags.update, re-reconciles on a new vehicles layer, and keeps pointers stops-only", async () => {
+    chrome();
+    const upd = vi.spyOn(TagLayer.prototype, "update");
+    const handle = (await createMap(mkDeps()))!;
+    handle.setView(ORIGIN);
+    upd.mockClear();
+    const v: any = {
+      id: "veh:x", layer: "transit_vehicles", group: "tram", name: "Tram 96 to X", verb: "arrives", target_ts: 1,
+      kind: "transit_vehicle", severity: 0, detail: { route_number: "96", mode: "tram" },
+      geom: { type: "Point", coordinates: [144.9015, -37.7985] }, fetched_at: 0, stale_after_s: null, computed: true,
+    };
+    const p = stopProfile([near(), far()], [], { transit_vehicles: mkLayer("transit_vehicles", [v]) });
+    handle.setProfile(p);
+    expect(upd).toHaveBeenCalledTimes(1);
+    expect(upd.mock.calls[0][0].map((i: any) => i.layer).sort()).toEqual(["transit_stops", "transit_stops", "transit_vehicles"]);
+    handle.setProfile({ ...p, layers: { ...p.layers, transit_vehicles: mkLayer("transit_vehicles", [v]) } });
+    expect(upd).toHaveBeenCalledTimes(2);
+    expect(pointerBtns()).toHaveLength(1);
+    upd.mockRestore();
+  });
+
+  it("hands reducedMotion to the TagLayer", async () => {
+    const raf = vi.spyOn(window, "requestAnimationFrame");
+    const handle = (await createMap(mkDeps({ reducedMotion: true })))!;
+    handle.setView(ORIGIN);
+    const mk = (lon: number): any => ({
+      id: "veh:r", layer: "transit_vehicles", group: "tram", name: "Tram 1 to X", verb: "arrives", target_ts: 1,
+      kind: "transit_vehicle", severity: 0, detail: { route_number: "1", mode: "tram" },
+      geom: { type: "Point", coordinates: [lon, -37.7985] }, fetched_at: 0, stale_after_s: null, computed: true,
+    });
+    handle.setProfile(stopProfile([near()], [], { transit_vehicles: mkLayer("transit_vehicles", [mk(144.9015)]) }));
+    raf.mockClear();
+    handle.setProfile(stopProfile([near()], [], { transit_vehicles: mkLayer("transit_vehicles", [mk(144.9017)]) }));
+    expect(raf).not.toHaveBeenCalled();
+    raf.mockRestore();
+  });
+
   it("gives the pointers only stop items with the tag origin", async () => {
     chrome();
     const handle = (await createMap(mkDeps()))!;

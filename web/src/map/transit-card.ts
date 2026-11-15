@@ -1,6 +1,6 @@
 import { ageTag } from "../freshness";
 import type { Item, Layer } from "../types";
-import { modeTitle, modeWord, walkMinText } from "../transit";
+import { modeName, modeTitle, modeWord, shortStopName, walkMinText } from "../transit";
 import { fmtDistance } from "./camera-card";
 import type { CardContent, CardLine, CardSection } from "./card";
 
@@ -221,4 +221,39 @@ export function stopCardContent(
     sections: [...depLines(item, ctx, nowMs, walkS), ...alertSection(stopDisruptions(item, ctx))],
     caveats: ["Source: PTV"],
   };
+}
+
+function ageText(s: number): string {
+  const n = Math.max(0, Math.floor(s));
+  return n < 90 ? `${n} s ago` : `${Math.round(n / 60)} min ago`;
+}
+
+/** Vehicle card: route, destination, which of the user's stops it heads to with a countdown, source and age. */
+export function vehicleCardContent(item: Item, nowMs: number): CardContent {
+  const d = item.detail ?? {};
+  const est = d["pos_src"] === "est";
+  const title = `${modeName(str(d["mode"])).toUpperCase()} ${str(d["route_number"])}${est ? " · EST" : ""}`.trim();
+  const dest = str(d["destination"]);
+  const stop = shortStopName(str(d["heading_stop_name"]));
+  const eta = typeof d["eta_ts"] === "number" ? d["eta_ts"] : item.target_ts;
+  const live = d["eta_live"] === true;
+  const posTs = typeof d["pos_ts"] === "number" ? d["pos_ts"] : null;
+  const secondary: Array<[string, string]> = [["Arrival", live ? "LIVE" : "SCHED"]];
+  if (est) secondary.push(["Position", "estimated"]);
+  else if (posTs !== null) secondary.push(["Position", ageText(nowMs / 1000 - posTs)]);
+  const sections: CardSection[] = [];
+  if (stop && eta !== null) {
+    sections.push({
+      head: `${stop} in`,
+      lines: [{ cls: ["veh-eta"], text: `${stop} in`, countTargetMs: eta * 1000 }],
+    });
+  }
+  const content: CardContent = {
+    title: clip(title),
+    secondary,
+    sections,
+    caveats: [...(est ? ["Estimated from arrival times, not GPS."] : []), "Source: PTV"],
+  };
+  if (dest) content.primary = clip(`to ${dest}`);
+  return content;
 }
