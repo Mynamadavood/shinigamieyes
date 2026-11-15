@@ -14,6 +14,7 @@
 }
 .map-tag:focus-visible .tag-icon { outline: 1px solid var(--c-text); outline-offset: 2px; }
 .tag-icon {
+  position: relative;
   box-sizing: border-box;
   width: var(--tag-icon);
   height: var(--tag-icon);
@@ -290,3 +291,41 @@ svg.leader.near rect { fill: var(--c-red); }
 @media (prefers-reduced-motion: reduce) {
   .edge-pointer { transition: none; }
 }
+
+/* stop card width and disruption marks (D-16, D-17) */
+.card:has(.card-sections) { width: var(--card-w-wide); }
+.card-alerts { margin-top: var(--s-sm); }
+.card-dep.card-alert { align-items: flex-start; }
+.card-dep.card-alert .dep-text-body { flex: 1 1 0; min-width: 0; }
+.card-dep.card-alert.dep-text { color: var(--c-text); flex-wrap: nowrap; }
+.card-dep.card-alert .dep-text-body {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-dep.card-alert.stop .dep-warn { color: var(--c-on-red); }
+.card-dep.card-alert.stop,
+.card-dep.card-alert-end.stop {
+  background: var(--c-red-deep);
+  color: var(--c-on-red);
+  font-weight: 700;
+  padding: var(--s-xs) var(--s-sm);
+}
+.card-dep.card-alert-end .dep-count { color: var(--c-dim); font-weight: 400; }
+.card-dep.card-alert-end.stop .dep-count { color: var(--c-on-red); }
+.tag-warn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-panel);
+}
+.map-tag .tag-icon .tag-warn svg { width: 16px; height: 16px; fill: currentColor; stroke: none; }
+.map-tag .tag-icon .tag-warn.info { color: var(--c-text); }
+.map-tag .tag-icon .tag-warn.stop { color: var(--c-red); }

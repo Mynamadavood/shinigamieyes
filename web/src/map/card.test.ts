@@ -243,3 +243,17 @@ describe("Card sections", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+describe("text lines with a warn glyph", () => {
+  it("renders the glyph before the text", () => {
+    const card = new Card(document.body);
+    card.open(document.body, {
+      title: "T", secondary: [], caveats: [],
+      sections: [{ lines: [{ cls: ["card-alert", "stop"], warn: 3, text: "Trams replaced" }] }],
+    });
+    const el = document.querySelector(".card-alert")!;
+    expect(el.querySelector("svg.dep-warn.stop")).not.toBeNull();
+    expect(el.textContent).toBe("Trams replaced");
+    card.destroy();
+  });
+});

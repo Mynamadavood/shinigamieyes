@@ -289,3 +289,67 @@ describe("TagLayer stops", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 });
+
+describe("TagLayer stop warning badges (D-16, D-17)", () => {
+  const mkStop = (id: number, lon: number): any => ({
+    id: `stop:${id}`, layer: "transit_stops", group: "tram", name: `Stop ${id}`,
+    verb: "", target_ts: null, kind: "infrastructure", severity: 0,
+    detail: { mode: "tram", stop_id: id, distance_m: 27, walk_s: 25 },
+    geom: { type: "Point", coordinates: [lon, -37.8] }, fetched_at: 0, stale_after_s: null, computed: true,
+  });
+  const camera: any = {
+    id: "cam:1", layer: "cameras", group: "speed", name: "Cam", verb: "", target_ts: null, kind: "infrastructure",
+    severity: 0, detail: { distance_m: 10, walk_s: 9 }, geom: { type: "Point", coordinates: [300, -37.8] },
+    fetched_at: 0, stale_after_s: null, computed: true,
+  };
+  const dep = (stopId: number, routeId: number): any => ({
+    id: `dep:${stopId}`, layer: "transit_departures", group: "g", name: "n", verb: "", target_ts: 9e9, kind: "transit_vehicle",
+    severity: 0, detail: { stop_id: stopId, route_id: routeId }, geom: null, fetched_at: 0, stale_after_s: 120, computed: false,
+  });
+  const dis = (severity: number, o: Record<string, unknown>): any => ({
+    id: "dis:1", layer: "transit_disruptions", group: "g", name: "d", verb: "", target_ts: null, kind: "transit",
+    severity, detail: { disruption_id: 1, title: "t", route_ids: [], stop_ids: [], ...o }, geom: null,
+    fetched_at: 0, stale_after_s: 300, computed: false,
+  });
+  const L = (id: string, items: any[]): any => ({ id, status: "fresh", rev: 1, as_of: 0, attribution: "", items });
+  const setup = () => {
+    const added: HTMLElement[] = [];
+    const marker: any = { setLngLat: () => marker, addTo: () => marker, remove: () => marker };
+    const layer = new TagLayer({
+      map: { project: (l) => ({ x: l[0], y: 0 }), getZoom: () => 15, on: vi.fn() },
+      card: { isOpen: () => false, update: vi.fn(), close: vi.fn(), open: vi.fn(), replace: vi.fn() } as any,
+      createMarker: (el) => {
+        added.push(el);
+        return marker;
+      },
+      viewportWidth: () => 390,
+    });
+    layer.setOrigin("server");
+    layer.update([mkStop(2720, 100), mkStop(3000, 200), camera]);
+    const byLabel = (n: string) => added.find((e) => (e.getAttribute("aria-label") ?? "").includes(n))!;
+    return { layer, added, byLabel };
+  };
+
+  it("adds .tag-warn info to the matching stop only, then removes it", () => {
+    const { layer, byLabel } = setup();
+    layer.setCardContext({ departures: L("d", [dep(2720, 96)]), disruptions: L("x", [dis(0, { route_ids: [96] })]), ptvState: "ok" });
+    const a = byLabel("Stop 2720");
+    const w = a.querySelector(".tag-warn");
+    expect(w?.classList.contains("info")).toBe(true);
+    expect(w?.querySelector("use")?.getAttribute("href")).toBe("/icons.svg#warn");
+    expect(a.getAttribute("aria-label")?.endsWith(", disruption")).toBe(true);
+    expect(byLabel("Stop 3000").querySelector(".tag-warn")).toBeNull();
+    layer.setCardContext({ departures: L("d", [dep(2720, 96)]), disruptions: L("x", []), ptvState: "ok" });
+    expect(a.querySelector(".tag-warn")).toBeNull();
+    expect(a.getAttribute("aria-label")?.endsWith("disruption")).toBe(false);
+  });
+  it("service-stopping gets the stop class and spoken suffix; cameras never get a badge", () => {
+    const { layer, byLabel, added } = setup();
+    layer.setCardContext({ disruptions: L("x", [dis(3, { stop_ids: [2720] })]), ptvState: "ok" });
+    const a = byLabel("Stop 2720");
+    expect(a.querySelector(".tag-warn")?.classList.contains("stop")).toBe(true);
+    expect(a.getAttribute("aria-label")?.endsWith(", service stopped")).toBe(true);
+    const cam = added.find((e) => !e.classList.contains("stop"))!;
+    expect(cam.querySelector(".tag-warn")).toBeNull();
+  });
+});

@@ -110,12 +110,29 @@ function row(cls: string, text: string): HTMLElement {
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
+function warnGlyph(warn: 1 | 3): SVGElement {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("class", `dep-warn ${warn === 3 ? "stop" : "info"}`);
+  svg.setAttribute("aria-hidden", "true");
+  const use = document.createElementNS(SVG_NS, "use");
+  use.setAttribute("href", "/icons.svg#warn");
+  svg.appendChild(use);
+  return svg;
+}
+
 function depLine(line: CardLine, targets: WeakMap<HTMLElement, number>): HTMLElement {
   const el = document.createElement("div");
   el.className = ["card-dep", ...line.cls].join(" ");
   if (line.text !== undefined && line.countTargetMs === undefined && line.countText === undefined) {
     el.classList.add("dep-text");
-    el.textContent = line.text;
+    if (line.warn) {
+      const t = document.createElement("span");
+      t.className = "dep-text-body";
+      t.textContent = line.text;
+      el.append(warnGlyph(line.warn), t);
+    } else {
+      el.textContent = line.text;
+    }
     return el;
   }
   const count = document.createElement("span");
@@ -127,13 +144,7 @@ function depLine(line: CardLine, targets: WeakMap<HTMLElement, number>): HTMLEle
   if (line.countText !== undefined) count.textContent = line.countText;
   el.appendChild(count);
   if (line.warn) {
-    const svg = document.createElementNS(SVG_NS, "svg");
-    svg.setAttribute("class", `dep-warn ${line.warn === 3 ? "stop" : "info"}`);
-    svg.setAttribute("aria-hidden", "true");
-    const use = document.createElementNS(SVG_NS, "use");
-    use.setAttribute("href", "/icons.svg#warn");
-    svg.appendChild(use);
-    el.appendChild(svg);
+    el.appendChild(warnGlyph(line.warn));
   }
   if (line.chip) {
     const chip = document.createElement("span");

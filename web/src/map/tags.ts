@@ -4,7 +4,7 @@ import type { Item } from "../types";
 import type { Card } from "./card";
 import { cameraCardContent, fmtDistance, spokenDistance } from "./camera-card";
 import { modeName, modeWord, shortStopName, walkMinText, walkSecondsFor } from "../transit";
-import { stopCardContent, type TransitCardContext } from "./transit-card";
+import { stopCardContent, stopDisruptions, type TransitCardContext } from "./transit-card";
 import type { CardContent } from "./card";
 
 export const MAX_FULL = 20;
@@ -393,7 +393,7 @@ export class TagLayer {
         const meta = stopMeta(c.dist, walkS);
         if (e.metaEl.textContent !== meta) e.metaEl.textContent = meta;
       }
-      e.el.setAttribute("aria-label", desc.spoken(l.item, c.dist, walkS));
+      this.applyBadge(e);
     }
     for (const [id, e] of this.entries) {
       if (keep.has(id)) continue;
@@ -401,6 +401,39 @@ export class TagLayer {
       e.marker.remove();
       this.entries.delete(id);
     }
+  }
+
+  /** Warning badge and aria suffix for a stop tag from the card context disruptions (D-16, D-17). */
+  private applyBadge(e: Entry): void {
+    const desc = descFor(e.item);
+    let label = desc.spoken(e.item, e.dist, e.walkS);
+    let warn: 0 | 1 | 3 = 0;
+    if (e.item.layer === "transit_stops") {
+      const list = stopDisruptions(e.item, this.cardCtx);
+      if (list.length > 0) warn = list.some((x) => x.severity === 3) ? 3 : 1;
+    }
+    const icon = e.el.querySelector<HTMLElement>(".tag-icon");
+    const cur = e.el.querySelector<HTMLElement>(".tag-warn");
+    if (warn === 0) {
+      cur?.remove();
+    } else {
+      label += warn === 3 ? ", service stopped" : ", disruption";
+      const cls = `tag-warn ${warn === 3 ? "stop" : "info"}`;
+      if (cur) {
+        cur.className = cls;
+      } else if (icon) {
+        const badge = document.createElement("span");
+        badge.className = cls;
+        const svg = document.createElementNS(NS, "svg");
+        svg.setAttribute("aria-hidden", "true");
+        const use = document.createElementNS(NS, "use");
+        use.setAttribute("href", "/icons.svg#warn");
+        svg.appendChild(use);
+        badge.appendChild(svg);
+        icon.appendChild(badge);
+      }
+    }
+    e.el.setAttribute("aria-label", label);
   }
 
   private markGroup(el: HTMLElement): void {
@@ -446,7 +479,11 @@ export class TagLayer {
   }
 
   setCardContext(ctx: TransitCardContext | null): void {
+    const prev = this.cardCtx;
     this.cardCtx = ctx;
+    if (prev?.disruptions !== ctx?.disruptions || prev?.departures !== ctx?.departures) {
+      for (const e of this.entries.values()) if (e.item.layer === "transit_stops") this.applyBadge(e);
+    }
     const id = this.selectedId;
     if (id === null || !this.deps.card.isOpen()) return;
     const e = this.entries.get(id);
