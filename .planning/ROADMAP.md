@@ -147,7 +147,7 @@ Plans:
   3. Vehicles approaching the nearest stops are visible on the map
   4. Current disruptions affecting nearby routes are listed
 
-**Plans:** 18/20 plans executed
+**Plans:** 19/20 plans executed
 
 Plans:
 **Wave 1**
@@ -185,7 +185,7 @@ Plans:
 
 **Wave 6**
 
-- [ ] 03-19-PLAN.md — Ship: local gates, David's "push", deploy to CT 110, first stop build, verify
+- [x] 03-19-PLAN.md — Ship: local gates, David's "push", deploy to CT 110, first stop build, verify
 
 **Wave 7**
 
@@ -264,7 +264,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation and Flat HUD Slice | 11/11 | Complete    | 2026-11-06 |
 | 2. 3D Map, Hero and Surveillance | 18/18 | Complete    | 2026-11-11 |
-| 3. Transit | 18/20 | In Progress|  |
+| 3. Transit | 19/20 | In Progress|  |
 | 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
 | 5. Hazards, Sky and Bay | 0/0 | Not started | - |
 | 6. Context and Coverage | 0/0 | Not started | - |
