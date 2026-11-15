@@ -119,3 +119,66 @@ describe("depLines", () => {
     }
   });
 });
+
+import { MAX_CARD_ALERTS, stopDisruptions } from "./transit-card";
+
+const dis = (id: number, o: Record<string, unknown> = {}, top: Record<string, unknown> = {}): any => ({
+  id: `dis:${id}`, layer: "transit_disruptions", group: "g", name: `Name ${id}`, verb: "", target_ts: NOW / 1000 + 3600,
+  kind: "transit", severity: 0, geom: null, fetched_at: NOW / 1000, stale_after_s: 300, computed: false,
+  detail: { disruption_id: id, title: `Title ${id}`, route_ids: [96], stop_ids: [], service_stopped: false, ...o },
+  ...top,
+});
+const dlayer = (items: any[]): any => ({ id: "transit_disruptions", status: "fresh", rev: 1, as_of: 0, attribution: "", items });
+const actx = (deps: any[], diss: any[] | null): any => ({
+  departures: layer(deps), ...(diss ? { disruptions: dlayer(diss) } : {}), ptvState: "ok",
+});
+const alertSec = (c: any): any => (c.sections ?? []).find((s: any) => s.cls === "card-alerts");
+
+describe("alerts and line warnings (D-16, D-17)", () => {
+  it("warns on matching route lines: 1 info, 3 service-stopping", () => {
+    const s1 = depLines(item, actx([dep({ route_id: 96 }, at(300))], [dis(1)]), NOW);
+    expect(s1[0].lines[0].warn).toBe(1);
+    const s3 = depLines(item, actx([dep({ route_id: 96 }, at(300))], [dis(1, {}, { severity: 3 })]), NOW);
+    expect(s3[0].lines[0].warn).toBe(3);
+    const other = depLines(item, actx([dep({ route_id: 86 }, at(300))], [dis(1)]), NOW);
+    expect(other[0].lines[0].warn).toBeUndefined();
+  });
+  it("warns via the line's disruption_ids", () => {
+    const s = depLines(item, actx([dep({ route_id: 5, disruption_ids: [9] }, at(300))], [dis(9, { route_ids: [] })]), NOW);
+    expect(s[0].lines[0].warn).toBe(1);
+  });
+  it("lists alerts after the groups, severity 3 first, with ends in", () => {
+    const c = stopCardContent(item, 5, 5, actx([dep({ route_id: 96 }, at(300))], [dis(1), dis(2, {}, { severity: 3 })]), NOW);
+    const a = alertSec(c);
+    expect(a.lines[0].cls).toEqual(["card-alert", "stop"]);
+    expect(a.lines[0].text).toBe("Title 2");
+    expect(a.lines[0].warn).toBe(3);
+    expect(a.lines[1].cls).toContain("card-alert-end");
+    expect(a.lines[1].text).toBe("ends in");
+    expect(a.lines[1].countTargetMs).toBe(NOW + 3_600_000);
+    expect(a.lines[2].cls).toEqual(["card-alert"]);
+    expect(c.sections![c.sections!.length - 1]).toBe(a);
+  });
+  it("omits the end line when to_ts is unknown and trims to 120 chars", () => {
+    const c = stopCardContent(item, 5, 5, actx([dep({ route_id: 96 }, at(300))], [dis(1, { title: "x".repeat(300) }, { target_ts: null })]), NOW);
+    const a = alertSec(c);
+    expect(a.lines).toHaveLength(1);
+    expect(a.lines[0].text).toHaveLength(120);
+  });
+  it("caps at 2 alerts with a more line", () => {
+    expect(MAX_CARD_ALERTS).toBe(2);
+    const c = stopCardContent(item, 5, 5, actx([dep({ route_id: 96 }, at(300))], [dis(1), dis(2), dis(3), dis(4)]), NOW);
+    const a = alertSec(c);
+    expect(a.lines.filter((l: any) => l.cls[0] === "card-alert")).toHaveLength(2);
+    expect(a.lines[a.lines.length - 1].text).toBe("+2 more · see disruptions");
+  });
+  it("matches by stop id and has no section without a layer or matches", () => {
+    expect(stopDisruptions(item, actx([], [dis(1, { route_ids: [], stop_ids: [2720] })]))).toHaveLength(1);
+    expect(alertSec(stopCardContent(item, 5, 5, actx([dep({ route_id: 96 }, at(300))], null), NOW))).toBeUndefined();
+    expect(alertSec(stopCardContent(item, 5, 5, actx([dep({ route_id: 86 }, at(300))], [dis(1)]), NOW))).toBeUndefined();
+  });
+  it("never puts links in the card", () => {
+    const c = stopCardContent(item, 5, 5, actx([dep({ route_id: 96 }, at(300))], [dis(1, { title: "Details" })]), NOW);
+    expect(JSON.stringify(c)).not.toMatch(/https?:|www\./);
+  });
+});
