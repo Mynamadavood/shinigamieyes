@@ -147,7 +147,7 @@ Plans:
   3. Vehicles approaching the nearest stops are visible on the map
   4. Current disruptions affecting nearby routes are listed
 
-**Plans:** 13/20 plans executed
+**Plans:** 16/20 plans executed
 
 Plans:
 **Wave 1**
@@ -174,9 +174,9 @@ Plans:
 
 **Wave 4**
 
-- [ ] 03-14-PLAN.md — transit_disruptions: severity classifier, global fetch, per-client route/stop filter
-- [ ] 03-15-PLAN.md — Web: disruption readout + sheet, PTV attribution, end-row taps
-- [ ] 03-16-PLAN.md — Web: stop card alerts + stop tag warning badge
+- [x] 03-14-PLAN.md — transit_disruptions: severity classifier, global fetch, per-client route/stop filter
+- [x] 03-15-PLAN.md — Web: disruption readout + sheet, PTV attribution, end-row taps
+- [x] 03-16-PLAN.md — Web: stop card alerts + stop tag warning badge
 
 **Wave 5**
 
@@ -264,7 +264,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation and Flat HUD Slice | 11/11 | Complete    | 2026-11-06 |
 | 2. 3D Map, Hero and Surveillance | 18/18 | Complete    | 2026-11-11 |
-| 3. Transit | 13/20 | In Progress|  |
+| 3. Transit | 16/20 | In Progress|  |
 | 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
 | 5. Hazards, Sky and Bay | 0/0 | Not started | - |
 | 6. Context and Coverage | 0/0 | Not started | - |
