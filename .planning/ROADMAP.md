@@ -147,7 +147,7 @@ Plans:
   3. Vehicles approaching the nearest stops are visible on the map
   4. Current disruptions affecting nearby routes are listed
 
-**Plans:** 16/20 plans executed
+**Plans:** 18/20 plans executed
 
 Plans:
 **Wave 1**
@@ -180,8 +180,8 @@ Plans:
 
 **Wave 5**
 
-- [ ] 03-17-PLAN.md — transit_vehicles: VehicleSource seam, real bus positions, estimated trams, selection
-- [ ] 03-18-PLAN.md — Web: moving vehicle markers (glide, fade, EST) + vehicle card
+- [x] 03-17-PLAN.md — transit_vehicles: VehicleSource seam, real bus positions, estimated trams, selection
+- [x] 03-18-PLAN.md — Web: moving vehicle markers (glide, fade, EST) + vehicle card
 
 **Wave 6**
 
@@ -264,7 +264,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation and Flat HUD Slice | 11/11 | Complete    | 2026-11-06 |
 | 2. 3D Map, Hero and Surveillance | 18/18 | Complete    | 2026-11-11 |
-| 3. Transit | 16/20 | In Progress|  |
+| 3. Transit | 18/20 | In Progress|  |
 | 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
 | 5. Hazards, Sky and Bay | 0/0 | Not started | - |
 | 6. Context and Coverage | 0/0 | Not started | - |
