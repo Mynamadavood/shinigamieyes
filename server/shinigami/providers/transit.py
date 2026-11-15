@@ -10,6 +10,16 @@ from shinigami.transit.service import ATTRIBUTION, TransitService
 from shinigami.transit.severity import classify_disruption
 from shinigami.transit.sources import direction_group
 from shinigami.transit.store import LIMITS_M, MODES
+from shinigami.transit.vehicles import (
+    ETA_HORIZON_S,
+    PATTERN_RUNS_PER_CYCLE,
+    PATTERN_TTL_S,
+    VEHICLE_ROUTE_TYPES,
+    PtvInterpolatedSource,
+    PtvRunPositionSource,
+    run_key,
+    select_vehicles,
+)
 from shinigami.transit.watch import StopRef
 
 log = logging.getLogger("shinigami.transit")
@@ -286,6 +296,9 @@ class TransitDeparturesProvider(Provider):
             raise last
         svc.ptv_state = "ok"
         svc.last_live_ts = now
+        # Vehicles are derived from these departures, so tell open streams to re-read them.
+        if ctx.bus is not None:
+            ctx.bus.publish({"type": "touch", "provider": "transit_vehicles"})
 
 
 class TransitDisruptionsProvider(Provider):
@@ -428,3 +441,163 @@ class TransitDisruptionsProvider(Provider):
             ]
         }  # fmt: skip
         ctx.store.put_layer("transit", "disruptions", payload, now)
+
+
+VEH_STALE_AFTER_S = 120
+PATTERN_ETA_WINDOW_S = 1200
+
+
+class TransitVehiclesProvider(Provider):
+    meta = ProviderMeta(
+        id="transit_vehicles",
+        tier="polled",
+        ttl_s=30,
+        stale_after_s=VEH_STALE_AFTER_S,
+        attribution=ATTRIBUTION,
+        interval_s=30,
+        exact_location_only=True,
+    )
+
+    def __init__(self, service: TransitService) -> None:
+        self.service = service
+        self.sources = (PtvRunPositionSource(), PtvInterpolatedSource())
+
+    def _layer(self, now: float, status, as_of, items: list[Item]) -> Layer:
+        return Layer(
+            id="transit_vehicles",
+            status=status,
+            rev=int(as_of if as_of is not None else now),
+            as_of=as_of,
+            attribution=ATTRIBUTION,
+            items=items,
+        )
+
+    def query(self, ctx: ProviderContext, lat: float, lon: float, now: float) -> Layer:
+        # Cache reads only: PTV is never called from here (PLAT-04).
+        svc = self.service
+        if svc.client is None:
+            return self._layer(now, "pending", None, [])
+        near = svc.nearby(lat, lon)
+        stops = list(near.stops)
+        if not stops:
+            return self._layer(now, "fresh", now, [])
+        cached = {s.id: svc.cached_departures(ctx, s.id) for s in stops}
+        have = [c for c in cached.values() if c is not None]
+        if not have:
+            return self._layer(now, "pending", None, [])
+        oldest = min(f for _, f in have)
+
+        def cache(k):
+            if isinstance(k, int):
+                c = cached.get(k)
+            else:
+                c = ctx.store.get_layer("transit", f"pat:{k}") if ctx.store is not None else None
+            return c[0] if c is not None else None
+
+        cands = []
+        for src in self.sources:
+            cands.extend(src.vehicles(stops, cache, now))
+        items: list[Item] = []
+        for v in select_vehicles(cands, stops, now):
+            word = _MODE_NAME.get(v.route_type, "Bus")
+            num = f" {v.route_number}" if v.route_number else ""
+            name = f"{word}{num} to {v.destination}" if v.destination else f"{word}{num}"
+            items.append(
+                Item(
+                    id=f"veh:{v.key}",
+                    layer="transit_vehicles",
+                    group=word.lower(),
+                    name=name,
+                    verb="arrives",
+                    target_ts=v.eta_ts,
+                    kind="transit_vehicle",
+                    severity=0,
+                    detail={
+                        "route_number": v.route_number,
+                        "route_type": v.route_type,
+                        "mode": word.lower(),
+                        "destination": v.destination,
+                        "heading_stop_id": v.heading_stop_id,
+                        "heading_stop_name": v.heading_stop_name,
+                        "eta_ts": v.eta_ts,
+                        "eta_live": v.eta_live,
+                        "pos_ts": v.pos_ts,
+                        "pos_src": v.pos_src,
+                    },
+                    geom={"type": "Point", "coordinates": [v.lon, v.lat]},
+                    fetched_at=oldest,
+                    stale_after_s=VEH_STALE_AFTER_S,
+                )
+            )
+        status = "stale" if now - oldest > VEH_STALE_AFTER_S else "fresh"
+        return self._layer(now, status, oldest, items)
+
+    def _pattern_targets(
+        self, ctx: ProviderContext, refs, now: float
+    ) -> list[tuple[str, int, str]]:
+        """Soonest tram/bus run per route-direction with no real position and no fresh pattern.
+
+        At most PATTERN_RUNS_PER_CYCLE; returns (run_ref, route_type, key).
+        """
+        svc = self.service
+        best: dict[tuple, tuple[float, str, int]] = {}
+        for ref in refs:
+            c = svc.cached_departures(ctx, ref.stop_id)
+            if c is None:
+                continue
+            positions = c[0].get("positions") or {}
+            for d in c[0].get("departures") or []:
+                if d.get("cancelled") or d.get("route_type") not in VEHICLE_ROUTE_TYPES:
+                    continue
+                if positions.get(d["run_ref"]):
+                    continue
+                eta = d["estimated_ts"] if d["estimated_ts"] is not None else d["scheduled_ts"]
+                if not now <= eta <= now + min(PATTERN_ETA_WINDOW_S, ETA_HORIZON_S):
+                    continue
+                gk = (d["route_id"], d["direction_id"])
+                if gk not in best or eta < best[gk][0]:
+                    best[gk] = (eta, d["run_ref"], d["route_type"])
+        out: list[tuple[str, int, str]] = []
+        seen: set[str] = set()
+        for _eta, run_ref, rt in sorted(best.values(), key=lambda v: v[0]):
+            key = run_key(run_ref)
+            if key in seen:
+                continue
+            seen.add(key)
+            prev = ctx.store.get_layer("transit", f"pat:{key}")
+            if prev is not None and now - prev[1] < PATTERN_TTL_S:
+                continue
+            out.append((run_ref, rt, key))
+            if len(out) >= PATTERN_RUNS_PER_CYCLE:
+                break
+        return out
+
+    async def refresh(self, ctx: ProviderContext) -> None:
+        svc = self.service
+        if svc.client is None:
+            return
+        now = ctx.clock()
+        refs = svc.watch.active(now)
+        if not refs:
+            return
+        attempted = 0
+        ok = 0
+        last: Exception | None = None
+        for run_ref, rt, key in self._pattern_targets(ctx, refs, now):
+            attempted += 1
+            try:
+                pattern = await svc.client.pattern(run_ref, rt)
+            except Exception as exc:  # noqa: BLE001
+                last = exc
+                log.warning(
+                    "refresh failed provider=transit_vehicles err=%s kind=%s",
+                    type(exc).__name__,
+                    getattr(exc, "kind", "unknown"),
+                )
+                continue
+            ctx.store.put_layer(
+                "transit", f"pat:{key}", {"stops": [dataclasses.asdict(p) for p in pattern]}, now
+            )
+            ok += 1
+        if attempted and ok == 0 and last is not None:
+            raise last

@@ -21,6 +21,7 @@ from shinigami.providers.transit import (
     TransitDeparturesProvider,
     TransitDisruptionsProvider,
     TransitStopsProvider,
+    TransitVehiclesProvider,
 )
 from shinigami.providers.uv_window import UvWindowProvider
 from shinigami.runtime import EventBus, Runtime
@@ -62,6 +63,7 @@ def create_app(settings: Settings | None = None, start_runtime: bool = True) -> 
         TransitStopsProvider(transit),
         TransitDeparturesProvider(transit),
         TransitDisruptionsProvider(transit),
+        TransitVehiclesProvider(transit),
     ]
 
     async def _reload_stores() -> None:
