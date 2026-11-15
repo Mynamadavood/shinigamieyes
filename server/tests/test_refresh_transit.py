@@ -42,7 +42,7 @@ def test_main_writes_counts_only(tmp_path, capsys):
 
 def test_refuses_to_shrink(tmp_path, monkeypatch, capsys):
     out = tmp_path / "transit_stops.json"
-    fake = lambda n: (lambda p: ([{"id": i} for i in range(n)], {"train": 0, "tram": 0, "bus": n, "skipped": 0}))  # noqa: E731
+    fake = lambda n: (lambda p: ([{"id": i} for i in range(n)], {"train": 0, "tram": 0, "bus": n, "skipped": 0}))
     monkeypatch.setattr(rt, "build_stops", fake(10))
     assert main(["--input", "x", "--output", str(out)]) == 0
     before = out.read_text()
