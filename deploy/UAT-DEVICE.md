@@ -93,3 +93,17 @@ Gap re-check (David, iPhone, 2026-11-11, after 6dc96a0): pass on all four. Saved
 Device-check fix during the re-check: saved places with no nearby CCTV now frame the road cameras (6dc96a0).
 
 Go / No-go: GO (17 pass, 2 skipped with cover; 2 provisional decisions flipped and shipped in 02-15/02-16; layout notes fixed in 02-17). Sign-off: David, 2026-11-11
+
+## Gate 4: Phase 3 transit (plans 03-19, 03-20)
+
+Automated pre-check (2026-11-15, after deploy of 93d55ae):
+
+- Local verify (in CT 110): `{"mode":"local","pass":30,"fail":0,"skip":1,"p95_ms":13}`
+- Remote verify (dev PC over tailnet): `{"mode":"remote","pass":26,"fail":0,"skip":1,"p95_ms":274}`
+- PASS on `transit_layers`, `transit_loaded`, `transit_no_secrets`, `place_no_cameras`, `place_cameras`. The one SKIP is `transit_ptv` (PTV key not set).
+- First stop build: `train=226 tram=1088 bus=16194 skipped=0`. Health reports 17480 stops loaded, `ptv: no_key`.
+- Deploy note: the first deploy run used the previous copy of `deploy.sh` (it updates itself during the pull), so the transit units were not installed and `transit_loaded` failed. A second run installed the timer, built the stop file and passed. A deploy that changes `deploy.sh` needs to be run twice.
+
+Device check: pending (David, iPhone). Live PTV behaviour: unverified until the key is added (plan 03-20).
+
+Go / No-go: PENDING
