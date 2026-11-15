@@ -120,7 +120,7 @@ async def test_profile_with_transit_makes_no_http_call(settings, transit_store_f
     assert r.status_code == 200
     assert route.call_count == 0
     assert r.json()["layers"]["transit_departures"]["status"] == "pending"
-    assert rt.nudges == ["transit_departures"]
+    assert rt.nudges == ["transit_departures", "transit_disruptions"]
 
 
 async def test_home_place_never_watches_or_nudges(settings, transit_store_file):

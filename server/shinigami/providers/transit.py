@@ -7,6 +7,7 @@ from shinigami.providers.base import Provider, ProviderContext, ProviderMeta
 from shinigami.schema import Item, Layer
 from shinigami.transit.model import Departure
 from shinigami.transit.service import ATTRIBUTION, TransitService
+from shinigami.transit.severity import classify_disruption
 from shinigami.transit.sources import direction_group
 from shinigami.transit.store import LIMITS_M, MODES
 from shinigami.transit.watch import StopRef
@@ -16,6 +17,9 @@ log = logging.getLogger("shinigami.transit")
 STALE_AFTER_S = 120
 MAX_ITEMS_PER_STOP = 30
 PAST_GRACE_S = 60
+MAX_DISRUPTIONS = 6
+PLANNED_WINDOW_S = 86_400
+DIS_STALE_AFTER_S = 600
 _MODE_NAME = {0: "Train", 1: "Tram", 2: "Bus", 4: "Bus"}
 
 NONE_NAMES = {
@@ -167,6 +171,7 @@ class TransitDeparturesProvider(Provider):
             return self._layer(now, "pending", None, [])
         cached = {s.id: svc.cached_departures(ctx, s.id) for s in near.stops}
         new_ids = {r.stop_id for r in new}
+        svc.last_new_refs = set(new_ids)
         if any(cached[i] is None for i in new_ids if i in cached) and ctx.runtime is not None:
             try:
                 ctx.runtime.nudge("transit_departures")
@@ -281,3 +286,145 @@ class TransitDeparturesProvider(Provider):
             raise last
         svc.ptv_state = "ok"
         svc.last_live_ts = now
+
+
+class TransitDisruptionsProvider(Provider):
+    meta = ProviderMeta(
+        id="transit_disruptions",
+        tier="polled",
+        ttl_s=300,
+        stale_after_s=DIS_STALE_AFTER_S,
+        attribution=ATTRIBUTION,
+        interval_s=300,
+        exact_location_only=True,
+    )
+
+    def __init__(self, service: TransitService) -> None:
+        self.service = service
+
+    def _layer(self, now: float, status, as_of, items: list[Item]) -> Layer:
+        return Layer(
+            id="transit_disruptions",
+            status=status,
+            rev=int(as_of if as_of is not None else now),
+            as_of=as_of,
+            attribution=ATTRIBUTION,
+            items=items,
+        )
+
+    def query(self, ctx: ProviderContext, lat: float, lon: float, now: float) -> Layer:
+        # Cache reads only: PTV is never called from here (PLAT-04).
+        svc = self.service
+        near = svc.nearby(lat, lon)
+        if svc.client is None:
+            return self._layer(now, "pending", None, [])
+        stop_ids = {s.id for s in near.stops}
+        route_ids: set[int] = set()
+        have_deps = False
+        for sid in stop_ids:
+            c = svc.cached_departures(ctx, sid)
+            if c is None:
+                continue
+            have_deps = True
+            for d in c[0].get("departures") or []:
+                rid = d.get("route_id")
+                if isinstance(rid, int):
+                    route_ids.add(rid)
+        cache = svc.cached_disruptions(ctx)
+        if ctx.runtime is not None and (
+            (stop_ids & svc.last_new_refs) or (cache is None and have_deps)
+        ):
+            try:
+                ctx.runtime.nudge("transit_disruptions")
+            except Exception as exc:  # noqa: BLE001
+                log.warning("nudge failed provider=transit_disruptions err=%s", type(exc).__name__)
+        if not stop_ids:
+            return self._layer(now, "fresh", now, [])
+        if cache is None or not have_deps:
+            return self._layer(now, "pending", None, [])
+        payload, fetched_at = cache
+        rows = []
+        for d in payload.get("disruptions") or []:
+            if not (route_ids & set(d["route_ids"]) or stop_ids & set(d["stop_ids"])):
+                continue
+            to_ts, from_ts = d.get("to_ts"), d.get("from_ts")
+            if to_ts is not None and to_ts < now:
+                continue
+            if d.get("status") == "Planned" and (
+                from_ts is None or from_ts > now + PLANNED_WINDOW_S
+            ):
+                continue
+            sev = classify_disruption(d.get("dtype"), d.get("title"), d.get("description"))
+            rows.append((sev, d))
+        rows.sort(
+            key=lambda r: (
+                -r[0],
+                r[1]["to_ts"] if r[1].get("to_ts") is not None else float("inf"),
+                -(r[1].get("updated_ts") or 0.0),
+            )
+        )
+        items: list[Item] = []
+        for sev, d in rows[:MAX_DISRUPTIONS]:
+            title = (d.get("title") or "")[:160]
+            items.append(
+                Item(
+                    id=f"dis:{d['id']}",
+                    layer="transit_disruptions",
+                    group="disruption",
+                    name=title,
+                    verb="ends",
+                    target_ts=d.get("to_ts"),
+                    kind="infrastructure",
+                    severity=sev,
+                    detail={
+                        "disruption_id": d["id"],
+                        "title": title,
+                        "description": (d.get("description") or "")[:400],
+                        "status": d.get("status"),
+                        "updated_ts": d.get("updated_ts"),
+                        "from_ts": d.get("from_ts"),
+                        "to_ts": d.get("to_ts"),
+                        "route_ids": list(d["route_ids"]),
+                        "route_labels": list(d["route_labels"]),
+                        "stop_ids": list(d["stop_ids"]),
+                        "stop_names": list(d["stop_names"]),
+                        "modes": list(d["modes"]),
+                        "service_stopped": sev == 3,
+                    },
+                    geom=None,
+                    fetched_at=fetched_at,
+                    stale_after_s=DIS_STALE_AFTER_S,
+                )
+            )
+        status = "stale" if now - fetched_at > DIS_STALE_AFTER_S else "fresh"
+        return self._layer(now, status, fetched_at, items)
+
+    async def refresh(self, ctx: ProviderContext) -> None:
+        svc = self.service
+        if svc.client is None:
+            return
+        now = ctx.clock()
+        if not svc.watch.active(now):
+            return
+        try:
+            found = await svc.client.disruptions()
+        except Exception as exc:
+            log.warning(
+                "refresh failed provider=transit_disruptions err=%s kind=%s",
+                type(exc).__name__,
+                getattr(exc, "kind", "unknown"),
+            )
+            raise
+        payload = {
+            "disruptions": [
+                {
+                    "id": d.id, "title": d.title, "description": d.description,
+                    "status": d.status, "dtype": d.dtype, "updated_ts": d.updated_ts,
+                    "from_ts": d.from_ts, "to_ts": d.to_ts, "route_ids": list(d.route_ids),
+                    "route_labels": list(d.route_labels), "stop_ids": list(d.stop_ids),
+                    "stop_names": list(d.stop_names), "modes": sorted(d.modes),
+                }
+                for d in found
+            ]
+        }  # fmt: skip
+        ctx.store.put_layer("transit", "disruptions", payload, now)

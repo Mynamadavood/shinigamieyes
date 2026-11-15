@@ -24,6 +24,7 @@ class TransitService:
         self.watch = WatchSet()
         self.client: PtvClient | None = None
         self.source: DepartureSource | None = None
+        self.last_new_refs: set[int] = set()  # stop ids newly watched by the last query
 
     @property
     def ptv_configured(self) -> bool:
@@ -44,6 +45,11 @@ class TransitService:
         if ctx.store is None:
             return None
         return ctx.store.get_layer("transit", f"dep:{stop_id}")
+
+    def cached_disruptions(self, ctx) -> tuple[dict, float] | None:
+        if ctx.store is None:
+            return None
+        return ctx.store.get_layer("transit", "disruptions")
 
     def nearby(self, lat: float, lon: float) -> Nearby:
         if not self.store.loaded:
