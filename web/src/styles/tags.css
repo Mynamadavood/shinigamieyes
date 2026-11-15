@@ -86,7 +86,8 @@
 
 /* selected: 4px bar under the icon box and chip */
 .map-tag.selected .tag-icon,
-.map-tag.selected .tag-label { box-shadow: 0 var(--s-xs) 0 0 var(--c-blue); }
+.map-tag.selected .tag-label,
+.map-tag.selected .veh-badge { box-shadow: 0 var(--s-xs) 0 0 var(--c-blue); }
 .map-tag.selected.near .tag-icon,
 .map-tag.selected.near .tag-label { box-shadow: 0 var(--s-xs) 0 0 var(--c-red); }
 
@@ -329,3 +330,38 @@ svg.leader.near rect { fill: var(--c-red); }
 .map-tag .tag-icon .tag-warn svg { width: 16px; height: 16px; fill: currentColor; stroke: none; }
 .map-tag .tag-icon .tag-warn.info { color: var(--c-text); }
 .map-tag .tag-icon .tag-warn.stop { color: var(--c-red); }
+
+/* vehicle markers (TRAN-03, D-11, D-12, D-20): blue and white only, never red */
+.map-tag.vehicle { --tag-icon: var(--tag-veh); z-index: 2; transition: opacity 400ms linear; }
+.map-tag.vehicle .tag-icon svg { width: 16px; height: 16px; }
+.map-tag.vehicle .tag-tick,
+.map-tag.vehicle .tag-label { display: none; }
+.veh-badge {
+  position: absolute;
+  left: calc(50% + var(--tag-veh) / 2 - var(--bw));
+  top: calc(50% - var(--tag-veh) / 2);
+  box-sizing: border-box;
+  height: var(--tag-veh);
+  min-width: var(--tag-veh);
+  padding: 0 var(--s-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-panel);
+  border: var(--bw) solid var(--c-blue);
+  color: var(--c-text);
+  font-family: var(--f-mono);
+  font-size: var(--fs-label);
+  line-height: var(--lh-label);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.map-tag.vehicle.est .tag-icon,
+.map-tag.vehicle.est .veh-badge { border-style: dashed; }
+.map-tag.vehicle.est .tag-icon { color: var(--c-dim); }
+.map-tag.vehicle.est .veh-badge { font-weight: 400; }
+.map-tag.vehicle.fading { opacity: var(--o-fade); }
+@media (prefers-reduced-motion: reduce) {
+  .map-tag.vehicle { transition: none; }
+}

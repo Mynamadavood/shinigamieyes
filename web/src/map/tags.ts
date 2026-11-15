@@ -1,10 +1,12 @@
 import { nowMs } from "../clock";
+import { fmtCountdown } from "../format";
+import { startTicker } from "../ticker";
 import { haversineM } from "../location";
 import type { Item } from "../types";
 import type { Card } from "./card";
 import { cameraCardContent, fmtDistance, spokenDistance } from "./camera-card";
 import { modeName, modeWord, shortStopName, walkMinText, walkSecondsFor } from "../transit";
-import { stopCardContent, stopDisruptions, type TransitCardContext } from "./transit-card";
+import { stopCardContent, stopDisruptions, vehicleCardContent, type TransitCardContext } from "./transit-card";
 import type { CardContent } from "./card";
 
 export const MAX_FULL = 20;
@@ -16,6 +18,15 @@ export const EXPAND_ZOOM = 17.5;
 export const BASE_FULL = 8;
 export const CLUSTER_PX = 96;
 export const CLUSTER_MAX = 6;
+/** vehicle markers rendered at most (D-13); the rest are dropped, soonest arrival kept */
+export const MAX_VEHICLES = 8;
+/** linear glide between two vehicle positions */
+export const GLIDE_MS = 1000;
+/** a vehicle move longer than this is a data correction and jumps */
+export const JUMP_M = 500;
+/** a position older than this fades, and one older than REMOVE_AFTER_S is removed */
+export const FADE_AFTER_S = 120;
+export const REMOVE_AFTER_S = 180;
 
 /** CSS max-width of the label chip, used when the real width is not measurable */
 export const LABEL_MAX_W = 144;
@@ -85,8 +96,16 @@ export function assignTags(
     full.add(c.id);
     boxes.push(c);
   }
+  // vehicles are labelled (their badge is the label), exempt from cap and overlap, at most MAX_VEHICLES
+  const vehicles = new Set<string>();
   for (const c of ranked) {
-    if (c.prio === 0) continue;
+    if (c.prio !== 1 || vehicles.size >= MAX_VEHICLES) continue;
+    vehicles.add(c.id);
+    full.add(c.id);
+    boxes.push(c);
+  }
+  for (const c of ranked) {
+    if (c.prio === 0 || c.prio === 1) continue;
     // within-30 m red cameras (up to RED_CAP) keep their label even when the cap is used up
     if (full.size >= cap && !red.has(c.id)) continue;
     // a lower-ranked label that would overlap a kept one is demoted to a compact icon
@@ -107,6 +126,7 @@ export function assignTags(
   const kept: TagCand[] = [];
   const keptCompact: TagCand[] = [];
   for (const c of ranked) {
+    if (c.prio === 1 && !vehicles.has(c.id)) continue;
     if (full.has(c.id)) {
       kept.push(c);
       continue;
@@ -139,6 +159,7 @@ export interface TagLayerDeps {
   card: Card;
   createMarker(el: HTMLElement): MarkerLike;
   viewportWidth?(): number;
+  reducedMotion?: boolean;
 }
 
 interface Entry {
@@ -150,6 +171,15 @@ interface Entry {
   walkS: number;
   added: boolean;
   metaEl: HTMLElement | null;
+  /** vehicle: badge element and the position shown while a glide runs */
+  badgeEl?: HTMLElement | null;
+  shown?: [number, number];
+}
+
+interface Glide {
+  from: [number, number];
+  to: [number, number];
+  start: number;
 }
 
 interface KindDesc {
@@ -189,8 +219,51 @@ const STOP_DESC: KindDesc = {
   cardContent: (item, dist, walkS, ctx, nowMs) => stopCardContent(item, dist, walkS, ctx, nowMs),
 };
 
+function vehMode(item: Item): "tram" | "bus" {
+  const m = item.detail?.["mode"];
+  return m === "bus" ? "bus" : "tram";
+}
+
+function vehRoute(item: Item): string {
+  const r = item.detail?.["route_number"];
+  return typeof r === "string" || typeof r === "number" ? String(r).trim().slice(0, 6) : "";
+}
+
+function isEst(item: Item): boolean {
+  return item.detail?.["pos_src"] === "est";
+}
+
+function vehEta(item: Item): number {
+  const e = item.detail?.["eta_ts"];
+  return typeof e === "number" ? e : item.target_ts ?? Infinity;
+}
+
+function vehPosTs(item: Item): number | null {
+  const t = item.detail?.["pos_ts"];
+  return typeof t === "number" && Number.isFinite(t) ? t : null;
+}
+
+function vehSpoken(item: Item, nowMs: number): string {
+  const d = item.detail ?? {};
+  const dest = typeof d["destination"] === "string" ? d["destination"].trim() : "";
+  const stop = shortStopName(typeof d["heading_stop_name"] === "string" ? d["heading_stop_name"] : "");
+  const eta = vehEta(item);
+  const left = Number.isFinite(eta) ? fmtCountdown(eta - nowMs / 1000) : "";
+  let t = `${modeName(vehMode(item))} ${vehRoute(item)}${dest ? ` to ${dest}` : ""}`;
+  if (stop && left) t += `, arrives at ${stop} in ${left}`;
+  if (isEst(item)) t += ", estimated position";
+  return t;
+}
+
+const VEHICLE_DESC: KindDesc = {
+  prio: 1,
+  icon: (item) => `veh-${vehMode(item)}` as TagIcon,
+  spoken: (item) => vehSpoken(item, nowMs()),
+  cardContent: (item, _dist, _walkS, _ctx, now) => vehicleCardContent(item, now),
+};
+
 function descFor(item: Item): KindDesc {
-  return item.layer === "transit_stops" ? STOP_DESC : CAMERA_DESC;
+  return item.layer === "transit_stops" ? STOP_DESC : item.layer === "transit_vehicles" ? VEHICLE_DESC : CAMERA_DESC;
 }
 
 function stopMeta(dist: number, walkS: number): string {
@@ -234,7 +307,11 @@ export class TagLayer {
   private raf = 0;
   private groupMarked = false;
   private cardCtx: TransitCardContext | null = null;
+  private readonly glides = new Map<string, Glide>();
+  private glideRaf = 0;
+  private stopAgeing: (() => void) | null = null;
   private readonly metas = new WeakMap<HTMLElement, HTMLElement | null>();
+  private readonly badges = new WeakMap<HTMLElement, HTMLElement>();
 
   constructor(private readonly deps: TagLayerDeps) {
     deps.map.on("moveend", () => {
@@ -287,6 +364,23 @@ export class TagLayer {
     use.setAttribute("href", `/icons.svg#${descFor(item).icon(item)}`);
     svg.appendChild(use);
     icon.appendChild(svg);
+    if (descFor(item).prio === 1) {
+      el.classList.add("vehicle");
+      const badge = document.createElement("div");
+      badge.className = "veh-badge";
+      el.append(icon, badge);
+      this.metas.set(el, null);
+      this.badges.set(el, badge);
+      const vid = item.id;
+      el.addEventListener("click", () => this.select(vid));
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          this.select(vid);
+        }
+      });
+      return el;
+    }
     const chip = document.createElement("div");
     chip.className = "tag-label";
     let metaEl: HTMLElement | null = null;
@@ -326,11 +420,23 @@ export class TagLayer {
     const byId = new Map<string, Located>();
     const cands: TagCand[] = [];
     const walks = new Map<string, number>();
+    const now = nowMs();
+    // vehicles: drop positions that are too old, keep the MAX_VEHICLES soonest arrivals
+    const liveVeh = this.located
+      .filter((l) => l.item.layer === "transit_vehicles" && !this.tooOld(l.item, now))
+      .sort((a, b) => vehEta(a.item) - vehEta(b.item))
+      .slice(0, MAX_VEHICLES);
+    const vehOk = new Set(liveVeh.map((l) => l.item.id));
     for (const l of this.located) {
+      const isVeh = l.item.layer === "transit_vehicles";
+      if (isVeh && !vehOk.has(l.item.id)) continue;
       byId.set(l.item.id, l);
       let dist: number;
       let walkS: number;
-      if (o === "server") {
+      if (isVeh) {
+        dist = o === "server" ? 0 : haversineM(o.lat, o.lon, l.lngLat[1], l.lngLat[0]);
+        walkS = 0;
+      } else if (o === "server") {
         dist = Number(l.item.detail?.["distance_m"]);
         if (!Number.isFinite(dist)) continue;
         const ws = Number(l.item.detail?.["walk_s"]);
@@ -373,10 +479,17 @@ export class TagLayer {
       e.dist = c.dist;
       e.walkS = walkS;
       const desc = descFor(l.item);
+      if (desc.prio === 1) this.syncVehicle(e, l.lngLat, now);
       if (!e.added) {
         e.marker.addTo(map as never);
         e.added = true;
         this.markGroup(e.el);
+      }
+      if (desc.prio === 1) {
+        e.el.classList.add("full");
+        e.el.classList.remove("compact", "near", "flip");
+        this.applyVehicleLook(e, now);
+        continue;
       }
       const isFull = full.has(c.id);
       e.el.classList.toggle("full", isFull);
@@ -397,10 +510,113 @@ export class TagLayer {
     }
     for (const [id, e] of this.entries) {
       if (keep.has(id)) continue;
-      if (id === this.selectedId) this.deps.card.close();
-      e.marker.remove();
-      this.entries.delete(id);
+      this.dropEntry(id, e);
     }
+    this.syncAgeing();
+  }
+
+  private tooOld(item: Item, now: number): boolean {
+    const t = vehPosTs(item);
+    return t !== null && now / 1000 - t >= REMOVE_AFTER_S;
+  }
+
+  private dropEntry(id: string, e: Entry): void {
+    if (id === this.selectedId) this.deps.card.close();
+    this.glides.delete(id);
+    e.marker.remove();
+    this.entries.delete(id);
+  }
+
+  /** Badge text, estimated class, fading class and aria-label of a vehicle marker. */
+  private applyVehicleLook(e: Entry, now: number): void {
+    const est = isEst(e.item);
+    const badge = e.badgeEl;
+    if (badge) {
+      const text = `${est ? "~" : ""}${vehRoute(e.item)}`;
+      if (badge.textContent !== text) badge.textContent = text;
+    }
+    e.el.classList.toggle("est", est);
+    const t = vehPosTs(e.item);
+    e.el.classList.toggle("fading", t !== null && now / 1000 - t > FADE_AFTER_S);
+    e.el.setAttribute("aria-label", vehSpoken(e.item, now));
+  }
+
+  /** Set up a new vehicle entry's badge, or move an existing one (glide, or jump when far or reduced motion). */
+  private syncVehicle(e: Entry, to: [number, number], now: number): void {
+    void now;
+    if (!e.badgeEl) e.badgeEl = this.badges.get(e.el) ?? null;
+    if (e.shown === undefined) e.shown = e.lngLat;
+    if (to[0] === e.lngLat[0] && to[1] === e.lngLat[1]) return;
+    const from = e.shown;
+    e.lngLat = to;
+    this.moveVehicle(e, from, to);
+  }
+
+  private moveVehicle(e: Entry, from: [number, number], to: [number, number]): void {
+    const id = e.item.id;
+    const far = haversineM(from[1], from[0], to[1], to[0]) > JUMP_M;
+    if (far || this.deps.reducedMotion) {
+      this.glides.delete(id);
+      e.shown = to;
+      e.marker.setLngLat(to);
+    } else {
+      this.glides.set(id, { from, to, start: performance.now() });
+      this.scheduleGlide();
+    }
+    if (id === this.selectedId && this.deps.card.isOpen()) {
+      this.deps.card.replace(VEHICLE_DESC.cardContent(e.item, e.dist, 0, null, nowMs()));
+      this.deps.card.update();
+    }
+  }
+
+  private scheduleGlide(): void {
+    if (this.glideRaf || this.glides.size === 0) return;
+    this.glideRaf = requestAnimationFrame(() => {
+      this.glideRaf = 0;
+      const t = performance.now();
+      for (const [id, g] of this.glides) {
+        const e = this.entries.get(id);
+        if (!e) {
+          this.glides.delete(id);
+          continue;
+        }
+        const k = Math.min(1, (t - g.start) / GLIDE_MS);
+        const pos: [number, number] =
+          k >= 1 ? g.to : [g.from[0] + (g.to[0] - g.from[0]) * k, g.from[1] + (g.to[1] - g.from[1]) * k];
+        e.shown = pos;
+        e.marker.setLngLat(pos);
+        if (k >= 1) this.glides.delete(id);
+      }
+      if (this.selectedId !== null && this.deps.card.isOpen()) this.deps.card.update();
+      this.scheduleGlide();
+    });
+  }
+
+  /** The 1 s ageing ticker runs only while vehicle markers exist. */
+  private syncAgeing(): void {
+    const any = [...this.entries.values()].some((e) => e.item.layer === "transit_vehicles");
+    if (any && !this.stopAgeing) {
+      // placeholder first: startTicker ticks once synchronously, which re-enters syncAgeing
+      this.stopAgeing = () => {};
+      const stop = startTicker((now) => this.ageVehicles(now));
+      if (this.stopAgeing) this.stopAgeing = stop;
+      else stop();
+    } else if (!any && this.stopAgeing) {
+      this.stopAgeing();
+      this.stopAgeing = null;
+    }
+  }
+
+  private ageVehicles(now: number): void {
+    for (const [id, e] of [...this.entries]) {
+      if (e.item.layer !== "transit_vehicles") continue;
+      if (this.tooOld(e.item, now)) {
+        this.dropEntry(id, e);
+        continue;
+      }
+      this.applyVehicleLook(e, now);
+    }
+    this.syncAgeing();
   }
 
   /** Warning badge and aria suffix for a stop tag from the card context disruptions (D-16, D-17). */
@@ -453,6 +669,8 @@ export class TagLayer {
     }
     for (const e of this.entries.values()) e.marker.remove();
     this.entries.clear();
+    this.glides.clear();
+    this.syncAgeing();
   }
 
   private select(id: string): void {
@@ -495,6 +713,8 @@ export class TagLayer {
   destroy(): void {
     if (this.timer !== null) clearTimeout(this.timer);
     if (this.raf) cancelAnimationFrame(this.raf);
+    if (this.glideRaf) cancelAnimationFrame(this.glideRaf);
+    this.glideRaf = 0;
     this.clearAll();
   }
 }

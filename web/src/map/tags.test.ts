@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { MAX_FULL, MAX_TOTAL, NEAR_M, RED_CAP, EXPAND_ZOOM, assignTags, labelSide, rankTags, TagLayer, type TagCand } from "./tags";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MAX_FULL, MAX_TOTAL, NEAR_M, RED_CAP, EXPAND_ZOOM, MAX_VEHICLES, GLIDE_MS, JUMP_M, FADE_AFTER_S, REMOVE_AFTER_S, assignTags, labelSide, rankTags, TagLayer, type TagCand } from "./tags";
 
 function cand(i: number, p: Partial<TagCand> = {}): TagCand {
   return { id: `c${i}`, x: i * 300, y: 0, dist: 100 + i, label: "Camera", icon: "cctv", prio: 2, ...p };
@@ -351,5 +351,169 @@ describe("TagLayer stop warning badges (D-16, D-17)", () => {
     expect(a.getAttribute("aria-label")?.endsWith(", service stopped")).toBe(true);
     const cam = added.find((e) => !e.classList.contains("stop"))!;
     expect(cam.querySelector(".tag-warn")).toBeNull();
+  });
+});
+
+describe("vehicles", () => {
+  const NOW = 1_800_000_000_000;
+  const veh = (id: string, lon: number, o: Record<string, unknown> = {}, eta = NOW / 1000 + 192): any => ({
+    id: `veh:${id}`, layer: "transit_vehicles", group: "tram", name: "Tram 96 to St Kilda Beach", verb: "arrives",
+    target_ts: eta, kind: "transit_vehicle", severity: 0,
+    detail: {
+      route_number: "96", route_type: 1, mode: "tram", destination: "St Kilda Beach", heading_stop_id: 2720,
+      heading_stop_name: "Bourke Street Mall/Elizabeth St #3", eta_ts: eta, eta_live: true,
+      pos_ts: NOW / 1000 - 10, pos_src: "ptv", ...o,
+    },
+    geom: { type: "Point", coordinates: [lon, -37.8] }, fetched_at: 0, stale_after_s: null, computed: true,
+  });
+  let rafQ: Array<() => void> = [];
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    rafQ = [];
+    vi.stubGlobal("requestAnimationFrame", (fn: () => void) => rafQ.push(fn));
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+  const frame = () => {
+    const q = rafQ;
+    rafQ = [];
+    for (const f of q) f();
+  };
+  const setup = (reducedMotion = false) => {
+    const els: HTMLElement[] = [];
+    const sets: Array<[number, number]> = [];
+    const removed: number[] = [];
+    const card: any = { isOpen: vi.fn(() => false), update: vi.fn(), close: vi.fn(), open: vi.fn(), replace: vi.fn() };
+    const layer = new TagLayer({
+      map: { project: (l) => ({ x: l[0] * 1000, y: 0 }), getZoom: () => 15, on: vi.fn() },
+      card,
+      createMarker: (el) => {
+        els.push(el);
+        const m: any = {
+          setLngLat: (l: [number, number]) => (sets.push(l), m),
+          addTo: () => m,
+          remove: () => (removed.push(1), m),
+        };
+        return m;
+      },
+      viewportWidth: () => 390,
+      reducedMotion,
+    });
+    layer.setOrigin({ lat: -37.8, lon: 0 });
+    return { layer, els, sets, removed, card };
+  };
+
+  it("exports the constants", () => {
+    expect([MAX_VEHICLES, GLIDE_MS, JUMP_M, FADE_AFTER_S, REMOVE_AFTER_S]).toEqual([8, 1000, 500, 120, 180]);
+  });
+  it("renders a vehicle with icon, badge and aria-label, never near or red", () => {
+    const { layer, els } = setup();
+    layer.update([veh("a", 0.001)]);
+    const el = els[0];
+    expect(el.classList.contains("vehicle")).toBe(true);
+    expect(el.classList.contains("near")).toBe(false);
+    expect(el.querySelector("use")!.getAttribute("href")).toBe("/icons.svg#veh-tram");
+    expect(el.querySelector(".veh-badge")!.textContent).toBe("96");
+    expect(el.getAttribute("aria-label")).toBe("Tram 96 to St Kilda Beach, arrives at Bourke St Mall in 03:12");
+    layer.destroy();
+  });
+  it("marks an estimated vehicle", () => {
+    const { layer, els } = setup();
+    layer.update([veh("a", 0.001, { pos_src: "est" })]);
+    expect(els[0].classList.contains("est")).toBe(true);
+    expect(els[0].querySelector(".veh-badge")!.textContent).toBe("~96");
+    expect(els[0].getAttribute("aria-label")).toMatch(/, estimated position$/);
+    layer.destroy();
+  });
+  it("ranks vehicles after stops and before cameras, exempt from overlap", () => {
+    const stop: TagCand = { id: "s", x: 0, y: 0, dist: 500, label: "s", icon: "stop-tram", prio: 0 };
+    const v: TagCand = { id: "v", x: 0, y: 0, dist: 400, label: "96", icon: "veh-tram", prio: 1 };
+    const c = cand(1, { x: 500, y: 0, dist: 5 });
+    expect(rankTags([c, v, stop]).map((x) => x.id)).toEqual(["s", "v", "c1"]);
+    const r = assignTags(rankTags([stop, v, c]), 15);
+    expect(r.full.has("v")).toBe(true);
+  });
+  it("renders only the 8 soonest vehicles and never exceeds 20 labelled tags", () => {
+    const stops = Array.from({ length: 6 }, (_, i): TagCand => ({ id: `s${i}`, x: i * 300, y: 400, dist: 50 + i, label: "s", icon: "stop-tram", prio: 0 }));
+    const vs = Array.from({ length: 12 }, (_, i): TagCand => ({ id: `v${i}`, x: i * 20, y: 0, dist: 100 + i, label: "9", icon: "veh-tram", prio: 1 }));
+    const cams = Array.from({ length: 3 }, (_, i) => cand(i, { x: i * 300, y: 900, dist: 5 + i }));
+    const more = Array.from({ length: 20 }, (_, i) => cand(10 + i, { x: i * 300, y: 1500, dist: 200 + i }));
+    const r = assignTags(rankTags([...stops, ...vs, ...cams, ...more]), 18);
+    expect(r.rendered.filter((c) => c.prio === 1)).toHaveLength(8);
+    expect(r.full.size).toBeLessThanOrEqual(20);
+    const { layer, els } = setup();
+    layer.update(Array.from({ length: 12 }, (_, i) => veh(`n${i}`, 0.001 * (i + 1), {}, NOW / 1000 + 100 + i)));
+    expect(els).toHaveLength(8);
+    layer.destroy();
+  });
+  it("glides a 200 m move over 1000 ms ending exactly at the new point", () => {
+    const { layer, sets } = setup();
+    layer.update([veh("a", 0)]);
+    sets.length = 0;
+    layer.update([veh("a", 0.0022)]);
+    expect(sets).toHaveLength(0);
+    vi.advanceTimersByTime(500);
+    frame();
+    expect(sets).toHaveLength(1);
+    expect(sets[0][0]).toBeGreaterThan(0.0009);
+    expect(sets[0][0]).toBeLessThan(0.0013);
+    vi.advanceTimersByTime(500);
+    frame();
+    expect(sets[sets.length - 1]).toEqual([0.0022, -37.8]);
+    layer.destroy();
+  });
+  it("jumps for a move over 500 m", () => {
+    const { layer, sets } = setup();
+    layer.update([veh("a", 0)]);
+    sets.length = 0;
+    layer.update([veh("a", 0.01)]);
+    expect(sets).toEqual([[0.01, -37.8]]);
+    layer.destroy();
+  });
+  it("jumps under reduced motion", () => {
+    const { layer, sets } = setup(true);
+    layer.update([veh("a", 0)]);
+    sets.length = 0;
+    layer.update([veh("a", 0.0022)]);
+    expect(sets).toEqual([[0.0022, -37.8]]);
+    layer.destroy();
+  });
+  it("fades at 121 s and removes at 181 s on the 1 s ticker", () => {
+    const { layer, els, removed } = setup();
+    layer.update([veh("a", 0.001, { pos_ts: NOW / 1000 - 100 })]);
+    expect(els[0].classList.contains("fading")).toBe(false);
+    vi.advanceTimersByTime(21_000);
+    expect(els[0].classList.contains("fading")).toBe(true);
+    expect(removed).toHaveLength(0);
+    vi.advanceTimersByTime(60_000);
+    expect(removed).toHaveLength(1);
+    layer.destroy();
+  });
+  it("does not render a vehicle whose position is already too old", () => {
+    const { layer, els } = setup();
+    layer.update([veh("a", 0.001, { pos_ts: NOW / 1000 - 200 })]);
+    expect(els).toHaveLength(0);
+  });
+  it("keeps an open vehicle card across moves and closes it when the vehicle goes", () => {
+    const { layer, card } = setup();
+    layer.update([veh("a", 0)]);
+    layer.openById("veh:a");
+    card.isOpen.mockReturnValue(true);
+    layer.update([veh("a", 0.0022)]);
+    expect(card.update).toHaveBeenCalled();
+    expect(card.close).not.toHaveBeenCalled();
+    layer.update([]);
+    expect(card.close).toHaveBeenCalled();
+  });
+  it("opens the vehicle card on tap", () => {
+    const { layer, els, card } = setup();
+    layer.update([veh("a", 0.001)]);
+    els[0].click();
+    expect(card.open.mock.calls[0][1].title).toBe("TRAM 96");
+    layer.destroy();
   });
 });
