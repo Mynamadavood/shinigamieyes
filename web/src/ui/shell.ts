@@ -13,6 +13,7 @@ export interface ShellSlots {
   drawer: HTMLElement;
   listHost: HTMLElement;
   footer: HTMLElement;
+  attribution: HTMLElement;
 }
 
 function el(tag: string, cls: string, text?: string): HTMLElement {
@@ -50,13 +51,15 @@ export function mountShell(root: HTMLElement): ShellSlots {
   handle.setAttribute("type", "button");
   const listHost = el("div", "next-list");
   const footer = el("footer", "footer");
+  const attribution = el("p", "footer-attrib");
+  attribution.hidden = true;
   const body = el("div", "drawer-body");
-  body.append(listHost, footer);
+  body.append(listHost, footer, attribution);
   drawer.append(handle, body);
 
   root.replaceChildren(mapHost, hud, controls, drawer);
   return {
     mapHost, hud, titleBar, titleText, bannerSlot, locationSlot,
-    readoutsLeft, readoutsRight, controls, drawer, listHost, footer,
+    readoutsLeft, readoutsRight, controls, drawer, listHost, footer, attribution,
   };
 }

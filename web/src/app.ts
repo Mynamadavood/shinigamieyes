@@ -19,6 +19,7 @@ import { Drawer } from "./ui/drawer";
 import { NextList } from "./ui/next-list";
 import type { ListState } from "./ui/next-list";
 import { OffgridBanner } from "./ui/offgrid-banner";
+import { DisruptionSheet, PTV_LICENCE } from "./ui/disruption-sheet";
 import { Readouts } from "./ui/readouts";
 import { mountHero, shouldPlayHero } from "./ui/hero";
 import type { HeroHandle } from "./ui/hero";
@@ -139,14 +140,27 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
   let mapHandle: MapHandle | null = null;
   const drawer = new Drawer(slots.drawer);
   // single routing point for drawer row taps (D-06); departure rows go to the stop card
+  const reducedMotion =
+    typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const disSheet = new DisruptionSheet(document.body, { reducedMotion });
+  const openDisruptions = (): void => {
+    disSheet.open(profile?.layers["transit_disruptions"], readouts.disruptionsEl ?? undefined);
+  };
   const onRowTap = (row: RowVM): void => {
+    if (row.endRow) {
+      drawer.collapse();
+      openDisruptions();
+      return;
+    }
     if (row.transit && !row.none && typeof row.stopId === "number") {
       drawer.collapse();
       mapHandle?.focusStop(row.stopId);
     }
   };
   const list = new NextList(slots.listHost, { onRowTap: (row) => onRowTap(row) });
-  const readouts = new Readouts(slots.readoutsLeft, slots.readoutsRight);
+  const readouts = new Readouts(slots.readoutsLeft, slots.readoutsRight, {
+    onDisruptionsTap: () => openDisruptions(),
+  });
   const conn = createConnectivity();
   const banner = new OffgridBanner(slots.bannerSlot, conn, wall);
   let profile: Profile | null = null;
@@ -252,7 +266,10 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
     slots.footer.textContent = `server ${pad2(d.getHours())}:${pad2(d.getMinutes())} · v0.1.0`;
   }
 
+  slots.attribution.textContent = PTV_LICENCE;
+
   function renderRows(now: number): void {
+    slots.attribution.hidden = !profile?.layers["transit_stops"];
     const rows = selectVisible(profile, now);
     list.setState(deriveListState(rows.length, profile !== null, conn.state()));
     list.update(rows, now);

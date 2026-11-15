@@ -378,3 +378,73 @@ describe("exact-layer backstop (WR-W5, D-04, D-21)", () => {
     expect(root.textContent).toContain(NONE_NAME);
   });
 });
+
+describe("disruption readout, sheet and PTV attribution (03-15)", () => {
+  const mk = (id: string, items: any[]): Layer => ({ id, status: "fresh", rev: 1, as_of: 1, attribution: "", items }) as unknown as Layer;
+  const disItem = (n: number, ends: number | null, red = false): any => ({
+    id: `dis:${n}`, layer: "transit_disruptions", group: "disruption", name: "t", verb: "ends", target_ts: ends,
+    kind: "infrastructure", severity: red ? 3 : 0, geom: null, fetched_at: 1, stale_after_s: 600, computed: false,
+    detail: { disruption_id: n, title: `Works ${n}`, status: "Current", updated_ts: 1, to_ts: ends, route_ids: [1],
+      route_labels: ["Tram 96"], stop_ids: [], stop_names: [], modes: ["tram"], service_stopped: red },
+  });
+  const stopItem = (): any => ({
+    id: "stop:2720", layer: "transit_stops", group: "g", name: "Stop", verb: "", target_ts: null, kind: "infrastructure",
+    severity: 0, detail: { mode: "tram", distance_m: 50 }, geom: { type: "Point", coordinates: [144.9, -37.8] },
+    fetched_at: 1, stale_after_s: null, computed: false,
+  });
+  const profWith = (withStops: boolean): Profile => {
+    const end = Math.floor(Date.now() / 1000) + 3600;
+    const layers: Record<string, Layer> = { transit_disruptions: mk("transit_disruptions", [disItem(1, end), disItem(2, null, true)]) };
+    if (withStops) layers["transit_stops"] = mk("transit_stops", [stopItem()]);
+    return { server_time: Math.floor(Date.now() / 1000), rev: 1, location: { source: "default", lat: null, lon: null }, layers } as unknown as Profile;
+  };
+  const run = async (p: Profile) => {
+    const fetchImpl = vi.fn(async (u: string) => (isProfile(u) ? json(p) : json([]))) as unknown as typeof fetch;
+    const pr = boot(root, { fetchImpl, EventSourceImpl: ES, geolocation, hero: false });
+    await vi.advanceTimersByTimeAsync(IDB_TIMEOUT_MS + 100);
+    await pr;
+    await vi.advanceTimersByTimeAsync(200);
+  };
+  const attrib = () => root.querySelector<HTMLElement>(".footer-attrib")!;
+  const disBackdrop = () => document.querySelector<HTMLElement>(".sheet-title#disruption-sheet-title")!.closest<HTMLElement>(".sheet-backdrop")!;
+
+  it("shows the PTV licence when transit_stops is present and hides it otherwise", async () => {
+    await run(profWith(true));
+    expect(attrib().hidden).toBe(false);
+    expect(attrib().textContent).toContain("Creative Commons Attribution 4.0");
+  });
+
+  it("no transit_stops (Home): attribution hidden and no disruption readout", async () => {
+    await run({ ...profWith(false), layers: {} } as Profile);
+    expect(attrib().hidden).toBe(true);
+    expect(root.querySelector<HTMLElement>(".readout-disruptions")!.hidden).toBe(true);
+    expect(root.textContent).not.toContain("disruptions · your routes");
+  });
+
+  it("tapping the readout opens the sheet; close returns focus to the readout", async () => {
+    await run(profWith(true));
+    const btn = root.querySelector<HTMLButtonElement>(".readout-disruptions")!;
+    expect(btn.hidden).toBe(false);
+    expect(btn.querySelector(".count-num")!.textContent).toBe("2");
+    expect(btn.classList.contains("red")).toBe(true);
+    btn.focus();
+    btn.click();
+    expect(disBackdrop().hidden).toBe(false);
+    expect(document.querySelectorAll("#disruption-sheet-title ~ .dis-list .dis-row").length).toBe(2);
+    document.querySelector<HTMLElement>(".dis-close")!.click();
+    expect(disBackdrop().hidden).toBe(true);
+    expect(document.activeElement).toBe(btn);
+  });
+
+  it("tapping a disruption-end row opens the sheet and collapses the drawer", async () => {
+    const { Drawer } = await import("./ui/drawer");
+    const collapse = vi.spyOn(Drawer.prototype, "collapse");
+    await run(profWith(true));
+    const row = Array.from(root.querySelectorAll<HTMLElement>('[role="button"].end'))[0];
+    expect(row).toBeDefined();
+    row!.click();
+    expect(collapse).toHaveBeenCalledTimes(1);
+    expect(disBackdrop().hidden).toBe(false);
+    collapse.mockRestore();
+  });
+});
