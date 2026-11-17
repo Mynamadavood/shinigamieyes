@@ -235,3 +235,48 @@ async def test_nudge_from_thread_and_failure_log(tmp_path, caplog):
 
 def test_nudge_before_start_is_noop(tmp_path):
     Runtime(make_ctx(tmp_path), [ExactPolled()]).nudge("dep_stub")
+
+
+class CountingPolled(ExactPolled):
+    def __init__(self, gate):
+        super().__init__(gate=gate)
+        self.active = 0
+        self.max_active = 0
+
+    async def refresh(self, ctx):
+        self.active += 1
+        self.max_active = max(self.max_active, self.active)
+        try:
+            await super().refresh(ctx)
+        finally:
+            self.active -= 1
+
+
+async def test_poll_waits_for_inflight_nudge_and_never_overlaps(tmp_path, monkeypatch):
+    # review WR-S1: poll and nudge share one single-flight guard
+    forever = asyncio.Event()
+
+    async def park(_s):
+        await forever.wait()
+
+    monkeypatch.setattr(rt, "_sleep", park)
+    ctx = make_ctx(tmp_path)
+    now = {"t": 1000.0}
+    ctx.clock = lambda: now["t"]
+    gate = asyncio.Event()
+    p = CountingPolled(gate)
+    runtime = Runtime(ctx, [p])
+    runtime._loop = asyncio.get_running_loop()
+    runtime._loop_thread = __import__("threading").get_ident()
+    runtime.nudge("dep_stub")
+    await asyncio.sleep(0.02)
+    assert p.calls == 1
+    poll = asyncio.create_task(runtime._poll_loop(p))
+    await asyncio.sleep(0.02)
+    assert p.calls == 1  # the poll tick waits for the nudge instead of running beside it
+    gate.set()
+    await asyncio.sleep(0.05)
+    assert p.calls == 2 and p.max_active == 1
+    assert "dep_stub" not in runtime._running
+    poll.cancel()
+    await runtime.stop()

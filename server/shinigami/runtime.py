@@ -57,7 +57,8 @@ class Runtime:
         self._loop_thread: int | None = None
         self._tasks: set[asyncio.Task] = set()
         self._inflight: dict[tuple[str, str], asyncio.Task] = {}
-        self._refreshing: set[str] = set()
+        # One refresh per provider at a time, poll or nudge (review WR-S1)
+        self._running: dict[str, asyncio.Task] = {}
         self._last_nudge: dict[str, float] = {}
 
     # lifecycle -------------------------------------------------------------
@@ -71,13 +72,14 @@ class Runtime:
                 t.add_done_callback(self._tasks.discard)
 
     async def stop(self) -> None:
-        tasks = list(self._tasks) + list(self._inflight.values())
+        tasks = list(self._tasks) + list(self._inflight.values()) + list(self._running.values())
         for t in tasks:
             t.cancel()
         if tasks:
             await asyncio.wait(tasks, timeout=1.0)
         self._tasks.clear()
         self._inflight.clear()
+        self._running.clear()
 
     # publishing ------------------------------------------------------------
     def _publish_layer(self, provider: Provider, cell_id: str, lat: float, lon: float) -> None:
@@ -100,16 +102,31 @@ class Runtime:
         )
 
     # polled tier -----------------------------------------------------------
+    def _start_refresh(self, provider_id: str, coro) -> asyncio.Task:
+        """Run `coro` as the provider's single in-flight refresh (caller checked it is idle)."""
+        task = asyncio.create_task(coro, name=f"refresh:{provider_id}")
+        self._running[provider_id] = task
+
+        def _done(t: asyncio.Task, pid: str = provider_id) -> None:
+            if self._running.get(pid) is t:  # never clear a newer refresh's registration
+                del self._running[pid]
+
+        task.add_done_callback(_done)
+        return task
+
+    async def _wait_idle(self, provider_id: str) -> None:
+        """Wait for any in-flight refresh (e.g. a nudge) without inheriting its outcome."""
+        while (t := self._running.get(provider_id)) is not None:
+            await asyncio.wait({t})
+
     async def _poll_loop(self, p: Provider) -> None:
         backoff = BACKOFF_BASE_S
         interval = float(p.meta.interval_s or p.meta.ttl_s)
         while True:
             try:
-                self._refreshing.add(p.meta.id)
-                try:
-                    await p.refresh(self.ctx)
-                finally:
-                    self._refreshing.discard(p.meta.id)
+                # never run beside a nudge: wait for it, then do the full sweep (review WR-S1)
+                await self._wait_idle(p.meta.id)
+                await self._start_refresh(p.meta.id, p.refresh(self.ctx))
                 self._publish_layer(p, "global", 0.0, 0.0)
                 backoff = BACKOFF_BASE_S
                 delay = interval * random.uniform(1 - JITTER, 1 + JITTER)
@@ -144,15 +161,14 @@ class Runtime:
 
     def _start_nudge(self, provider_id: str) -> None:
         p = self.providers.get(provider_id)
-        if p is None or provider_id in self._refreshing:
+        if p is None or provider_id in self._running:
             return
         now = self.ctx.clock()
         last = self._last_nudge.get(provider_id)
         if last is not None and now - last < NUDGE_MIN_GAP_S:
             return
         self._last_nudge[provider_id] = now
-        self._refreshing.add(provider_id)
-        task = asyncio.create_task(self._nudge_run(p), name=f"nudge:{provider_id}")
+        task = self._start_refresh(provider_id, self._nudge_run(p))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
@@ -164,8 +180,6 @@ class Runtime:
             raise
         except Exception as exc:  # noqa: BLE001
             log.warning("nudge failed provider=%s err=%s", p.meta.id, type(exc).__name__)
-        finally:
-            self._refreshing.discard(p.meta.id)
 
     def _spawn(self, provider_id: str, cell: Cell) -> None:
         key = (provider_id, cell.id)
