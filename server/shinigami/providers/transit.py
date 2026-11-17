@@ -227,7 +227,8 @@ class TransitDeparturesProvider(Provider):
         out: list[Item] = []
         seen: set[str] = set()
         for target, d in rows:
-            item_id = f"dep:{s.id}:{d['run_ref']}"
+            # the same opaque key as vehicle markers: no raw PTV run ref reaches the phone (WR-S7)
+            item_id = f"dep:{s.id}:{run_key(d['run_ref'])}"
             if item_id in seen:
                 continue
             seen.add(item_id)

@@ -14,6 +14,7 @@ from shinigami.transit.model import Departure
 from shinigami.transit.service import ATTRIBUTION, TransitService
 from shinigami.transit.sources import PtvDepartureSource, direction_group
 from shinigami.transit.store import TransitStore
+from shinigami.transit.vehicles import run_key
 from shinigami.transit.watch import StopRef, WatchSet
 
 DEVID = "1000001"
@@ -238,9 +239,10 @@ async def test_refresh_caches_and_query_serves(h):
     assert h.rt.nudges == ["transit_departures"]  # cache present: no second nudge
     ids = [i.id for i in layer.items]
     assert ids and all(i.startswith("dep:2720:") for i in ids)
-    assert ids == ["dep:2720:R-T1", "dep:2720:R-T2", "dep:2720:R-T3", "dep:2720:R-T4"][: len(ids)]
+    want = [f"dep:2720:{run_key(r)}" for r in ("R-T1", "R-T2", "R-T3", "R-T4")]
+    assert ids == want[: len(ids)]
     by = {i.id: i for i in layer.items}
-    t1 = by["dep:2720:R-T1"]
+    t1 = by[f"dep:2720:{run_key('R-T1')}"]
     assert t1.detail["live"] is True and t1.detail["delay_s"] == 90
     assert t1.target_ts == T0 + 90 and t1.detail["scheduled_ts"] == T0
     assert t1.detail["disruption_ids"] == [9001] and t1.verb == "departs"
@@ -248,10 +250,11 @@ async def test_refresh_caches_and_query_serves(h):
     assert t1.kind == "transit_vehicle" and t1.geom is None and t1.stale_after_s == 120
     assert t1.detail["walk_s"] > 0 and t1.detail["stop_id"] == 2720
     assert t1.detail["mode"] == "tram" and t1.name.startswith("Tram 96 to ")
-    t2 = by["dep:2720:R-T2"]
+    t2 = by[f"dep:2720:{run_key('R-T2')}"]
     assert t2.detail["live"] is False and t2.detail["delay_s"] is None
     blob = json.dumps(layer.model_dump())
     assert "vehicle_descriptor" not in blob and "operator" not in blob
+    assert "R-T1" not in blob and "run_ref" not in blob  # review WR-S7: no raw run refs
     assert DEVID not in blob and KEY not in blob and "signature" not in blob
 
 
@@ -267,7 +270,7 @@ async def test_old_items_dropped_and_capped(h):
     h.query()
     await h.provider.refresh(h.ctx)
     items = h.query().items
-    assert len(items) == 30 and "dep:2720:R0" not in [i.id for i in items]
+    assert len(items) == 30 and f"dep:2720:{run_key('R0')}" not in [i.id for i in items]
     assert [i.target_ts for i in items] == sorted(i.target_ts for i in items)
 
 
