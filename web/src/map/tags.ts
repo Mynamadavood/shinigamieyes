@@ -477,11 +477,18 @@ export class TagLayer {
         };
         this.entries.set(c.id, e);
       }
+      const prevItem = e.item;
       e.item = l.item;
       e.dist = c.dist;
       e.walkS = walkS;
       const desc = descFor(l.item);
-      if (desc.prio === 1) this.syncVehicle(e, l.lngLat, now);
+      if (desc.prio === 1) {
+        const moved = this.syncVehicle(e, l.lngLat, now);
+        // a new ETA, LIVE/SCHED or heading stop at the same position still refreshes the open card (WR-W7)
+        if (!moved && prevItem !== l.item && c.id === this.selectedId && this.deps.card.isOpen()) {
+          this.deps.card.replace(VEHICLE_DESC.cardContent(e.item, e.dist, 0, null, nowMs()));
+        }
+      }
       if (!e.added) {
         e.marker.addTo(map as never);
         e.added = true;
@@ -543,15 +550,19 @@ export class TagLayer {
     e.el.setAttribute("aria-label", vehSpoken(e.item, now));
   }
 
-  /** Set up a new vehicle entry's badge, or move an existing one (glide, or jump when far or reduced motion). */
-  private syncVehicle(e: Entry, to: [number, number], now: number): void {
+  /**
+   * Set up a new vehicle entry's badge, or move an existing one (glide, or jump when far or
+   * reduced motion). True when it moved (the move already refreshed an open card).
+   */
+  private syncVehicle(e: Entry, to: [number, number], now: number): boolean {
     void now;
     if (!e.badgeEl) e.badgeEl = this.badges.get(e.el) ?? null;
     if (e.shown === undefined) e.shown = e.lngLat;
-    if (to[0] === e.lngLat[0] && to[1] === e.lngLat[1]) return;
+    if (to[0] === e.lngLat[0] && to[1] === e.lngLat[1]) return false;
     const from = e.shown;
     e.lngLat = to;
     this.moveVehicle(e, from, to);
+    return true;
   }
 
   private moveVehicle(e: Entry, from: [number, number], to: [number, number]): void {

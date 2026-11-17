@@ -548,6 +548,23 @@ describe("vehicles", () => {
     layer.update([]);
     expect(card.close).toHaveBeenCalled();
   });
+  it("refreshes an open vehicle card when the ETA changes without a move (WR-W7)", () => {
+    const { layer, card } = setup();
+    layer.update([veh("a", 0.001)]);
+    layer.openById("veh:a");
+    card.isOpen.mockReturnValue(true);
+    // same item object again (moveend reconcile): no re-render
+    card.replace.mockClear();
+    layer.setOrigin({ lat: -37.8, lon: 0 });
+    expect(card.replace).not.toHaveBeenCalled();
+    // same position, new ETA and SCHED
+    layer.update([veh("a", 0.001, { eta_ts: NOW / 1000 + 400, eta_live: false }, NOW / 1000 + 400)]);
+    expect(card.replace).toHaveBeenCalledTimes(1);
+    const c = card.replace.mock.calls[0][0];
+    expect(c.sections[0].lines[0].countTargetMs).toBe((NOW / 1000 + 400) * 1000);
+    expect(c.secondary[0]).toEqual(["Arrival", "SCHED"]);
+    layer.destroy();
+  });
   it("opens the vehicle card on tap", () => {
     const { layer, els, card } = setup();
     layer.update([veh("a", 0.001)]);
