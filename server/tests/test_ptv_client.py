@@ -167,6 +167,7 @@ from shinigami.transit.model import (
     parse_departures,
     parse_disruptions,
     parse_pattern,
+    ts,
 )
 
 FIX = Path(__file__).parent / "fixtures" / "ptv"
@@ -273,3 +274,37 @@ async def test_client_methods_parse_fixtures():
         assert len(await c.pattern("R-T1", 1)) == 3
         assert len(await c.disruptions()) == 3
         assert await c.stops_near(-37.8, 144.9, (0, 1), 800) == [2720, 1900]
+
+
+def test_ts_naive_strings_are_utc_whatever_the_server_tz(monkeypatch):
+    # review WR-S10: a missing offset must not mean server-local time
+    import time as _time
+
+    monkeypatch.setenv("TZ", "Australia/Melbourne")  # the CT's zone; no tzset on Windows
+    if hasattr(_time, "tzset"):
+        _time.tzset()
+    try:
+        want = epoch("2026-11-13T01:00:00")
+        assert ts("2026-11-13T01:00:00") == want
+        assert ts("2026-11-13T01:00:00Z") == want
+        assert ts("2026-11-13T12:00:00+11:00") == want
+    finally:
+        monkeypatch.delenv("TZ")
+        if hasattr(_time, "tzset"):
+            _time.tzset()
+
+
+def test_ts_bad_and_extreme_dates_never_raise():
+    assert ts(None) is None and ts("") is None and ts("not a date") is None
+    # naive year 1 used to go through local time and raise OSError/OverflowError
+    for s in ("0001-01-01T00:00:00", "0001-01-01T00:00:00+01:00", "9999-12-31T23:59:59-01:00"):
+        assert ts(s) is None or isinstance(ts(s), float)
+
+
+def test_disruption_with_extreme_date_is_kept():
+    js = load("disruptions.json")
+    rows = [d for group in js["disruptions"].values() if isinstance(group, list) for d in group]
+    rows[0]["to_date"] = "0001-01-01T00:00:00"  # PTV "no end" placeholder style, no offset
+    ds = parse_disruptions(js)
+    assert [d.id for d in ds] == [9001, 9002, 9003]  # the row survives
+    assert ds[0].to_ts == epoch("0001-01-01T00:00:00")

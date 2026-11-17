@@ -7,7 +7,7 @@ dropped at the parser. Nothing here identifies a vehicle or a driver.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -165,12 +165,20 @@ class Vehicle:
 
 
 def ts(s: str | None) -> float | None:
-    """ISO 8601 (trailing Z ok) to epoch seconds; None for empty or unparseable."""
+    """ISO 8601 (trailing Z ok) to epoch seconds; None for empty or unparseable.
+
+    A string without an offset is UTC (PTV `*_utc` fields), never server-local time: on a CT
+    with TZ=Australia/Melbourne that would shift it by 10-11 h (review WR-S10). Out-of-range
+    dates give None for that field instead of dropping the whole row.
+    """
     if not s:
         return None
     try:
-        return datetime.fromisoformat(s).timestamp()
-    except (ValueError, TypeError):
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt.timestamp()
+    except (ValueError, TypeError, OverflowError, OSError):
         return None
 
 
