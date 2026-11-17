@@ -104,6 +104,15 @@ Automated pre-check (2026-11-15, after deploy of 93d55ae):
 - First stop build: `train=226 tram=1088 bus=16194 skipped=0`. Health reports 17480 stops loaded, `ptv: no_key`.
 - Deploy note: the first deploy run used the previous copy of `deploy.sh` (it updates itself during the pull), so the transit units were not installed and `transit_loaded` failed. A second run installed the timer, built the stop file and passed. A deploy that changes `deploy.sh` needs to be run twice.
 
-Device check: pending (David, iPhone). Live PTV behaviour: unverified until the key is added (plan 03-20).
+PTV key added by David on the CT (2026-11-17); health reports `ptv: idle`. Smoke run (plan 03-20 Task 1), run as `shinigami` from /opt/shinigami:
+
+- `route_types: ok count=5`
+- `departures: ok rows=60 live=12 sched=48 runs_with_position=0 fields=scheduled_departure_utc,estimated_departure_utc,run_ref`
+- `disruptions: ok total=204 types=11`
+- `agreement: 10/10 stop ids match store`
+
+Signing, departures (live and scheduled), disruptions and the stop-id mapping work against live PTV. No bus position appeared in this sample, so real bus positions are still unconfirmed. The first smoke attempt crashed when run from /root (the script looked for a relative `.env` in an unreadable folder); fixed by disabling that lookup in `smoke.py`.
+
+Device check: pending (David, iPhone).
 
 Go / No-go: PENDING

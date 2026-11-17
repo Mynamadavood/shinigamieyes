@@ -91,7 +91,9 @@ def _is_ok(line: str) -> bool:
 
 
 async def _amain(devid: str, key: str) -> list[str]:
-    settings = Settings()
+    # No dotenv lookup: the CT keeps secrets in /etc/shinigami/.env (sourced by the
+    # caller), and a relative ".env" in an unreadable cwd (e.g. /root) raises EACCES.
+    settings = Settings(_env_file=None)
     store = TransitStore(Path(os.environ.get("SHINIGAMI_TRANSIT_STOPS_PATH", DEFAULT_STOPS_PATH)))
     store.load()
     async with httpx.AsyncClient() as http:
