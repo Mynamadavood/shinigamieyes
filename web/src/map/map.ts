@@ -201,7 +201,14 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
   icon.appendChild(use);
   recenterBtn.appendChild(icon);
   deps.controls.appendChild(recenterBtn);
-  const showRecenter = (on: boolean) => recenterBtn.classList.toggle("is-hidden", !on);
+  // the edge pointers keep clear of the recenter button and cache its rect, so they refresh when it
+  // shows or hides (WR-W9)
+  let onRecenterToggle = (): void => {};
+  const showRecenter = (on: boolean) => {
+    if (recenterBtn.classList.contains("is-hidden") === !on) return;
+    recenterBtn.classList.toggle("is-hidden", !on);
+    onRecenterToggle();
+  };
 
   const markerOpts = (element: HTMLElement) => ({
     element,
@@ -393,6 +400,14 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
     }
   });
   sheetWatch.observe(document.body, { subtree: true, attributes: true, attributeFilter: ["hidden"] });
+  onRecenterToggle = () => pointers.recompute();
+  // the clamp rect comes from the readouts and the drawer: refresh the cached layout when either
+  // changes size (drawer snap), not on every map frame (WR-W9)
+  const chromeWatch = typeof ResizeObserver === "function" ? new ResizeObserver(() => pointers.recompute()) : null;
+  for (const sel of [".readouts", ".drawer"]) {
+    const el = document.querySelector(sel);
+    if (el && chromeWatch) chromeWatch.observe(el);
+  }
   let currentOrigin: TagOrigin = null;
   let lastStopItems: Item[] = [];
   let lastCardLayers: unknown[] = [];
@@ -606,6 +621,7 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
       container.removeEventListener("touchend", onTouchEnd);
       container.removeEventListener("touchcancel", onTouchEnd);
       sheetWatch.disconnect();
+      chromeWatch?.disconnect();
       pointers.destroy();
       safeProbe.remove();
       tags.destroy();

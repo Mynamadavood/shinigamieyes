@@ -169,6 +169,8 @@ export class EdgePointers {
   private origin: TagOrigin = null;
   private raf = 0;
   private destroyed = false;
+  /** layout reads cached for map-move frames; refreshed by every other recompute (WR-W9) */
+  private layout: { rect: Rect | null; avoid: Rect[]; hidden: boolean } | null = null;
   private readonly onResize = () => this.recompute();
 
   constructor(private readonly deps: EdgePointersDeps) {
@@ -179,7 +181,8 @@ export class EdgePointers {
       if (this.destroyed || this.raf) return;
       this.raf = requestAnimationFrame(() => {
         this.raf = 0;
-        this.recompute();
+        // a move frame reuses the cached layout: no forced style/layout on top of the map frame
+        this.run(false);
       });
     });
     deps.map.on("moveend", () => this.recompute());
@@ -206,10 +209,18 @@ export class EdgePointers {
     this.recompute();
   }
 
+  /** Recompute with fresh layout reads (clamp rect, avoid rects, hidden). */
   recompute(): void {
+    this.run(true);
+  }
+
+  private run(fresh: boolean): void {
     if (this.destroyed) return;
-    const rect = this.deps.clampRect();
-    if (!this.origin || this.stops.length === 0 || this.deps.hidden() || !rect || rect.bottom - rect.top < MIN_RECT_H) {
+    if (fresh || !this.layout) {
+      this.layout = { rect: this.deps.clampRect(), avoid: this.deps.avoid?.() ?? [], hidden: this.deps.hidden() };
+    }
+    const { rect, avoid, hidden } = this.layout;
+    if (!this.origin || this.stops.length === 0 || hidden || !rect || rect.bottom - rect.top < MIN_RECT_H) {
       this.removeAll();
       return;
     }
@@ -237,7 +248,6 @@ export class EdgePointers {
       if (!isOnScreen(p, rect, wasShown)) off.push(s);
     }
     const chosen = off.slice(0, MAX_POINTERS);
-    const avoid = this.deps.avoid?.() ?? [];
     const placed: Rect[] = [];
     const keep = new Set<string>();
     // the ray starts at the screen point of the map centre (the padded viewport centre), the same
@@ -267,10 +277,8 @@ export class EdgePointers {
       const txt = fmtDistance(s.dist);
       const want = ` · ${txt}`;
       if (entry.distEl.textContent !== want) entry.distEl.textContent = want;
-      entry.el.setAttribute(
-        "aria-label",
-        `Show ${s.item.name}, ${spokenDistance(s.dist)} away`,
-      );
+      const label = `Show ${s.item.name}, ${spokenDistance(s.dist)} away`;
+      if (entry.el.getAttribute("aria-label") !== label) entry.el.setAttribute("aria-label", label);
       this.reveal(entry);
     }
     for (const [id, e] of this.shown) {

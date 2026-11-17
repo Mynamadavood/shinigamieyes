@@ -272,3 +272,48 @@ describe("pitched direction and ray origin (WR-W5)", () => {
     expect(t.btn().style.getPropertyValue("--y")).toBe("276px");
   });
 });
+
+describe("layout reads (WR-W9)", () => {
+  it("map-move frames reuse the cached layout; other recomputes read it fresh; labels are not rewritten", () => {
+    const handlers: Record<string, Array<() => void>> = {};
+    let centreLng = 144.9;
+    const map = {
+      getCenter: () => ({ lng: centreLng, lat: -37.8 }),
+      getBearing: () => 0,
+      project: (l: [number, number]) => ({ x: 200 + (l[0] - centreLng) * 100000, y: 350 - (l[1] + 37.8) * 100000 }),
+      getBounds: () => ({ contains: () => false }),
+      easeTo: vi.fn(),
+      jumpTo: vi.fn(),
+      on: (ev: string, fn: () => void) => {
+        (handlers[ev] ??= []).push(fn);
+      },
+      once: vi.fn(),
+    } satisfies PointerMapLike;
+    const clampRect = vi.fn(() => RECT);
+    const avoid = vi.fn((): Rect[] => []);
+    const hidden = vi.fn(() => false);
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((fn: FrameRequestCallback) => {
+      fn(0);
+      return 1;
+    });
+    const ep = new EdgePointers({ host, map, reducedMotion: true, clampRect, avoid, hidden, onArrive: vi.fn() });
+    ep.update([stop("far", 144.95, -37.8, 4000)], "server");
+    const btn = host.querySelector<HTMLButtonElement>("button.edge-pointer")!;
+    expect(btn).not.toBeNull();
+    const reads = () => [clampRect.mock.calls.length, avoid.mock.calls.length, hidden.mock.calls.length];
+    const before = reads();
+    const set = vi.spyOn(btn, "setAttribute");
+    for (let i = 0; i < 5; i++) {
+      centreLng += 0.0001;
+      for (const f of handlers["move"] ?? []) f();
+    }
+    expect(reads()).toEqual(before);
+    expect(set.mock.calls.filter((c) => c[0] === "aria-label")).toHaveLength(0);
+    for (const f of handlers["moveend"] ?? []) f();
+    expect(reads()).toEqual(before.map((n) => n + 1));
+    raf.mockRestore();
+    ep.destroy();
+  });
+});
