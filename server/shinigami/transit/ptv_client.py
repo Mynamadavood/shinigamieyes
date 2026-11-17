@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+import json
 import time
 from collections import deque
 from collections.abc import Callable, Iterable
@@ -82,25 +83,40 @@ class PtvClient:
         url = sign_path(path_and_query, self._devid, self._key)
         try:
             async with self._sem:
-                r = await self._http.get(url, timeout=self._timeout_s)
+                body = await self._read_capped(url)
         except httpx.TimeoutException:
             raise PtvError("timeout") from None
         except httpx.HTTPError:
             raise PtvError("network") from None
-        sc = r.status_code
-        if not 200 <= sc < 300:
-            if sc in (403, 404, 429):
-                raise PtvError(f"http_{sc}") from None
-            raise PtvError("http_5xx" if sc >= 500 else "http_other") from None
-        if len(r.content) > self._max_bytes:
-            raise PtvError("too_large") from None
         try:
-            js = r.json()
+            js = json.loads(body)
         except ValueError:
             raise PtvError("bad_json") from None
         if not isinstance(js, dict):
             raise PtvError("bad_json") from None
         return js
+
+    async def _read_capped(self, url: str) -> bytes:
+        """Stream the body and stop as soon as it passes max_bytes (review WR-S6).
+
+        httpx decompresses transparently, so counting the decoded chunks also stops a gzip bomb
+        before it is buffered in the single uvicorn process.
+        """
+        async with self._http.stream("GET", url, timeout=self._timeout_s) as r:
+            sc = r.status_code
+            if not 200 <= sc < 300:
+                if sc in (403, 404, 429):
+                    raise PtvError(f"http_{sc}") from None
+                raise PtvError("http_5xx" if sc >= 500 else "http_other") from None
+            declared = r.headers.get("content-length", "")
+            if declared.isdigit() and int(declared) > self._max_bytes:
+                raise PtvError("too_large") from None
+            buf = bytearray()
+            async for chunk in r.aiter_bytes():
+                buf += chunk
+                if len(buf) > self._max_bytes:
+                    raise PtvError("too_large") from None
+            return bytes(buf)
 
     async def departures(
         self, route_type: int, stop_id: int, max_results: int = 25, include_cancelled: bool = False

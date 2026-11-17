@@ -114,6 +114,50 @@ async def test_nothing_leaks_to_logs(caplog):
     assert logging.getLogger("httpx").getEffectiveLevel() >= logging.WARNING
 
 
+@respx.mock
+async def test_oversized_body_is_aborted_while_streaming():
+    # review WR-S6: the size cap must stop the download, not check it after buffering
+    pulled = {"n": 0}
+
+    async def body():
+        for _ in range(100):
+            pulled["n"] += 1
+            yield b" " * 100_000
+
+    respx.route().mock(return_value=httpx.Response(200, content=body()))
+    async with httpx.AsyncClient() as http:
+        with pytest.raises(PtvError) as ei:
+            await client(http).departures(1, 2720)
+    assert ei.value.kind == "too_large" and ei.value.__suppress_context__ is True
+    assert pulled["n"] <= 22  # 2 MB cap / 100 KB chunks, not all 10 MB
+
+
+@respx.mock
+async def test_declared_length_over_cap_rejected_before_reading():
+    respx.route().mock(
+        return_value=httpx.Response(200, headers={"content-length": "50000000"}, content=b"{}")
+    )
+    async with httpx.AsyncClient() as http:
+        with pytest.raises(PtvError) as ei:
+            await client(http).departures(1, 2720)
+    assert ei.value.kind == "too_large"
+
+
+@respx.mock
+async def test_gzip_bomb_counts_decoded_bytes():
+    import gzip
+
+    bomb = gzip.compress(b" " * 20_000_000)
+    assert len(bomb) < 2_000_000
+    respx.route().mock(
+        return_value=httpx.Response(200, headers={"content-encoding": "gzip"}, content=bomb)
+    )
+    async with httpx.AsyncClient() as http:
+        with pytest.raises(PtvError) as ei:
+            await client(http).departures(1, 2720)
+    assert ei.value.kind == "too_large"
+
+
 # ---- parsing against schema-derived fixtures (D-24) ----
 import json
 from datetime import UTC, datetime
