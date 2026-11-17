@@ -9,8 +9,10 @@ export const HYSTERESIS_PX = 16;
 export const SLIDE_PX = 36;
 export const GAP_PX = 4;
 export const EASE_MS = 600;
-/** at most this many map.project calls per recompute (T-03-08-03) */
+/** at most this many map.project calls per recompute for the on-screen test (T-03-08-03) */
 const MAX_PROJECTIONS = 6;
+/** a projected direction further than this from the geographic one is a behind-camera flip */
+const MAX_PROJ_DEV_DEG = 90;
 const MIN_RECT_H = 144;
 const FADE_MS = 120;
 const HIT_H = 48;
@@ -66,6 +68,31 @@ export function screenAngle(
   const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
   const brg = (Math.atan2(y, x) / rad + 360) % 360;
   return (((brg - mapBearingDeg) % 360) + 360) % 360;
+}
+
+/** Smallest absolute difference between two angles in degrees, in [0, 180]. */
+export function angleDiff(a: number, b: number): number {
+  const d = (((a - b) % 360) + 360) % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+/**
+ * Screen direction (0 = up, clockwise) from (cx, cy) to a projected point, or null when the
+ * projection is unusable: not finite, on the origin, or flipped (a point behind the camera
+ * projects mirrored, so it differs from the geographic direction by more than 90 degrees).
+ */
+export function projectedAngle(
+  cx: number,
+  cy: number,
+  p: { x: number; y: number } | undefined,
+  geoAngle: number,
+): number | null {
+  if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) return null;
+  const dx = p.x - cx;
+  const dy = p.y - cy;
+  if (Math.hypot(dx, dy) < 1) return null;
+  const a = ((Math.atan2(dx, -dy) * 180) / Math.PI + 360) % 360;
+  return angleDiff(a, geoAngle) < MAX_PROJ_DEV_DEG ? a : null;
 }
 
 /** Where a ray from (cx, cy) at angleDeg (0 = up, clockwise) meets the rectangle. */
@@ -191,6 +218,7 @@ export class EdgePointers {
     const centre = map.getCenter();
     const bearing = map.getBearing();
     let budget = MAX_PROJECTIONS;
+    const projected = new Map<string, { x: number; y: number }>();
     const off: Stop[] = [];
     for (const s of this.stops) {
       const wasShown = this.shown.has(s.item.id) && !this.shown.get(s.item.id)!.leaving;
@@ -204,17 +232,30 @@ export class EdgePointers {
         continue;
       }
       budget -= 1;
-      if (!isOnScreen(map.project(s.lngLat), rect, wasShown)) off.push(s);
+      const p = map.project(s.lngLat);
+      projected.set(s.item.id, p);
+      if (!isOnScreen(p, rect, wasShown)) off.push(s);
     }
     const chosen = off.slice(0, MAX_POINTERS);
     const avoid = this.deps.avoid?.() ?? [];
     const placed: Rect[] = [];
     const keep = new Set<string>();
-    const cx = (rect.left + rect.right) / 2;
-    const cy = (rect.top + rect.bottom) / 2;
+    // the ray starts at the screen point of the map centre (the padded viewport centre), the same
+    // point the geographic bearing is measured from, kept inside the clamp rect (WR-W5)
+    const pc = map.project([centre.lng, centre.lat]);
+    const clamp = (v: number, lo: number, hi: number, dflt: number) =>
+      Number.isFinite(v) ? Math.min(Math.max(v, lo), hi) : dflt;
+    const cx = clamp(pc.x, rect.left, rect.right, (rect.left + rect.right) / 2);
+    const cy = clamp(pc.y, rect.top, rect.bottom, (rect.top + rect.bottom) / 2);
     for (const s of chosen) {
       const entry = this.ensure(s);
-      const angle = screenAngle({ lat: centre.lat, lon: centre.lng }, { lat: s.lngLat[1], lon: s.lngLat[0] }, bearing);
+      const geo = screenAngle({ lat: centre.lat, lon: centre.lng }, { lat: s.lngLat[1], lon: s.lngLat[0] }, bearing);
+      // under pitch the screen direction is not the geographic bearing (perspective squeezes the
+      // forward axis), so use the projected point; one projection per pointer (at most
+      // MAX_POINTERS), reusing the on-screen test's. Behind the camera, fall back to the bearing.
+      let p = projected.get(s.item.id);
+      if (!p) p = map.project(s.lngLat);
+      const angle = projectedAngle(cx, cy, p, geo) ?? geo;
       const hit = rayToRect(cx, cy, angle, rect);
       const pos = this.place(hit, entry.w, rect, placed, avoid);
       if (!pos) continue;

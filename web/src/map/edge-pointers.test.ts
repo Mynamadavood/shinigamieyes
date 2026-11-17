@@ -219,3 +219,56 @@ describe("EdgePointers", () => {
     expect(t.host.querySelector(".edge-pointers")).toBeNull();
   });
 });
+
+describe("pitched direction and ray origin (WR-W5)", () => {
+  // a 60 degree pitch squeezes the forward axis: north is drawn at half scale, and the map
+  // centre sits at y 300 (bottom padding), not at the clamp rect centre (y 350).
+  // South of the centre, the far points are behind the camera and project mirrored.
+  function pitched() {
+    const map = {
+      getCenter: () => ({ lng: 144.9, lat: -37.8 }),
+      getBearing: () => 0,
+      project: (l: [number, number]) => {
+        const dx = (l[0] - 144.9) * 100000;
+        const dy = -(l[1] + 37.8) * 100000 * 0.5;
+        if (l[1] < -37.85) return { x: 200 - dx, y: 300 - Math.abs(dy) };
+        return { x: 200 + dx, y: 300 + dy };
+      },
+      getBounds: () => ({ contains: () => false }),
+      easeTo: vi.fn(),
+      jumpTo: vi.fn(),
+      on: () => {},
+      once: vi.fn(),
+    } satisfies PointerMapLike;
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const ep = new EdgePointers({ host, map, reducedMotion: true, clampRect: () => RECT, onArrive: vi.fn(), hidden: () => false });
+    const rot = () => host.querySelector<SVGElement>(".ptr-arrow")!.style.getPropertyValue("--rot");
+    const btn = () => host.querySelector<HTMLButtonElement>("button.edge-pointer")!;
+    return { ep, rot, btn };
+  }
+
+  it("points along the projected direction, not the geographic bearing, in front of the camera", () => {
+    const t = pitched();
+    t.ep.update([stop("ne", 144.91, -37.79, 1200)], "server");
+    const geo = Math.round(screenAngle({ lat: -37.8, lon: 144.9 }, { lat: -37.79, lon: 144.91 }, 0));
+    expect(geo).toBeLessThan(45);
+    // projected: dx 1000, dy -500 -> atan2(1000, 500) = 63.4 deg
+    expect(t.rot()).toBe("63deg");
+  });
+
+  it("falls back to the geographic bearing for a point behind the camera", () => {
+    const t = pitched();
+    t.ep.update([stop("se", 144.95, -37.9, 9000)], "server");
+    const geo = Math.round(screenAngle({ lat: -37.8, lon: 144.9 }, { lat: -37.9, lon: 144.95 }, 0));
+    expect(t.rot()).toBe(`${geo}deg`);
+  });
+
+  it("starts the ray at the projected map centre", () => {
+    const t = pitched();
+    t.ep.update([stop("e", 144.95, -37.8, 4000)], "server");
+    expect(t.rot()).toBe("90deg");
+    // right edge at the centre's screen y (300), chip centred on it (48 px hit height)
+    expect(t.btn().style.getPropertyValue("--y")).toBe("276px");
+  });
+});
