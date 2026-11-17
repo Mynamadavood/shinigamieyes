@@ -93,3 +93,11 @@ Deploy first: CT 110 runs 93d55ae, and the review fixes (including WR-S8/S9 depl
 
 _Verified: 2026-11-18_
 _Verifier: Claude (gsd-verifier)_
+
+## Device re-check (2026-11-18, after deploying da267fe)
+
+- Edge pointers (D-14, CR-W1, WR-W5): pass on David's iPhone.
+- Vehicle fade (WR-W4): inconclusive. David ran the Airplane Mode test and could not tell whether markers faded. Unit tests cover the fade class; the CSS cascade is not verified on device. Accepted as a minor visual, not a gap.
+- Real-position bus marker: not reported.
+
+Phase closed by David's decision with the vehicle fade unconfirmed on device.

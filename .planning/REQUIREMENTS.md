@@ -35,10 +35,10 @@ Milestone v1 = City mode (no hardware). Each maps to one roadmap phase.
 
 ### Transit (TRAN)
 
-- [ ] **TRAN-01**: David can see his nearest PTV stops (train, tram, bus) with distance and walk time
-- [ ] **TRAN-02**: David can see the next departures from those stops with live countdowns, labelled "live" vs "scheduled"
-- [ ] **TRAN-03**: David can see vehicles approaching his nearest stops on the map
-- [ ] **TRAN-04**: David can see current disruptions/service alerts affecting nearby routes
+- [x] **TRAN-01**: David can see his nearest PTV stops (train, tram, bus) with distance and walk time
+- [x] **TRAN-02**: David can see the next departures from those stops with live countdowns, labelled "live" vs "scheduled"
+- [x] **TRAN-03**: David can see vehicles approaching his nearest stops on the map
+- [x] **TRAN-04**: David can see current disruptions/service alerts affecting nearby routes
 
 ### Environment (ENV)
 
@@ -143,10 +143,10 @@ Set during roadmap creation (2026-11-05).
 | HUD-10 | Phase 2 | Complete |
 | SURV-01 | Phase 2 | Complete |
 | SURV-02 | Phase 2 | Complete |
-| TRAN-01 | Phase 3 | Pending |
-| TRAN-02 | Phase 3 | Pending |
-| TRAN-03 | Phase 3 | Pending |
-| TRAN-04 | Phase 3 | Pending |
+| TRAN-01 | Phase 3 | Complete |
+| TRAN-02 | Phase 3 | Complete |
+| TRAN-03 | Phase 3 | Complete |
+| TRAN-04 | Phase 3 | Complete |
 | ENV-01 | Phase 4 | Pending |
 | ENV-02 | Phase 4 | Pending |
 | ENV-03 | Phase 4 | Pending |

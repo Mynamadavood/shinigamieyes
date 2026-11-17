@@ -128,6 +128,6 @@ Review-fix redeploy (2026-11-18, da267fe): local verify `{"mode":"local","pass":
 
 Device re-check after the review fixes (pending, David):
 
-- [ ] Edge pointers (CR-W1, WR-W5): pan away from a stop; an arrow appears at the edge, points the right way, hides while a sheet is open, and tapping it returns to the stop.
-- [ ] Vehicle fade (WR-W4): a vehicle whose position is over about 2 minutes old fades.
-- [ ] Optional: a real-position bus marker (not estimated) has been seen.
+- [x] Edge pointers (CR-W1, WR-W5): pan away from a stop; an arrow appears at the edge, points the right way, hides while a sheet is open, and tapping it returns to the stop. Pass (David, iPhone, 2026-11-18).
+- [~] Vehicle fade (WR-W4): a vehicle whose position is over about 2 minutes old fades. Inconclusive: David tried the Airplane Mode test and could not tell whether markers faded. Covered by unit tests only; accepted as a minor visual.
+- [ ] Optional: a real-position bus marker (not estimated) has been seen. Not reported.
