@@ -8,7 +8,7 @@ v1 = City mode: a private, Tailscale-only iPhone PWA that profiles Melbourne aro
 
 - [x] **Phase 1: Foundation and Flat HUD Slice** - Installable Tailscale-only PWA showing a cached-first, ticking list of sun and UV items at your location (completed 2026-11-06)
 - [x] **Phase 2: 3D Map, Hero and Surveillance** - Dark tilted 3D map with floating tags, info cards, hero activation, and CCTV/road-camera layer (completed 2026-11-11)
-- [ ] **Phase 3: Transit** - Nearest PTV stops, live departures, approaching vehicles and disruptions
+- [x] **Phase 3: Transit** - Nearest PTV stops, live departures, approaching vehicles and disruptions (completed 2026-11-17)
 - [ ] **Phase 4: Environment, Grid/Water and Ranking** - Weather/rain, air, fire danger, pollen, grid and water, plus the ranked "next" strip, chips and layer toggles
 - [ ] **Phase 5: Hazards, Sky and Bay** - Emergency incidents with pre-empting banner, planes, ISS/satellite passes and ships
 - [ ] **Phase 6: Context and Coverage** - Heritage/Wikipedia, towers, City of Melbourne CBD data, listen-in link-outs, out-of-coverage handling
@@ -147,7 +147,7 @@ Plans:
   3. Vehicles approaching the nearest stops are visible on the map
   4. Current disruptions affecting nearby routes are listed
 
-**Plans:** 19/20 plans executed
+**Plans:** 20/20 plans complete
 
 Plans:
 **Wave 1**
@@ -189,7 +189,7 @@ Plans:
 
 **Wave 7**
 
-- [ ] 03-20-PLAN.md — David adds PTV key + smoke run; device UAT (Gate 4)
+- [x] 03-20-PLAN.md — David adds PTV key + smoke run; device UAT (Gate 4)
 
 **UI hint**: yes
 
@@ -264,7 +264,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation and Flat HUD Slice | 11/11 | Complete    | 2026-11-06 |
 | 2. 3D Map, Hero and Surveillance | 18/18 | Complete    | 2026-11-11 |
-| 3. Transit | 19/20 | In Progress|  |
+| 3. Transit | 20/20 | Complete   | 2026-11-17 |
 | 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
 | 5. Hazards, Sky and Bay | 0/0 | Not started | - |
 | 6. Context and Coverage | 0/0 | Not started | - |
