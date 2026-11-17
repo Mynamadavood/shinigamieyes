@@ -565,6 +565,23 @@ describe("vehicles", () => {
     expect(c.secondary[0]).toEqual(["Arrival", "SCHED"]);
     layer.destroy();
   });
+  it("rewrites the vehicle aria-label once a minute, not every second (WR-W8)", () => {
+    const { layer, els } = setup();
+    layer.update([veh("a", 0.001)]);
+    const label = () => els[0].getAttribute("aria-label");
+    expect(label()).toBe("Tram 96 to St Kilda Beach, arrives at Bourke St Mall in 03:12");
+    const set = vi.spyOn(els[0], "setAttribute");
+    vi.advanceTimersByTime(5_000);
+    expect(set.mock.calls.filter((c) => c[0] === "aria-label")).toHaveLength(0);
+    expect(label()).toBe("Tram 96 to St Kilda Beach, arrives at Bourke St Mall in 03:12");
+    vi.advanceTimersByTime(56_000);
+    expect(set.mock.calls.filter((c) => c[0] === "aria-label")).toHaveLength(1);
+    expect(label()).toMatch(/in 02:1\d$/);
+    // a new item (new ETA) updates it straight away
+    layer.update([veh("a", 0.001, {}, NOW / 1000 + 600)]);
+    expect(label()).toMatch(/in 0[89]:\d\d$/);
+    layer.destroy();
+  });
   it("opens the vehicle card on tap", () => {
     const { layer, els, card } = setup();
     layer.update([veh("a", 0.001)]);

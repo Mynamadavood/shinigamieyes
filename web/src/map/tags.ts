@@ -176,6 +176,9 @@ interface Entry {
   /** vehicle: badge element and the position shown while a glide runs */
   badgeEl?: HTMLElement | null;
   shown?: [number, number];
+  /** vehicle: what the aria-label was last written for (item, state and minute, WR-W8) */
+  labelKey?: string;
+  labelItem?: Item;
 }
 
 interface Glide {
@@ -546,8 +549,16 @@ export class TagLayer {
     }
     e.el.classList.toggle("est", est);
     const t = vehPosTs(e.item);
-    e.el.classList.toggle("fading", t !== null && now / 1000 - t > FADE_AFTER_S);
-    e.el.setAttribute("aria-label", vehSpoken(e.item, now));
+    const fading = t !== null && now / 1000 - t > FADE_AFTER_S;
+    e.el.classList.toggle("fading", fading);
+    // the label holds a seconds countdown: rewrite it only on a new item, a state change or a new
+    // minute, so VoiceOver is not re-announcing a focused marker every second (WR-W8)
+    const key = `${Math.floor(now / 60_000)}|${est}|${fading}`;
+    if (e.labelItem !== e.item || e.labelKey !== key) {
+      e.el.setAttribute("aria-label", vehSpoken(e.item, now));
+      e.labelItem = e.item;
+      e.labelKey = key;
+    }
   }
 
   /**
