@@ -2,7 +2,7 @@ import { ageTag } from "../freshness";
 import type { Item, Layer } from "../types";
 import { modeName, modeTitle, modeWord, shortStopName, walkMinText } from "../transit";
 import { fmtDistance } from "./camera-card";
-import type { CardContent, CardLine, CardSection } from "./card";
+import { type CardContent, type CardLine, type CardSection, MISSED_NOTE } from "./card";
 
 const MAX_TEXT = 80;
 const MAX_ALERT_TEXT = 120;
@@ -126,19 +126,26 @@ function warnFor(it: Item, dis: Item[], stopId: unknown): 0 | 1 | 3 {
 function line(it: Item, walkS: number, nowMs: number, warn: 0 | 1 | 3 = 0): CardLine {
   const d = it.detail ?? {};
   const target = (it.target_ts ?? 0) * 1000;
+  // the open card hides the line once the service has departed (WR-W2)
+  const goneAtMs = target + DEPARTED_MS;
   if (d["cancelled"] === true) {
-    const c: CardLine = { cls: ["cancelled"], countTargetMs: target, chip: "CANCELLED" };
+    const c: CardLine = { cls: ["cancelled"], countTargetMs: target, chip: "CANCELLED", goneAtMs };
     if (warn) c.warn = warn;
     return c;
   }
   const live = d["live"] === true;
-  const missed = target - walkS * 1000 - nowMs < -GRACE_MS;
-  const note = missed ? "too late" : noteFor(d, str(d["mode"]) === "train");
+  // same rule as the drawer: catchable until walk + 30 s grace past the departure (D-08)
+  const missAtMs = target - walkS * 1000 + GRACE_MS;
+  const missed = nowMs > missAtMs;
+  const note = missed ? MISSED_NOTE : noteFor(d, str(d["mode"]) === "train");
   const out: CardLine = {
     cls: [live ? "live" : "sched", ...(missed ? ["missed"] : [])],
     countTargetMs: target,
     mark: { text: live ? "LIVE" : "SCHED", cls: live ? "live" : "sched" },
+    goneAtMs,
   };
+  // the open card dims it on the 1 s tick when it becomes uncatchable between frames (WR-W2)
+  if (!missed) out.missAtMs = missAtMs;
   if (note) out.note = clip(note);
   if (warn) out.warn = warn;
   return out;

@@ -19,7 +19,14 @@ export interface CardLine {
   note?: string;
   warn?: 0 | 1 | 3;
   text?: string;
+  /** once the clock passes this, the line turns "missed" with a "too late" note (D-08, WR-W2) */
+  missAtMs?: number;
+  /** once the clock passes this, the line is hidden (the service has departed, WR-W2) */
+  goneAtMs?: number;
 }
+
+/** Note shown on a line that can no longer be caught. */
+export const MISSED_NOTE = "too late";
 
 export interface CardSection {
   head?: string;
@@ -179,6 +186,8 @@ export class Card {
   private counts: HTMLElement[] = [];
   private stopTicker: (() => void) | null = null;
   private sectionsEl: HTMLElement | null = null;
+  /** lines that change state as time passes between data frames (WR-W2) */
+  private timed: Array<{ el: HTMLElement; group: HTMLElement; missAt?: number; goneAt?: number }> = [];
 
   constructor(
     parent: HTMLElement = document.body,
@@ -228,8 +237,11 @@ export class Card {
   /** Re-render the open card in place: same root, anchor, opts and leader. */
   replace(content: CardContent): void {
     if (!this.openState) return;
+    // a new data frame must not jump a scrolled stop card back to the top (WR-W2)
+    const scroll = this.sectionsEl?.scrollTop ?? 0;
     this.render(content);
     this.place();
+    if (this.sectionsEl && scroll > 0) this.sectionsEl.scrollTop = scroll;
   }
 
   private render(content: CardContent): void {
@@ -256,6 +268,9 @@ export class Card {
           const el = depLine(ln, this.targets, now);
           const c = el.querySelector<HTMLElement>(".dep-count");
           if (c && this.targets.has(c)) this.counts.push(c);
+          if (ln.missAtMs !== undefined || ln.goneAtMs !== undefined) {
+            this.timed.push({ el, group: g, missAt: ln.missAtMs, goneAt: ln.goneAtMs });
+          }
           g.appendChild(el);
         }
         wrap.appendChild(g);
@@ -285,7 +300,7 @@ export class Card {
       b.addEventListener("click", onClick);
       this.root.appendChild(b);
     }
-    if (this.counts.length > 0) {
+    if (this.counts.length > 0 || this.timed.length > 0) {
       this.stopTicker = startTicker((now) => this.tick(now));
     }
   }
@@ -297,12 +312,40 @@ export class Card {
       const text = fmtCountdown(Math.max(0, t - now) / 1000);
       if (c.textContent !== text) c.textContent = text;
     }
+    if (this.timed.length > 0) this.ageLines(now);
+  }
+
+  /** Dim lines that became uncatchable and hide departed ones, without rebuilding the card. */
+  private ageLines(now: number): void {
+    const groups = new Set<HTMLElement>();
+    for (const t of this.timed) {
+      if (t.missAt !== undefined && now > t.missAt && !t.el.classList.contains("missed")) {
+        t.el.classList.add("missed");
+        let note = t.el.querySelector<HTMLElement>(".dep-note");
+        if (!note) {
+          note = document.createElement("span");
+          note.className = "dep-note";
+          t.el.appendChild(note);
+        }
+        note.textContent = MISSED_NOTE;
+      }
+      if (t.goneAt !== undefined && now > t.goneAt && !t.el.hidden) {
+        t.el.hidden = true;
+        groups.add(t.group);
+      }
+    }
+    // a group whose departures have all gone is hidden with its head
+    for (const g of groups) {
+      const lines = g.querySelectorAll<HTMLElement>(".card-dep");
+      if (lines.length > 0 && [...lines].every((l) => l.hidden)) g.hidden = true;
+    }
   }
 
   private stopCounting(): void {
     this.stopTicker?.();
     this.stopTicker = null;
     this.counts = [];
+    this.timed = [];
   }
 
   /** Cap the card height so it fits above the drawer; the groups block scrolls. */

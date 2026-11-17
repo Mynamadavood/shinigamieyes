@@ -238,6 +238,45 @@ describe("Card sections", () => {
     vi.restoreAllMocks();
   });
 
+  it("dims a line that becomes uncatchable and hides a departed one between frames (WR-W2)", () => {
+    const now = Date.now();
+    card.open(anchor, {
+      ...base,
+      sections: [
+        {
+          head: "96 to St Kilda Beach",
+          lines: [
+            { cls: ["live"], countTargetMs: now + 5_000, mark: { text: "LIVE", cls: "live" }, goneAtMs: now + 20_000 },
+            {
+              cls: ["live"], countTargetMs: now + 60_000, mark: { text: "LIVE", cls: "live" }, note: "plat 4",
+              missAtMs: now + 3_000, goneAtMs: now + 75_000,
+            },
+          ],
+        },
+      ],
+    });
+    const lines = document.querySelectorAll<HTMLElement>(".card-dep");
+    expect(lines[1].classList.contains("missed")).toBe(false);
+    expect(lines[1].querySelector(".dep-note")!.textContent).toBe("plat 4");
+    vi.advanceTimersByTime(4_000);
+    expect(lines[1].classList.contains("missed")).toBe(true);
+    expect(lines[1].querySelector(".dep-note")!.textContent).toBe("too late");
+    expect(lines[0].hidden).toBe(false);
+    vi.advanceTimersByTime(17_000);
+    expect(lines[0].hidden).toBe(true);
+    expect(document.querySelector<HTMLElement>(".card-dep-group")!.hidden).toBe(false);
+    vi.advanceTimersByTime(60_000);
+    expect(lines[1].hidden).toBe(true);
+    expect(document.querySelector<HTMLElement>(".card-dep-group")!.hidden).toBe(true);
+  });
+
+  it("replace keeps the scroll position of the groups block (WR-W2)", () => {
+    card.open(anchor, { ...base, sections: secs(target()) });
+    document.querySelector<HTMLElement>(".card-sections")!.scrollTop = 120;
+    card.replace({ ...base, sections: secs(target()) });
+    expect(document.querySelector<HTMLElement>(".card-sections")!.scrollTop).toBe(120);
+  });
+
   it("cards without sections do not start a ticker", () => {
     card.open(anchor, { ...base });
     expect(vi.getTimerCount()).toBe(0);

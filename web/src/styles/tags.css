@@ -173,6 +173,8 @@
   line-height: var(--lh-label);
 }
 .card-dep.dep-text { color: var(--c-dim); }
+/* departed lines (and a group with none left) are hidden by the 1 s tick (WR-W2) */
+.card-dep[hidden], .card-dep-group[hidden] { display: none; }
 .card-dep-group.stale { opacity: var(--o-stale); }
 .dep-count {
   flex: 0 0 48px;

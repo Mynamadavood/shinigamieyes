@@ -91,6 +91,16 @@ describe("depLines", () => {
     expect(c.mark).toBeUndefined();
     expect(c.note).toBeUndefined();
   });
+  it("gives catchable lines a miss time and every line a gone time for the open card (WR-W2)", () => {
+    const ok = depLines(item, ctx([dep({}, at(60))]), NOW, 60)[0].lines[0];
+    // catchable until departure - walk + 30 s grace; listed until 15 s after departure
+    expect(ok.missAtMs).toBe(NOW + 60_000 - 60_000 + 30_000);
+    expect(ok.goneAtMs).toBe(NOW + 60_000 + 15_000);
+    const missed = depLines(item, ctx([dep({}, at(60))]), NOW, 120)[0].lines[0];
+    expect(missed.missAtMs).toBeUndefined();
+    const c = depLines(item, ctx([dep({ cancelled: true }, at(60))]), NOW)[0].lines[0];
+    expect(c.goneAtMs).toBe(NOW + 75_000);
+  });
   it("covers the states", () => {
     expect(texts(depLines(item, ctx([], "fresh", "no_key"), NOW))).toEqual(["Departures · PTV key not set"]);
     expect(texts(depLines(item, null, NOW))).toEqual(["Departures · loading"]);
