@@ -24,6 +24,8 @@ class ProviderMeta:
     interval_s: int | None = None
     # True: computed from the exact point; never run for server-held place pins
     exact_location_only: bool = False
+    # Longest poll backoff after failures; None means the runtime default (review WR-S3)
+    backoff_cap_s: int | None = None
 
 
 @dataclass
@@ -45,6 +47,15 @@ class Provider(ABC):
 
     async def refresh(self, ctx: ProviderContext) -> None:
         return None
+
+    async def nudge_refresh(self, ctx: ProviderContext) -> bool:
+        """Refresh on demand (runtime nudge). Default: the full refresh.
+
+        Return False when there was nothing to fetch, so the runtime does not treat a no-op
+        as proof that the upstream is healthy again.
+        """
+        await self.refresh(ctx)
+        return True
 
     async def fetch_cell(self, ctx: ProviderContext, cell: Cell) -> None:
         return None

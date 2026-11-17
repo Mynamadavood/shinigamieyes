@@ -65,6 +65,9 @@ class Runtime:
         self._pending: set[str] = set()
         self._deferred: dict[str, asyncio.TimerHandle] = {}
         self._stopping = False
+        # per-provider poll backoff, so a successful nudge can reset it (review WR-S3)
+        self._backoff: dict[str, float] = {}
+        self._wake: dict[str, asyncio.Event] = {}
 
     # lifecycle -------------------------------------------------------------
     async def start(self) -> None:
@@ -134,24 +137,48 @@ class Runtime:
         while (t := self._running.get(provider_id)) is not None:
             await asyncio.wait({t})
 
+    async def _pause(self, provider_id: str, delay: float) -> bool:
+        """Sleep `delay`; return True if a successful nudge cut a backoff sleep short."""
+        ev = self._wake.setdefault(provider_id, asyncio.Event())
+        ev.clear()
+        sleeper = asyncio.ensure_future(_sleep(delay))
+        waker = asyncio.ensure_future(ev.wait())
+        try:
+            await asyncio.wait({sleeper, waker}, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            sleeper.cancel()
+            waker.cancel()
+        return ev.is_set()
+
     async def _poll_loop(self, p: Provider) -> None:
-        backoff = BACKOFF_BASE_S
+        pid = p.meta.id
+        cap = float(p.meta.backoff_cap_s or BACKOFF_CAP_S)
+        self._backoff[pid] = BACKOFF_BASE_S
         interval = float(p.meta.interval_s or p.meta.ttl_s)
+
+        def normal() -> float:
+            return interval * random.uniform(1 - JITTER, 1 + JITTER)
+
         while True:
             try:
                 # never run beside a nudge: wait for it, then do the full sweep (review WR-S1)
-                await self._wait_idle(p.meta.id)
-                await self._start_refresh(p.meta.id, p.refresh(self.ctx))
+                await self._wait_idle(pid)
+                await self._start_refresh(pid, p.refresh(self.ctx))
                 self._publish_layer(p, "global", 0.0, 0.0)
-                backoff = BACKOFF_BASE_S
-                delay = interval * random.uniform(1 - JITTER, 1 + JITTER)
+                self._backoff[pid] = BACKOFF_BASE_S
+                delay = normal()
             except asyncio.CancelledError:
                 raise
             except Exception as exc:  # noqa: BLE001 - upstream failures must not kill the loop
-                log.warning("refresh failed provider=%s err=%s", p.meta.id, type(exc).__name__)
-                delay = backoff
-                backoff = min(backoff * 2, BACKOFF_CAP_S)
-            await _sleep(delay)
+                log.warning("refresh failed provider=%s err=%s", pid, type(exc).__name__)
+                if getattr(exc, "kind", None) == "rate_guard":
+                    # our own call budget, not an upstream outage: keep the normal cadence
+                    delay = normal()
+                else:
+                    delay = self._backoff[pid]
+                    self._backoff[pid] = min(delay * 2, cap)
+            while await self._pause(pid, delay):
+                delay = normal()  # a nudge just succeeded: resume the normal cadence from now
 
     # on-demand tier --------------------------------------------------------
     def request_cell(self, provider_id: str, cell: Cell) -> None:
@@ -204,9 +231,16 @@ class Runtime:
         self._start_nudge(provider_id)
 
     async def _nudge_run(self, p: Provider) -> None:
+        pid = p.meta.id
         try:
-            await p.refresh(self.ctx)
+            did = await p.nudge_refresh(self.ctx)
             self._publish_layer(p, "global", 0.0, 0.0)
+            if did is not False and self._backoff.get(pid, BACKOFF_BASE_S) > BACKOFF_BASE_S:
+                # upstream answered again: end the poll loop's backoff now (review WR-S3)
+                self._backoff[pid] = BACKOFF_BASE_S
+                ev = self._wake.get(pid)
+                if ev is not None:
+                    ev.set()
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001

@@ -30,6 +30,8 @@ PAST_GRACE_S = 60
 MAX_DISRUPTIONS = 6
 PLANNED_WINDOW_S = 86_400
 DIS_STALE_AFTER_S = 600
+# Live departures go stale in 2 min, so never back off for half an hour after a blip (WR-S3)
+DEP_BACKOFF_CAP_S = 300
 _MODE_NAME = {0: "Train", 1: "Tram", 2: "Bus", 4: "Bus"}
 
 NONE_NAMES = {
@@ -157,6 +159,7 @@ class TransitDeparturesProvider(Provider):
         attribution=ATTRIBUTION,
         interval_s=30,
         exact_location_only=True,
+        backoff_cap_s=DEP_BACKOFF_CAP_S,
     )
 
     def __init__(self, service: TransitService) -> None:
@@ -183,9 +186,13 @@ class TransitDeparturesProvider(Provider):
         new_ids = {r.stop_id for r in new}
         svc.last_new_refs = set(new_ids)
         # a newly watched stop with no cache, or only an old one (a revisit), gets a nudge (D-23)
-        if ctx.runtime is not None and any(
-            cached[i] is None or now - cached[i][1] > STALE_AFTER_S for i in new_ids if i in cached
-        ):
+        need = {
+            i
+            for i in new_ids
+            if i in cached and (cached[i] is None or now - cached[i][1] > STALE_AFTER_S)
+        }
+        if ctx.runtime is not None and need:
+            svc.want_nudge(need)  # the nudge fetches only these stops (review WR-S3)
             try:
                 ctx.runtime.nudge("transit_departures")
             except Exception as exc:  # noqa: BLE001
@@ -270,6 +277,27 @@ class TransitDeparturesProvider(Provider):
         refs = svc.watch.active(now)
         if not refs:
             return
+        await self._sweep(ctx, refs, now)
+
+    async def nudge_refresh(self, ctx: ProviderContext) -> bool:
+        """Fetch only the stops a query flagged (new and uncached/old), not the whole watch set.
+
+        A nudge used to re-sweep every watched stop, which with nudges every 10 s could exceed the
+        60/min PTV guard (review WR-S3). The poll keeps the rest of the set current.
+        """
+        svc = self.service
+        ids = svc.take_nudge_ids()
+        if svc.source is None or not ids:
+            return False
+        now = ctx.clock()
+        refs = [r for r in svc.watch.active(now) if r.stop_id in ids]
+        if not refs:
+            return False
+        await self._sweep(ctx, refs, now)
+        return True
+
+    async def _sweep(self, ctx: ProviderContext, refs: list[StopRef], now: float) -> None:
+        svc = self.service
         ok = 0
         last: Exception | None = None
         for ref in refs:
@@ -461,6 +489,7 @@ class TransitVehiclesProvider(Provider):
         attribution=ATTRIBUTION,
         interval_s=30,
         exact_location_only=True,
+        backoff_cap_s=DEP_BACKOFF_CAP_S,
     )
 
     def __init__(self, service: TransitService) -> None:

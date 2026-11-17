@@ -338,3 +338,86 @@ async def test_stop_does_not_rearm_pending_nudge(tmp_path, monkeypatch):
     await runtime.stop()
     await asyncio.sleep(0.02)
     assert p.calls == 1 and runtime._running == {}
+
+
+class KindError(Exception):
+    def __init__(self, kind):
+        super().__init__(kind)
+        self.kind = kind
+
+
+class ScriptedPolled(Provider):
+    def __init__(self, script, cap=None):
+        self.meta = ProviderMeta(
+            id="dep_stub", tier="polled", ttl_s=30, stale_after_s=None, attribution="x",
+            interval_s=30, exact_location_only=True, backoff_cap_s=cap,
+        )  # fmt: skip
+        self.script = list(script)
+        self.calls = 0
+
+    async def refresh(self, ctx):
+        self.calls += 1
+        step = self.script.pop(0) if self.script else None
+        if step is not None:
+            raise KindError(step)
+
+    def query(self, ctx, lat, lon, now):
+        return Layer(id="dep_stub", status="fresh", rev=1, as_of=now, attribution="x", items=[])
+
+
+async def _poll_delays(tmp_path, monkeypatch, provider, n):
+    delays = []
+    done = asyncio.Event()
+    real_sleep = asyncio.sleep
+
+    async def fake_sleep(s):
+        delays.append(s)
+        if len(delays) >= n:
+            done.set()
+        await real_sleep(0)
+
+    monkeypatch.setattr(rt, "_sleep", fake_sleep)
+    runtime = Runtime(make_ctx(tmp_path), [provider])
+    await runtime.start()
+    await asyncio.wait_for(done.wait(), 2)
+    await runtime.stop()
+    return delays[:n]
+
+
+async def test_rate_guard_rejection_does_not_back_off(tmp_path, monkeypatch):
+    # review WR-S3: our own 60/min guard is not an upstream outage
+    p = ScriptedPolled(["rate_guard"] * 4 + ["http_5xx"])
+    delays = await _poll_delays(tmp_path, monkeypatch, p, 5)
+    assert all(27 <= d <= 33 for d in delays[:4])  # normal 30 s cadence with jitter
+    assert delays[4] == rt.BACKOFF_BASE_S  # a real failure still starts the backoff
+
+
+async def test_per_provider_backoff_cap(tmp_path, monkeypatch):
+    p = ScriptedPolled(["http_5xx"] * 6, cap=120)
+    delays = await _poll_delays(tmp_path, monkeypatch, p, 6)
+    assert delays == [30, 60, 120, 120, 120, 120]
+
+
+async def test_successful_nudge_ends_poll_backoff(tmp_path, monkeypatch):
+    delays = []
+    forever = asyncio.Event()
+
+    async def park(s):
+        delays.append(s)
+        await forever.wait()
+
+    monkeypatch.setattr(rt, "_sleep", park)
+    monkeypatch.setattr(rt, "NUDGE_MIN_GAP_S", 0.0)
+    p = ScriptedPolled(["http_5xx", "http_5xx"])
+    runtime = Runtime(make_ctx(tmp_path), [p])
+    await runtime.start()
+    await asyncio.sleep(0.02)
+    assert p.calls == 1 and delays == [30] and runtime._backoff["dep_stub"] == 60
+    runtime.nudge("dep_stub")  # fails too: backoff unchanged, poll keeps sleeping
+    await asyncio.sleep(0.02)
+    assert p.calls == 2 and delays == [30] and runtime._backoff["dep_stub"] == 60
+    runtime.nudge("dep_stub")  # succeeds: the poll wakes and resumes the normal cadence
+    await asyncio.sleep(0.02)
+    assert p.calls == 3 and runtime._backoff["dep_stub"] == rt.BACKOFF_BASE_S
+    assert len(delays) == 2 and 27 <= delays[1] <= 33
+    await runtime.stop()

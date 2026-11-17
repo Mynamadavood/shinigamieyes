@@ -1,5 +1,7 @@
 """Shared transit state for the four transit providers: stop store plus PTV credentials/state."""
 
+import threading
+
 from shinigami.transit.ptv_client import PtvClient
 from shinigami.transit.sources import DepartureSource, PtvDepartureSource
 from shinigami.transit.store import Nearby, TransitStore
@@ -25,6 +27,9 @@ class TransitService:
         self.client: PtvClient | None = None
         self.source: DepartureSource | None = None
         self.last_new_refs: set[int] = set()  # stop ids newly watched by the last query
+        # stops a departures nudge must fetch: new and uncached/old (review WR-S3)
+        self._nudge_ids: set[int] = set()
+        self._nudge_lock = threading.Lock()  # query() runs on a worker thread
 
     @property
     def ptv_configured(self) -> bool:
@@ -40,6 +45,15 @@ class TransitService:
             return
         self.client = PtvClient(http, creds[0], creds[1])
         self.source = PtvDepartureSource(self.client)
+
+    def want_nudge(self, stop_ids: set[int]) -> None:
+        with self._nudge_lock:
+            self._nudge_ids |= stop_ids
+
+    def take_nudge_ids(self) -> set[int]:
+        with self._nudge_lock:
+            ids, self._nudge_ids = self._nudge_ids, set()
+        return ids
 
     def cached_departures(self, ctx, stop_id: int) -> tuple[dict, float] | None:
         if ctx.store is None:

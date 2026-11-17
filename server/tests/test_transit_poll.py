@@ -325,3 +325,18 @@ async def test_revisit_with_old_cache_nudges(h):
     h.rt.nudges.clear()
     h.query()  # still watched now: no repeat nudge
     assert h.rt.nudges == []
+
+
+@respx.mock
+async def test_nudge_fetches_only_new_uncached_stops(h):
+    # review WR-S3: a nudge must not re-sweep every watched stop
+    route = respx.route().mock(return_value=httpx.Response(200, json=fixture_json()))
+    h.service.watch.touch([StopRef(3001, 1)], h.now)  # already watched (far away)
+    h.query()  # 2720 is new and uncached: flagged for the nudge
+    assert h.rt.nudges == ["transit_departures"]
+    assert await h.provider.nudge_refresh(h.ctx) is True
+    assert [str(c.request.url).split("/stop/")[1].split("?")[0] for c in route.calls] == ["2720"]
+    assert await h.provider.nudge_refresh(h.ctx) is False  # flags were consumed
+    assert route.call_count == 1
+    await h.provider.refresh(h.ctx)  # the poll still covers the whole watch set
+    assert route.call_count == 3
