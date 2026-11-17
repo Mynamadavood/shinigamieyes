@@ -23,8 +23,17 @@ lock_down() {
 lock_down
 # Root-owned repo now, so no safe.directory override (that override disables git's
 # protection against running hooks/config from a repo another user can write).
+self_before="$(sha256sum deploy/deploy.sh)"
 git pull --ff-only
 lock_down
+
+# git pull replaces this file with a new inode, but bash keeps reading the old copy, so a
+# changed deploy.sh only took effect on the second run (review WR-S9). Re-exec the new
+# version once; the env flag stops a loop if the file changes again or hashing misbehaves.
+if [ -z "${SHINIGAMI_DEPLOY_REEXEC:-}" ] && [ "$(sha256sum deploy/deploy.sh)" != "$self_before" ]; then
+  echo "deploy.sh changed in this pull: re-running the new version"
+  SHINIGAMI_DEPLOY_REEXEC=1 exec bash /opt/shinigami/deploy/deploy.sh "$@"
+fi
 
 [ -x /usr/local/bin/uv ] || { echo "FATAL: /usr/local/bin/uv missing - re-run deploy/lxc-setup.sh" >&2; exit 1; }
 
