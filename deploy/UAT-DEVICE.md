@@ -113,6 +113,13 @@ PTV key added by David on the CT (2026-11-17); health reports `ptv: idle`. Smoke
 
 Signing, departures (live and scheduled), disruptions and the stop-id mapping work against live PTV. No bus position appeared in this sample, so real bus positions are still unconfirmed. The first smoke attempt crashed when run from /root (the script looked for a relative `.env` in an unreadable folder); fixed by disabling that lookup in `smoke.py`.
 
-Device check: pending (David, iPhone).
+Device check (David, iPhone, 2026-11-17):
 
-Go / No-go: PENDING
+- [x] Stops: tags with distance and walk time, none-nearby rows, edge pointers. Pass.
+- [x] Departures: LIVE / SCHED, leave-in, one red LEAVE NOW row, row tap opens the card. Pass.
+- [x] Vehicles: moving markers, estimated trams marked. Pass.
+- [x] Disruptions: readout, list and warning marks. Pass.
+- [x] Saved places show transit; Home shows none. Pass.
+- [x] Kept as built: zero-padded countdowns, 30 s catch grace (D-08), single red leave-now row (D-09).
+
+Go / No-go: GO (David, 2026-11-17)
