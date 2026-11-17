@@ -678,7 +678,7 @@ export class TagLayer {
     if (!e) return;
     const { card } = this.deps;
     const desc = descFor(e.item);
-    card.open(e.el, desc.cardContent(e.item, e.dist, e.walkS, this.cardCtx, Date.now()), {
+    card.open(e.el, desc.cardContent(e.item, e.dist, e.walkS, this.cardCtx, nowMs()), {
       near: desc.prio === 2 && e.dist <= NEAR_M,
       onClose: () => {
         e.el.classList.remove("selected");

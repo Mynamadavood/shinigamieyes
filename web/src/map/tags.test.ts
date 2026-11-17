@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { nowMs, setOffset } from "../clock";
 import { MAX_FULL, MAX_TOTAL, NEAR_M, RED_CAP, EXPAND_ZOOM, MAX_VEHICLES, GLIDE_MS, JUMP_M, FADE_AFTER_S, REMOVE_AFTER_S, assignTags, labelSide, rankTags, TagLayer, type TagCand } from "./tags";
 
 function cand(i: number, p: Partial<TagCand> = {}): TagCand {
@@ -272,6 +273,31 @@ describe("TagLayer stops", () => {
     const c = replace.mock.calls[0][0];
     expect(c.title).toBe("TRAM STOP");
     expect(c.sections[0].lines[0].text).toBe("Departures · PTV key not set");
+  });
+  it("builds the stop card on the server-corrected clock, not the phone clock (WR-W1)", () => {
+    // the server is 10 min ahead of the phone clock
+    setOffset(600_000);
+    try {
+      const { layer, open } = setup();
+      layer.setOrigin("server");
+      layer.update([stopItem({ walk_s: 120 })]);
+      // leaves in 60 s on the server clock with a 120 s walk: uncatchable, so dimmed
+      const dep: any = {
+        id: "dep:1", layer: "transit_departures", group: "tram", name: "96", verb: "departs",
+        target_ts: (nowMs() + 60_000) / 1000, kind: "transit_departure", severity: 0,
+        detail: { stop_id: 2720, route_id: 1, direction_id: 0, route_number: "96", mode: "tram", live: true },
+        geom: null, fetched_at: nowMs() / 1000, stale_after_s: null, computed: true,
+      };
+      layer.setCardContext({
+        departures: { id: "transit_departures", status: "fresh", rev: 1, as_of: 0, attribution: "", items: [dep] },
+        ptvState: "ok",
+      });
+      expect(layer.openById("stop:2720")).toBe(true);
+      const lines = open.mock.calls[0][1].sections[0].lines;
+      expect(lines[0].cls).toContain("missed");
+    } finally {
+      setOffset(0);
+    }
   });
   it("setCardContext does not touch an open camera card", () => {
     const replace = vi.fn();

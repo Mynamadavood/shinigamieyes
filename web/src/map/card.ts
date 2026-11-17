@@ -1,3 +1,4 @@
+import { nowMs } from "../clock";
 import { fmtCountdown } from "../format";
 import { startTicker } from "../ticker";
 import { Leader, type LRect } from "./leader";
@@ -120,7 +121,7 @@ function warnGlyph(warn: 1 | 3): SVGElement {
   return svg;
 }
 
-function depLine(line: CardLine, targets: WeakMap<HTMLElement, number>): HTMLElement {
+function depLine(line: CardLine, targets: WeakMap<HTMLElement, number>, now: number): HTMLElement {
   const el = document.createElement("div");
   el.className = ["card-dep", ...line.cls].join(" ");
   if (line.text !== undefined && line.countTargetMs === undefined && line.countText === undefined) {
@@ -139,7 +140,7 @@ function depLine(line: CardLine, targets: WeakMap<HTMLElement, number>): HTMLEle
   count.className = "dep-count";
   if (line.countTargetMs !== undefined) {
     targets.set(count, line.countTargetMs);
-    count.textContent = fmtCountdown(Math.max(0, line.countTargetMs - Date.now()) / 1000);
+    count.textContent = fmtCountdown(Math.max(0, line.countTargetMs - now) / 1000);
   }
   if (line.countText !== undefined) count.textContent = line.countText;
   el.appendChild(count);
@@ -245,12 +246,14 @@ export class Card {
     if (content.sections && content.sections.length > 0) {
       const wrap = document.createElement("div");
       wrap.className = "card-sections";
+      // the server-corrected clock, the same one the ticker uses (WR-W1)
+      const now = nowMs();
       for (const sec of content.sections) {
         const g = document.createElement("div");
         g.className = ["card-dep-group", sec.cls].filter(Boolean).join(" ");
         if (sec.head) g.appendChild(row("card-dep-head", sec.head));
         for (const ln of sec.lines) {
-          const el = depLine(ln, this.targets);
+          const el = depLine(ln, this.targets, now);
           const c = el.querySelector<HTMLElement>(".dep-count");
           if (c && this.targets.has(c)) this.counts.push(c);
           g.appendChild(el);
