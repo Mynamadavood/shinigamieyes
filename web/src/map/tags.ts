@@ -108,8 +108,10 @@ export function assignTags(
     if (c.prio === 0 || c.prio === 1) continue;
     // within-30 m red cameras (up to RED_CAP) keep their label even when the cap is used up
     if (full.size >= cap && !red.has(c.id)) continue;
-    // a lower-ranked label that would overlap a kept one is demoted to a compact icon
+    // a lower-ranked label that would overlap a kept one is demoted to a compact icon; red
+    // within-30 m cameras are always labelled (D-13), like stops, so they skip this test (WR-W6)
     if (
+      !red.has(c.id) &&
       boxes.some(
         (b) =>
           Math.abs(b.x - c.x) < w &&

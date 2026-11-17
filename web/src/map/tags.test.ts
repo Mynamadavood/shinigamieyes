@@ -32,8 +32,8 @@ describe("assignTags", () => {
     expect(r.rendered.map((c) => c.id)).toEqual(ranked.slice(0, 60).map((c) => c.id));
   });
   it("demotes an overlapping lower-ranked label to compact", () => {
-    const a = cand(0, { x: 100, y: 100, dist: 10 });
-    const b = cand(1, { x: 150, y: 110, dist: 20 });
+    const a = cand(0, { x: 100, y: 100, dist: 40 });
+    const b = cand(1, { x: 150, y: 110, dist: 50 });
     const r = assignTags(rankTags([a, b]), 18);
     expect(r.full.has(a.id)).toBe(true);
     expect(r.full.has(b.id)).toBe(false);
@@ -174,6 +174,19 @@ describe("stops and priority", () => {
     const r = assignTags(rankTags([s, near, clear]), 18);
     expect(r.full.has("c1")).toBe(false);
     expect(r.full.has("c2")).toBe(true);
+  });
+  it("never demotes a red within-30 m camera overlapping a stop or a vehicle (WR-W6)", () => {
+    const s = stop(0, { x: 100, y: 100 });
+    const v: TagCand = { id: "v", x: 300, y: 300, dist: 80, label: "96", icon: "veh-tram", prio: 1 };
+    const underStop = cand(1, { x: 120, y: 110, dist: 12 });
+    const underVeh = cand(2, { x: 310, y: 305, dist: 20 });
+    const plain = cand(3, { x: 130, y: 105, dist: 60 });
+    const r = assignTags(rankTags([s, v, underStop, underVeh, plain]), 15);
+    expect(r.red.has("c1") && r.red.has("c2")).toBe(true);
+    expect(r.full.has("c1")).toBe(true);
+    expect(r.full.has("c2")).toBe(true);
+    // a camera beyond 30 m is still demoted by the overlap
+    expect(r.full.has("c3")).toBe(false);
   });
   it("keeps within-30 m red cameras labelled when stops use the cap", () => {
     const stops = Array.from({ length: 10 }, (_, i) => stop(i, { x: i * 300, y: 500 }));
