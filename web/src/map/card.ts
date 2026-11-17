@@ -143,6 +143,13 @@ function depLine(line: CardLine, targets: WeakMap<HTMLElement, number>, now: num
     }
     return el;
   }
+  // a countdown line keeps its label ("ends in", "<stop> in"): every countdown is named (WR-W3)
+  if (line.text) {
+    const label = document.createElement("span");
+    label.className = "dep-label";
+    label.textContent = line.text;
+    el.appendChild(label);
+  }
   const count = document.createElement("span");
   count.className = "dep-count";
   if (line.countTargetMs !== undefined) {

@@ -1,3 +1,4 @@
+import { Card } from "./card";
 import { describe, expect, it } from "vitest";
 import { depLines, MAX_CARD_LINES, stopCardContent, vehicleCardContent } from "./transit-card";
 
@@ -210,6 +211,7 @@ describe("vehicleCardContent", () => {
     expect(c.primary).toBe("to St Kilda Beach");
     const line = c.sections![0].lines[0];
     expect(line.text).toBe("Bourke St Mall in");
+    expect(c.sections![0].head).toBeUndefined();
     expect(line.countTargetMs).toBe((NOW / 1000 + 192) * 1000);
     expect(c.secondary).toEqual([["Arrival", "LIVE"], ["Position", "20 s ago"]]);
     expect(c.caveats).toEqual(["Source: PTV"]);
@@ -228,5 +230,39 @@ describe("vehicleCardContent", () => {
     expect(vehicleCardContent(veh({ mode: "bus", route_number: "907" }), NOW).title).toBe("BUS 907");
     const j = JSON.stringify(vehicleCardContent(veh(), NOW));
     expect(j).not.toMatch(/stops? away|veh:|abc/);
+  });
+});
+
+describe("countdown labels in the rendered card (WR-W3)", () => {
+  it("shows \"ends in\" before an alert end countdown and \"<stop> in\" on the vehicle line", () => {
+    const anchor = document.createElement("div");
+    document.body.append(anchor);
+    const card = new Card(document.body);
+    card.open(anchor, stopCardContent(item, 5, 5, actx([dep({ route_id: 96 }, at(300))], [dis(1)]), NOW));
+    const end = document.querySelector<HTMLElement>(".card-dep.card-alert-end")!;
+    expect(end.querySelector(".dep-label")!.textContent).toBe("ends in");
+    expect(end.querySelector(".dep-count")).not.toBeNull();
+    expect(end.querySelector(".dep-label")!.nextElementSibling!.className).toBe("dep-count");
+    card.replace(vehicleCardContent({
+      id: "veh:a", layer: "transit_vehicles", group: "tram", name: "Tram 96", verb: "arrives",
+      target_ts: NOW / 1000 + 192, kind: "transit_vehicle", severity: 0,
+      detail: { route_number: "96", mode: "tram", heading_stop_name: "Bourke Street Mall/Elizabeth St #3", eta_ts: NOW / 1000 + 192 },
+      geom: null, fetched_at: 0, stale_after_s: null, computed: true,
+    } as any, NOW));
+    const veh = document.querySelector<HTMLElement>(".card-dep.veh-eta")!;
+    expect(veh.querySelector(".dep-label")!.textContent).toBe("Bourke St Mall in");
+    expect(document.querySelector(".card-dep-head")).toBeNull();
+    card.destroy();
+    anchor.remove();
+  });
+  it("departure lines with no text get no label", () => {
+    const anchor = document.createElement("div");
+    document.body.append(anchor);
+    const card = new Card(document.body);
+    card.open(anchor, stopCardContent(item, 5, 5, actx([dep({ route_id: 96 }, at(300))], null), NOW));
+    expect(document.querySelectorAll(".card-dep .dep-label")).toHaveLength(0);
+    expect(document.querySelectorAll(".card-dep .dep-count").length).toBeGreaterThan(0);
+    card.destroy();
+    anchor.remove();
   });
 });

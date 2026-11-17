@@ -250,8 +250,8 @@ export function vehicleCardContent(item: Item, nowMs: number): CardContent {
   else if (posTs !== null) secondary.push(["Position", ageText(nowMs / 1000 - posTs)]);
   const sections: CardSection[] = [];
   if (stop && eta !== null) {
+    // the line carries the "<stop> in" label itself, so the section has no head (WR-W3)
     sections.push({
-      head: `${stop} in`,
       lines: [{ cls: ["veh-eta"], text: `${stop} in`, countTargetMs: eta * 1000 }],
     });
   }

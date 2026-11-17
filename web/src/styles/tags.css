@@ -317,6 +317,10 @@ svg.leader.near rect { fill: var(--c-red); }
 }
 .card-dep.card-alert-end .dep-count { color: var(--c-dim); font-weight: 400; }
 .card-dep.card-alert-end.stop .dep-count { color: var(--c-on-red); }
+/* the name before a countdown ("ends in", "<stop> in", WR-W3) */
+.card-dep .dep-label { color: var(--c-dim); }
+.card-dep.veh-eta .dep-label { color: var(--c-text); }
+.card-dep.card-alert-end.stop .dep-label { color: var(--c-on-red); }
 .tag-warn {
   position: absolute;
   top: -8px;
