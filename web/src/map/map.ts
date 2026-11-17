@@ -370,7 +370,9 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
     map: map as unknown as PointerMapLike,
     reducedMotion: deps.reducedMotion,
     clampRect: pointerRect,
-    hidden: () => document.querySelector(".sheet-backdrop") !== null,
+    // the sheets keep their backdrop in the DOM for the whole session and only toggle `hidden`,
+    // so only a visible backdrop hides the pointers (CR-W1)
+    hidden: () => document.querySelector(".sheet-backdrop:not([hidden])") !== null,
     onTap: () => userPanned(),
     padding: () => ({ top: 0, left: 0, right: 0, bottom: bottomPadding() }),
     avoid: () => {
@@ -383,6 +385,14 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
       tags.openById(id);
     },
   });
+  // a sheet opening or closing does not move the map, so watch the backdrops' `hidden` attribute
+  // and recompute the pointers straight away (CR-W1)
+  const sheetWatch = new MutationObserver((records) => {
+    if (records.some((r) => r.target instanceof Element && r.target.classList.contains("sheet-backdrop"))) {
+      pointers.recompute();
+    }
+  });
+  sheetWatch.observe(document.body, { subtree: true, attributes: true, attributeFilter: ["hidden"] });
   let currentOrigin: TagOrigin = null;
   let lastStopItems: Item[] = [];
   let lastCardLayers: unknown[] = [];
@@ -595,6 +605,7 @@ export async function createMap(deps: MapDeps): Promise<MapHandle | null> {
       container.removeEventListener("touchmove", onTouchMove);
       container.removeEventListener("touchend", onTouchEnd);
       container.removeEventListener("touchcancel", onTouchEnd);
+      sheetWatch.disconnect();
       pointers.destroy();
       safeProbe.remove();
       tags.destroy();

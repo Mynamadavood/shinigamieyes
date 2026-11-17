@@ -103,6 +103,8 @@ import * as ml from "maplibre-gl";
 import { createMap } from "./map";
 import { TagLayer } from "./tags";
 import type { MapDeps } from "./types";
+import { DisruptionSheet } from "../ui/disruption-sheet";
+import { LocationSheet } from "../ui/location-sheet";
 
 function mkDeps(over: Partial<MapDeps> = {}): MapDeps {
   return {
@@ -767,19 +769,28 @@ describe("transit stops and edge pointers", () => {
     expect(document.querySelectorAll(".map-tag.stop")).toHaveLength(0);
   });
 
-  it("hides pointers while a sheet is open and when the view has no origin", async () => {
+  it("hides pointers while a real sheet is open and when the view has no origin (CR-W1)", async () => {
     chrome();
+    // the real sheets: each keeps its .sheet-backdrop in the DOM for the whole session (hidden)
+    const loc = new LocationSheet(document.body, { onGps: vi.fn(), onPlace: vi.fn(), onSearch: vi.fn() });
+    const dis = new DisruptionSheet(document.body, { reducedMotion: false });
     const handle = (await createMap(mkDeps()))!;
     handle.setView(ORIGIN);
     handle.setProfile(stopProfile([far()]));
+    expect(document.querySelectorAll(".sheet-backdrop")).toHaveLength(2);
     expect(pointerBtns()).toHaveLength(1);
-    const sheet = document.createElement("div");
-    sheet.className = "sheet-backdrop";
-    document.body.appendChild(sheet);
-    h.instance.emit("moveend");
+    // opening a sheet hides the pointers without any map move
+    loc.open();
+    await Promise.resolve();
     expect(pointerBtns()).toHaveLength(0);
-    sheet.remove();
-    h.instance.emit("moveend");
+    loc.close();
+    await Promise.resolve();
+    expect(pointerBtns()).toHaveLength(1);
+    dis.open(undefined);
+    await Promise.resolve();
+    expect(pointerBtns()).toHaveLength(0);
+    dis.close();
+    await Promise.resolve();
     expect(pointerBtns()).toHaveLength(1);
     handle.setView({ kind: "none" });
     expect(pointerBtns()).toHaveLength(0);
