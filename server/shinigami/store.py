@@ -74,6 +74,28 @@ class Store:
             db.commit()
             self._layers[(provider_id, cell_id)] = (payload, fetched_at)
 
+    def prune_layers(self, provider_id: str, prefix: str, cutoff: float) -> int:
+        """Delete `provider_id` rows whose cell starts with `prefix` and are older than `cutoff`.
+
+        For caches keyed by an ever-changing id (review CR-S1: per-run pattern cells), so they
+        stay bounded in RAM and on disk. Returns the number of rows removed from disk.
+        """
+        with self._lock:
+            db = self._db()
+            cur = db.execute(
+                "DELETE FROM layer_cache WHERE provider_id=? AND substr(cell, 1, ?)=? "
+                "AND fetched_at < ?",
+                (provider_id, len(prefix), prefix, cutoff),
+            )
+            db.commit()
+            for k in [
+                k
+                for k, (_, f) in self._layers.items()
+                if k[0] == provider_id and k[1].startswith(prefix) and f < cutoff
+            ]:
+                del self._layers[k]
+            return cur.rowcount
+
     def get_geocode(self, q_norm: str, now: float | None = None) -> list[dict] | None:
         """Cached results, or None if absent or (when `now` is given) older than the TTL."""
         with self._lock:

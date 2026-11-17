@@ -538,3 +538,35 @@ async def test_stream_control_non_home_place_does_get_transit_frames(settings, t
     app, _client, _rt = _world(settings, transit_store_file)
     frames = await _stream_frames(app, "pub")
     assert frames.count("transit_vehicles") >= 2  # snapshot frame plus the touch frame
+
+
+@respx.mock
+async def test_pattern_cache_stays_bounded_over_many_runs(h):
+    # review CR-S1: every run ref is new, so without pruning pat:* rows grow forever
+    from shinigami.providers.transit import PATTERN_KEEP_S
+
+    respx.route().mock(return_value=httpx.Response(200, json=pattern_js(NOW - 60, NOW + 120)))
+    h.service.client._clock = lambda: h.now  # keep the 60/min guard on the fake clock
+    step = 30
+    for cycle in range(400):
+        h.now = NOW + cycle * step
+        h.watch(2720)
+        deps = [dep(f"C{cycle}-{i}", eta=h.now + 100 + i, rid=1000 * cycle + i) for i in range(4)]
+        h.put_deps(2720, deps)
+        await h.provider.refresh(h.ctx)
+    rows = (
+        h.store._db()
+        .execute(
+            "SELECT COUNT(*) FROM layer_cache WHERE provider_id='transit' AND cell LIKE 'pat:%'"
+        )
+        .fetchone()[0]
+    )
+    mem = sum(1 for k in h.store._layers if k[0] == "transit" and k[1].startswith("pat:"))
+    bound = 4 * (PATTERN_KEEP_S // step + 1)
+    assert 0 < rows <= bound < 400 * 4
+    assert mem == rows
+    # once the watch set drains, the remaining cells age out too
+    h.service.watch.clear()
+    h.now += PATTERN_KEEP_S + 1
+    await h.provider.refresh(h.ctx)
+    assert not any(k[1].startswith("pat:") for k in h.store._layers if k[0] == "transit")

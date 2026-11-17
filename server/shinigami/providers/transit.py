@@ -445,6 +445,8 @@ class TransitDisruptionsProvider(Provider):
 
 VEH_STALE_AFTER_S = 120
 PATTERN_ETA_WINDOW_S = 1200
+# A pattern older than this cannot place a vehicle inside the ETA horizon any more.
+PATTERN_KEEP_S = 2 * ETA_HORIZON_S
 
 
 class TransitVehiclesProvider(Provider):
@@ -577,6 +579,9 @@ class TransitVehiclesProvider(Provider):
         if svc.client is None:
             return
         now = ctx.clock()
+        # Pattern cells are keyed per run, so the key space never repeats: drop old ones every
+        # cycle (even with an empty watch set) to keep RAM and SQLite bounded (review CR-S1).
+        ctx.store.prune_layers("transit", "pat:", now - PATTERN_KEEP_S)
         refs = svc.watch.active(now)
         if not refs:
             return
