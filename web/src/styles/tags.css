@@ -10,7 +10,8 @@
   background: transparent;
   color: var(--c-blue);
   outline: none;
-  animation: tag-in var(--t-fade) linear both;
+  /* backwards, not both: a filled end value would beat .vehicle.fading's opacity (WR-W4) */
+  animation: tag-in var(--t-fade) linear backwards;
 }
 .map-tag:focus-visible .tag-icon { outline: 1px solid var(--c-text); outline-offset: 2px; }
 .tag-icon {

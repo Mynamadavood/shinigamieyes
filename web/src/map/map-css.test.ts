@@ -23,3 +23,19 @@ describe("map host CSS", () => {
     expect(rule![1]).toMatch(/stroke:\s*currentColor/);
   });
 });
+
+// Regression (WR-W4): a filled tag-in animation (fill-mode both/forwards) keeps opacity 1 after it
+// ends and overrides .map-tag.vehicle.fading, so a stale vehicle never faded.
+describe("tag CSS", () => {
+  const css = readFileSync(resolve(process.cwd(), "src/styles/tags.css"), "utf8");
+
+  it("does not hold the tag-in end value, so the vehicle fade can apply", () => {
+    const rule = css.match(/(?:^|\n)\.map-tag\s*\{([^}]*)\}/);
+    expect(rule).not.toBeNull();
+    const anim = rule![1].match(/animation:\s*([^;]*);/);
+    expect(anim).not.toBeNull();
+    expect(anim![1]).toMatch(/tag-in/);
+    expect(anim![1]).not.toMatch(/\b(both|forwards)\b/);
+    expect(css).toMatch(/\.map-tag\.vehicle\.fading\s*\{[^}]*opacity:\s*var\(--o-fade\)/);
+  });
+});
