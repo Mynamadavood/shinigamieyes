@@ -310,3 +310,18 @@ async def test_partial_failure_keeps_ok(h):
     assert h.service.ptv_state == "ok"
     assert h.store.get_layer("transit", "dep:2720") is not None
     assert h.store.get_layer("transit", "dep:3001") is None
+
+
+@respx.mock
+async def test_revisit_with_old_cache_nudges(h):
+    # review WR-S2: a stop that left the watch set and comes back with an hours-old cache
+    respx.route().mock(return_value=httpx.Response(200, json=fixture_json()))
+    h.query()
+    await h.provider.refresh(h.ctx)
+    h.rt.nudges.clear()
+    h.now = T0 + 3 * 3600  # watch entry expired; cache is far older than STALE_AFTER_S
+    h.query()
+    assert h.rt.nudges == ["transit_departures"]
+    h.rt.nudges.clear()
+    h.query()  # still watched now: no repeat nudge
+    assert h.rt.nudges == []

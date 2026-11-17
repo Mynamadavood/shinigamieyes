@@ -182,7 +182,10 @@ class TransitDeparturesProvider(Provider):
         cached = {s.id: svc.cached_departures(ctx, s.id) for s in near.stops}
         new_ids = {r.stop_id for r in new}
         svc.last_new_refs = set(new_ids)
-        if any(cached[i] is None for i in new_ids if i in cached) and ctx.runtime is not None:
+        # a newly watched stop with no cache, or only an old one (a revisit), gets a nudge (D-23)
+        if ctx.runtime is not None and any(
+            cached[i] is None or now - cached[i][1] > STALE_AFTER_S for i in new_ids if i in cached
+        ):
             try:
                 ctx.runtime.nudge("transit_departures")
             except Exception as exc:  # noqa: BLE001

@@ -280,3 +280,61 @@ async def test_poll_waits_for_inflight_nudge_and_never_overlaps(tmp_path, monkey
     assert "dep_stub" not in runtime._running
     poll.cancel()
     await runtime.stop()
+
+
+def _attach(runtime):
+    runtime._loop = asyncio.get_running_loop()
+    runtime._loop_thread = __import__("threading").get_ident()
+
+
+async def test_nudge_during_refresh_runs_once_after_it(tmp_path, monkeypatch):
+    # review WR-S2: a nudge that lands mid-refresh is kept and re-run, not lost
+    monkeypatch.setattr(rt, "NUDGE_MIN_GAP_S", 0.0)
+    ctx = make_ctx(tmp_path)
+    gate = asyncio.Event()
+    p = CountingPolled(gate)
+    runtime = Runtime(ctx, [p])
+    _attach(runtime)
+    runtime.nudge("dep_stub")
+    await asyncio.sleep(0.02)
+    for _ in range(3):  # several first-open nudges while the sweep is in flight
+        runtime.nudge("dep_stub")
+    await asyncio.sleep(0.02)
+    assert p.calls == 1
+    gate.set()
+    await asyncio.sleep(0.05)
+    assert p.calls == 2 and p.max_active == 1  # exactly one follow-up refresh
+    await runtime.stop()
+
+
+async def test_nudge_inside_min_gap_is_deferred_not_dropped(tmp_path, monkeypatch):
+    monkeypatch.setattr(rt, "NUDGE_MIN_GAP_S", 0.1)
+    ctx = make_ctx(tmp_path)
+    gate = asyncio.Event()
+    gate.set()
+    p = ExactPolled(gate=gate)
+    runtime = Runtime(ctx, [p])
+    _attach(runtime)
+    runtime.nudge("dep_stub")
+    await asyncio.sleep(0.02)
+    runtime.nudge("dep_stub")
+    runtime.nudge("dep_stub")
+    await asyncio.sleep(0.02)
+    assert p.calls == 1  # still rate limited
+    await asyncio.sleep(0.15)
+    assert p.calls == 2  # ...but it ran once the gap passed
+    await runtime.stop()
+
+
+async def test_stop_does_not_rearm_pending_nudge(tmp_path, monkeypatch):
+    monkeypatch.setattr(rt, "NUDGE_MIN_GAP_S", 0.0)
+    ctx = make_ctx(tmp_path)
+    p = ExactPolled(gate=asyncio.Event())
+    runtime = Runtime(ctx, [p])
+    _attach(runtime)
+    runtime.nudge("dep_stub")
+    await asyncio.sleep(0.02)
+    runtime.nudge("dep_stub")
+    await runtime.stop()
+    await asyncio.sleep(0.02)
+    assert p.calls == 1 and runtime._running == {}

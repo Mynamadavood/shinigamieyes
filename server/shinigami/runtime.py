@@ -60,11 +60,17 @@ class Runtime:
         # One refresh per provider at a time, poll or nudge (review WR-S1)
         self._running: dict[str, asyncio.Task] = {}
         self._last_nudge: dict[str, float] = {}
+        # A nudge that cannot start now is kept, not dropped (review WR-S2): it runs when the
+        # in-flight refresh ends, or when the min gap has passed.
+        self._pending: set[str] = set()
+        self._deferred: dict[str, asyncio.TimerHandle] = {}
+        self._stopping = False
 
     # lifecycle -------------------------------------------------------------
     async def start(self) -> None:
         self._loop = asyncio.get_running_loop()
         self._loop_thread = threading.get_ident()
+        self._stopping = False
         for p in self.providers.values():
             if p.meta.tier == "polled":
                 t = asyncio.create_task(self._poll_loop(p), name=f"poll:{p.meta.id}")
@@ -72,14 +78,19 @@ class Runtime:
                 t.add_done_callback(self._tasks.discard)
 
     async def stop(self) -> None:
+        self._stopping = True  # cancelled refreshes must not re-arm pending nudges
         tasks = list(self._tasks) + list(self._inflight.values()) + list(self._running.values())
         for t in tasks:
             t.cancel()
         if tasks:
             await asyncio.wait(tasks, timeout=1.0)
+        for h in self._deferred.values():
+            h.cancel()
         self._tasks.clear()
         self._inflight.clear()
         self._running.clear()
+        self._pending.clear()
+        self._deferred.clear()
 
     # publishing ------------------------------------------------------------
     def _publish_layer(self, provider: Provider, cell_id: str, lat: float, lon: float) -> None:
@@ -110,6 +121,10 @@ class Runtime:
         def _done(t: asyncio.Task, pid: str = provider_id) -> None:
             if self._running.get(pid) is t:  # never clear a newer refresh's registration
                 del self._running[pid]
+            if pid in self._pending and self._loop is not None and not self._loop.is_closed():
+                # a nudge arrived mid-refresh; its stops were not in this sweep's snapshot
+                self._pending.discard(pid)
+                self._loop.call_soon(self._start_nudge, pid)
 
         task.add_done_callback(_done)
         return task
@@ -161,16 +176,32 @@ class Runtime:
 
     def _start_nudge(self, provider_id: str) -> None:
         p = self.providers.get(provider_id)
-        if p is None or provider_id in self._running:
+        if p is None or self._stopping:
+            return
+        if provider_id in self._running:
+            self._pending.add(provider_id)  # re-run once the current refresh ends (WR-S2)
             return
         now = self.ctx.clock()
         last = self._last_nudge.get(provider_id)
         if last is not None and now - last < NUDGE_MIN_GAP_S:
+            if provider_id not in self._deferred and self._loop is not None:
+                wait = max(0.0, NUDGE_MIN_GAP_S - (now - last))
+                self._deferred[provider_id] = self._loop.call_later(
+                    wait, self._run_deferred, provider_id
+                )
             return
+        h = self._deferred.pop(provider_id, None)
+        if h is not None:
+            h.cancel()  # this nudge covers the deferred one
+        self._pending.discard(provider_id)
         self._last_nudge[provider_id] = now
         task = self._start_refresh(provider_id, self._nudge_run(p))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
+
+    def _run_deferred(self, provider_id: str) -> None:
+        self._deferred.pop(provider_id, None)
+        self._start_nudge(provider_id)
 
     async def _nudge_run(self, p: Provider) -> None:
         try:
