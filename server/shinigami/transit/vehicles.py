@@ -14,7 +14,8 @@ Pitfall 9). The vehicle key is a hash of the run ref; no raw run ref, vehicle de
 operator or bearing is ever carried.
 
 Cache callable convention: `cache(stop_id: int)` returns that stop's cached departures
-payload; `cache(key: str)` returns the cached pattern cell `{"stops": [...]}` for that run key.
+payload, with the cache row's `fetched_at` merged in when known; `cache(key: str)` returns the
+cached pattern cell `{"stops": [...]}` for that run key.
 """
 
 from __future__ import annotations
@@ -71,7 +72,7 @@ def _candidates(stops: list[NearStop], cache: Cache):
         for d in payload.get("departures") or []:
             if d.get("cancelled") or d.get("route_type") not in VEHICLE_ROUTE_TYPES:
                 continue
-            yield s, d, payload.get("positions") or {}
+            yield s, d, payload.get("positions") or {}, payload.get("fetched_at")
 
 
 def _vehicle(s: NearStop, d: dict, lat, lon, pos_ts, src: str) -> Vehicle:
@@ -101,13 +102,20 @@ class PtvRunPositionSource:
 
     def vehicles(self, stops: list[NearStop], cache: Cache, now: float) -> list[Vehicle]:
         out: list[Vehicle] = []
-        for s, d, positions in _candidates(stops, cache):
+        for s, d, positions, fetched_at in _candidates(stops, cache):
             pos = positions.get(d["run_ref"])
             if not pos or pos.get("lat") is None or pos.get("lon") is None:
                 continue
             if not _near_enough(s, pos["lat"], pos["lon"]):
                 continue
-            out.append(_vehicle(s, d, pos["lat"], pos["lon"], pos.get("ts"), "ptv"))
+            # PTV sometimes omits the position time: then the position is at least as old as
+            # the cached response, so age it by that instead of showing it forever (WR-S4)
+            ts = pos.get("ts")
+            if ts is None:
+                ts = fetched_at
+            if ts is None:
+                continue  # age unknown: never shown as a real position
+            out.append(_vehicle(s, d, pos["lat"], pos["lon"], ts, "ptv"))
         return out
 
 
@@ -116,7 +124,7 @@ class PtvInterpolatedSource:
 
     def vehicles(self, stops: list[NearStop], cache: Cache, now: float) -> list[Vehicle]:
         out: list[Vehicle] = []
-        for s, d, positions in _candidates(stops, cache):
+        for s, d, positions, _fetched_at in _candidates(stops, cache):
             if positions.get(d["run_ref"]):
                 continue  # a real position wins
             cell = cache(run_key(d["run_ref"]))
@@ -141,8 +149,8 @@ def select_vehicles(cands: list[Vehicle], stops: list[NearStop], now: float) -> 
             continue
         if v.lat is None or v.lon is None:
             continue
-        if v.pos_ts is not None and now - v.pos_ts > POS_MAX_AGE_S:
-            continue
+        if v.pos_ts is None or now - v.pos_ts > POS_MAX_AGE_S:
+            continue  # a position of unknown age is never shown (review WR-S4)
         s = by_id.get(v.heading_stop_id) if v.heading_stop_id is not None else None
         if s is None or not _near_enough(s, v.lat, v.lon):
             continue

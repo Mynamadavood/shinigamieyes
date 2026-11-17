@@ -524,8 +524,9 @@ class TransitVehiclesProvider(Provider):
         def cache(k):
             if isinstance(k, int):
                 c = cached.get(k)
-            else:
-                c = ctx.store.get_layer("transit", f"pat:{k}") if ctx.store is not None else None
+                # fetched_at lets positions without their own timestamp age out (WR-S4)
+                return {**c[0], "fetched_at": c[1]} if c is not None else None
+            c = ctx.store.get_layer("transit", f"pat:{k}") if ctx.store is not None else None
             return c[0] if c is not None else None
 
         cands = []

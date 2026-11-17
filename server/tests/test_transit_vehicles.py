@@ -570,3 +570,33 @@ async def test_pattern_cache_stays_bounded_over_many_runs(h):
     h.now += PATTERN_KEEP_S + 1
     await h.provider.refresh(h.ctx)
     assert not any(k[1].startswith("pat:") for k in h.store._layers if k[0] == "transit")
+
+
+def test_position_without_timestamp_ages_by_cache_fetch_time():
+    # review WR-S4: PTV omitted datetime_utc; the position is as old as the cached response
+    s = stop()
+    d = dep("RUN-X", rt=2, eta=NOW + 300)
+    p = {"lat": LAT + dlat(300), "lon": LON, "ts": None}
+    fresh = {"departures": [d], "positions": {"RUN-X": p}, "fetched_at": NOW - 20}
+    old = {"departures": [d], "positions": {"RUN-X": p}, "fetched_at": NOW - 3 * 3600}
+    got = PtvRunPositionSource().vehicles([s], cache_of({1: fresh}), NOW)
+    assert [v.pos_ts for v in got] == [NOW - 20]
+    assert len(select_vehicles(got, [s], NOW)) == 1
+    stale = PtvRunPositionSource().vehicles([s], cache_of({1: old}), NOW)
+    assert select_vehicles(stale, [s], NOW) == []
+    unknown = {"departures": [d], "positions": {"RUN-X": p}}  # no age at all: never shown
+    assert PtvRunPositionSource().vehicles([s], cache_of({1: unknown}), NOW) == []
+    assert select_vehicles([veh(pos_ts=None)], [s], NOW) == []
+
+
+def test_query_drops_untimed_position_from_hours_old_cache(h):
+    # the end-to-end case from the review: return hours later, cached ETA still in range
+    later = NOW + 3 * 3600
+    deps = [dep("RUN-B", rt=2, eta=later + 600, rid=9)]
+    untimed = {"RUN-B": {"lat": LAT + dlat(600), "lon": LON, "ts": None}}
+    h.put_deps(4400, deps, positions=untimed, at=NOW)
+    h.now = later
+    assert h.query().items == []
+    h.put_deps(4400, deps, positions=untimed, at=later - 20)  # control: a fresh response
+    items = h.query().items
+    assert [(i.detail["pos_src"], i.detail["pos_ts"]) for i in items] == [("ptv", later - 20)]
