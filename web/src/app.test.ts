@@ -368,6 +368,48 @@ describe("exact-layer backstop (WR-W5, D-04, D-21)", () => {
     }
   });
 
+  it("fails closed for a legacy saved pin before the places list arrives, even if the server sends transit (WR-W11)", async () => {
+    // legacy saved state: no cameras flag on the pin; the server has regressed and sends transit
+    vi.mocked(idbGet).mockResolvedValue({ mode: "pin", gps: "off", pin: { id: "home", label: "Home" } } as never);
+    vi.mocked(loadCachedProfile).mockResolvedValue({ profile: withTransit(profile([])), key: "place=home" });
+    const fetchImpl = vi.fn((u: string) => {
+      if (isProfile(u)) return Promise.resolve(json(withTransit(profile([]))));
+      return new Promise(() => {}); // /api/places never arrives
+    }) as unknown as typeof fetch;
+    await bootApp(fetchImpl);
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(vi.mocked(fetchImpl).mock.calls.some((c) => isProfile(c[0]))).toBe(true);
+    expect(root.textContent).not.toContain(NONE_NAME);
+    const es = FakeES.all.at(-1)!;
+    es.emit("layer", transitLayer("transit_stops"));
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(root.textContent).not.toContain(NONE_NAME);
+    expect(vi.mocked(saveProfile).mock.calls.length).toBeGreaterThan(0);
+    for (const c of vi.mocked(saveProfile).mock.calls) {
+      expect(Object.keys(c[0].layers).some((k) => k.startsWith("transit_") || k.startsWith("cameras_"))).toBe(false);
+    }
+  });
+
+  it("shows transit for a saved place once the places list confirms it has cameras (WR-W11)", async () => {
+    vi.mocked(idbGet).mockResolvedValue({ mode: "pin", gps: "off", pin: { id: "work", label: "Work", cameras: true } } as never);
+    let resolvePlaces: (v: unknown) => void = () => {};
+    const fetchImpl = vi.fn((u: string) => {
+      if (isProfile(u)) return Promise.resolve(json(withTransit(profile([]))));
+      return new Promise((r) => {
+        resolvePlaces = r;
+      });
+    }) as unknown as typeof fetch;
+    await bootApp(fetchImpl);
+    await vi.advanceTimersByTimeAsync(100);
+    // a stored cameras: true on the pin is not enough on its own
+    expect(root.textContent).not.toContain(NONE_NAME);
+    const before = vi.mocked(fetchImpl).mock.calls.filter((c) => isProfile(c[0])).length;
+    resolvePlaces(json([{ id: "work", label: "Work", cameras: true }]));
+    await vi.advanceTimersByTimeAsync(100);
+    expect(vi.mocked(fetchImpl).mock.calls.filter((c) => isProfile(c[0])).length).toBeGreaterThan(before);
+    expect(root.textContent).toContain(NONE_NAME);
+  });
+
   it("transit frames for a GPS location are applied normally", async () => {
     const fetchImpl = vi.fn(async (u: string) => (isProfile(u) ? json(profile([])) : json([]))) as unknown as typeof fetch;
     const app = await bootApp(fetchImpl);

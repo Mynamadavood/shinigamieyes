@@ -180,14 +180,15 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
    * stored even if the server ever regressed and sent them, because camera positions plus
    * distance_m would trilaterate the place. For camera-enabled (public) places the phone can
    * still derive the place from its cameras; that risk is accepted.
+   * WR-W11: fail closed. A saved place is camera-off until the places list (live, or its
+   * IndexedDB copy) confirms `cameras: true`; a legacy saved pin or a places list that has not
+   * arrived yet never lets transit_* or cameras_* through.
    */
   function camerasOff(key: string): boolean {
     const id = new URLSearchParams(key).get("place");
     if (!id) return false;
     if (noCameraPlaces.has(id)) return true;
-    const pin = loc.state().pin;
-    if (pin && pin.id === id && pin.cameras === false) return true;
-    return places.some((pl) => pl.id === id && pl.cameras === false);
+    return !places.some((pl) => pl.id === id && pl.cameras === true);
   }
 
   list.setState("loading");
@@ -296,8 +297,8 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
   // another place must never show under this one's label or have its frames merged into it
   const restoredKey = paramKey(toParams(savedLoc ?? { mode: "gps", gps: "locating" }));
   if (cached && cachedIdentity(cached) === locationIdentity(restoredKey)) {
-    const savedPin = savedLoc?.mode === "pin" ? savedLoc.pin : undefined;
-    profile = savedPin?.cameras === false ? stripExactLayers(cached.profile) : cached.profile;
+    // the same fail-closed check as every other path (WR-W11): the places list is not loaded yet
+    profile = camerasOff(restoredKey) ? stripExactLayers(cached.profile) : cached.profile;
     // the exact key it was fetched for: stream frames merge only while params match it
     profileKey = cached.key;
     renderLocation();
@@ -308,8 +309,23 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
   }
   void loadPlaces(deps.fetchImpl)
     .then((l) => {
+      const wasOff = profileKey !== null && camerasOff(profileKey);
       places = l;
       sheet.setPlaces(l);
+      if (!profile || profileKey === null) return;
+      if (camerasOff(profileKey)) {
+        // still camera-off: make sure nothing exact is on screen or stored (WR-W11)
+        const stripped = stripExactLayers(profile);
+        if (Object.keys(stripped.layers).length !== Object.keys(profile.layers).length) {
+          profile = stripped;
+          void saveProfile(stripped, profileKey);
+          syncMap();
+          render();
+        }
+      } else if (wasOff) {
+        // the list confirmed this place has cameras: fetch the layers that were held back
+        void refetch();
+      }
     })
     .catch(() => {
       /* the sheet keeps its previous list; never an unhandled rejection (WR-W6) */
