@@ -7,6 +7,10 @@
 #   /api/profile = 01-04, /api/stream = 01-08, /api/places = 01-09.
 # Never prints coordinates or secrets.
 set -euo pipefail
+# gq: grep that reads all of its input. `grep -q` exits on the first match, so a
+# large captured body piped from printf gets SIGPIPE and, under pipefail, the
+# whole test reads as "no match" (a false FAIL, or a missed leak).
+gq() { grep "$@" >/dev/null; }
 
 PASS=0
 FAIL=0
@@ -58,9 +62,9 @@ TILES_STATE=skip
 tiles_checks() {
   local base="$1" body hdrs code x y
   body="$(curl -s --max-time 10 "$base/api/health" 2>/dev/null || true)"
-  if printf '%s' "$body" | grep -q '"tiles" *: *"ok"'; then TILES_STATE=ok; pass tiles_health
-  elif printf '%s' "$body" | grep -q '"tiles" *: *"missing"'; then skip tiles_health "tiles not provisioned (02-06)"
-  elif printf '%s' "$body" | grep -q '"tiles"'; then TILES_STATE=bad; fail tiles_health
+  if printf '%s' "$body" | gq '"tiles" *: *"ok"'; then TILES_STATE=ok; pass tiles_health
+  elif printf '%s' "$body" | gq '"tiles" *: *"missing"'; then skip tiles_health "tiles not provisioned (02-06)"
+  elif printf '%s' "$body" | gq '"tiles"'; then TILES_STATE=bad; fail tiles_health
   else skip tiles_health "health has no tiles field yet"; fi
 
   # z15 tile of the public default point (Melbourne CBD), slippy-map maths
@@ -68,7 +72,7 @@ tiles_checks() {
   x="${x//[^0-9]/}"; y="${y//[^0-9]/}"   # Windows Python ends lines with CR
   hdrs="$(curl -s -D - -o /dev/null -H "Accept-Encoding: gzip" --max-time 10 "$base/tiles/15/$x/$y.mvt" 2>/dev/null | tr -d '\r' || true)"
   code="$(printf '%s' "$hdrs" | head -n1 | awk '{print $2}')"
-  if [ "$code" = "200" ] && printf '%s' "$hdrs" | grep -qi '^content-encoding: *gzip'; then pass tile_cbd
+  if [ "$code" = "200" ] && printf '%s' "$hdrs" | gq -i '^content-encoding: *gzip'; then pass tile_cbd
   elif [ "$TILES_STATE" = "skip" ]; then skip tile_cbd "tiles not provisioned"
   else fail tile_cbd "HTTP ${code:-none}"; fi
 }
@@ -93,7 +97,7 @@ hud10_checks() {
   hdrs="$(curl -sI --max-time 10 "$base/" 2>/dev/null | tr -d '\r' || true)"
   csp="$(printf '%s' "$hdrs" | grep -i '^content-security-policy:' || true)"
   if [ -z "$csp" ]; then fail csp_no_blob "no CSP header"
-  elif printf '%s' "$csp" | grep -qiE 'blob:|https:'; then fail csp_no_blob "blob: or https: in CSP"
+  elif printf '%s' "$csp" | gq -iE 'blob:|https:'; then fail csp_no_blob "blob: or https: in CSP"
   else pass csp_no_blob; fi
 
   code="$(http_code "$base/glyphs/${font// /%20}/0-255.pbf")"
@@ -105,7 +109,7 @@ hud10_checks() {
   elif [ "$code" != "200" ]; then fail cameras_layers "HTTP $code"
   else
     body="$(curl -s --max-time 10 "$base/api/profile?lat=-37.8136&lon=144.9631" 2>/dev/null || true)"
-    if printf '%s' "$body" | grep -q '"cameras_cctv"' && printf '%s' "$body" | grep -q '"cameras_road"'; then pass cameras_layers
+    if printf '%s' "$body" | gq '"cameras_cctv"' && printf '%s' "$body" | gq '"cameras_road"'; then pass cameras_layers
     else fail cameras_layers "cameras_cctv/cameras_road missing"; fi
   fi
 
@@ -114,7 +118,7 @@ hud10_checks() {
   local cams age
   cams="$(curl -s --max-time 10 "$base/api/health" 2>/dev/null | tr -d '\r' | grep -oE '"cameras" *: *\{[^}]*\}' || true)"
   if [ -z "$cams" ]; then fail cameras_loaded "health has no cameras field"
-  elif ! printf '%s' "$cams" | grep -qE '"loaded" *: *true'; then fail cameras_loaded "camera dataset not loaded (run shinigami-data.service)"
+  elif ! printf '%s' "$cams" | gq -E '"loaded" *: *true'; then fail cameras_loaded "camera dataset not loaded (run shinigami-data.service)"
   else
     age="$(printf '%s' "$cams" | sed -n 's/.*"age_days" *: *\([0-9][0-9]*\).*/\1/p')"
     if [ -z "$age" ]; then fail cameras_loaded "dataset has no build time"
@@ -128,12 +132,12 @@ hud10_checks() {
   hbody="$(curl -s --max-time 10 "$base/api/health" 2>/dev/null | tr -d '\r' || true)"
   code="$(http_code "$base/api/profile?lat=-37.8136&lon=144.9631")"
   if [ "$code" = "404" ]; then skip transit_layers "/api/profile not built yet"
-  elif printf '%s' "$tbody" | grep -q '"transit_stops"'; then pass transit_layers
+  elif printf '%s' "$tbody" | gq '"transit_stops"'; then pass transit_layers
   else fail transit_layers "transit_stops missing"; fi
 
   tstops="$(printf '%s' "$hbody" | grep -oE '"stops" *: *\{[^}]*\}' | head -n1 || true)"
   if [ -z "$tstops" ]; then fail transit_loaded "health has no transit stops field"
-  elif ! printf '%s' "$tstops" | grep -qE '"loaded" *: *true'; then fail transit_loaded "transit store not loaded (run shinigami-transit.service)"
+  elif ! printf '%s' "$tstops" | gq -E '"loaded" *: *true'; then fail transit_loaded "transit store not loaded (run shinigami-transit.service)"
   else
     tage="$(printf '%s' "$tstops" | sed -n 's/.*"age_days" *: *\([0-9][0-9]*\).*/\1/p')"
     if [ -z "$tage" ]; then fail transit_loaded "store has no build time"
@@ -149,7 +153,7 @@ hud10_checks() {
     *) fail transit_ptv "health has no ptv state" ;;
   esac
 
-  if printf '%s\n%s' "$hbody" "$tbody" | grep -qiE 'signature=|devid|timetableapi'; then fail transit_no_secrets "key material pattern in health/profile"
+  if printf '%s\n%s' "$hbody" "$tbody" | gq -iE 'signature=|devid|timetableapi'; then fail transit_no_secrets "key material pattern in health/profile"
   else pass transit_no_secrets; fi
 
   code="$(http_code "$base/api/places")"
@@ -161,8 +165,8 @@ hud10_checks() {
     [ -z "$line" ] && continue
     pid="$(printf '%s' "$line" | sed -n 's/.*"id" *: *"\([^"]*\)".*/\1/p')"
     [ -z "$pid" ] && continue
-    if printf '%s' "$line" | grep -qE '"cameras" *: *false'; then nocam_ids="$nocam_ids $pid"
-    elif printf '%s' "$line" | grep -qE '"cameras" *: *true'; then cam_ids="$cam_ids $pid"; fi
+    if printf '%s' "$line" | gq -E '"cameras" *: *false'; then nocam_ids="$nocam_ids $pid"
+    elif printf '%s' "$line" | gq -E '"cameras" *: *true'; then cam_ids="$cam_ids $pid"; fi
   done <<EOF_PLACES
 $lines
 EOF_PLACES
@@ -175,7 +179,7 @@ EOF_PLACES
   else
     for pid in $nocam_ids; do
       body="$(curl -s --max-time 10 "$base/api/profile?place=$pid" 2>/dev/null || true)"
-      if printf '%s' "$body" | grep -qE 'cameras_|transit_|distance_m'; then bad="$bad $pid"; fi
+      if printf '%s' "$body" | gq -E 'cameras_|transit_|distance_m'; then bad="$bad $pid"; fi
     done
     if [ -n "$bad" ]; then fail place_no_cameras "camera data for:$bad"; else pass place_no_cameras; fi
   fi
@@ -184,7 +188,7 @@ EOF_PLACES
     bad=""
     for pid in $cam_ids; do
       body="$(curl -s --max-time 10 "$base/api/profile?place=$pid" 2>/dev/null || true)"
-      if printf '%s' "$body" | grep -q '"cameras_cctv"' && printf '%s' "$body" | grep -q '"cameras_road"'         && printf '%s' "$body" | grep -qE '"location" *: *\{[^}]*"lat" *: *null'         && printf '%s' "$body" | grep -qE '"location" *: *\{[^}]*"lon" *: *null'; then :
+      if printf '%s' "$body" | gq '"cameras_cctv"' && printf '%s' "$body" | gq '"cameras_road"'         && printf '%s' "$body" | gq -E '"location" *: *\{[^}]*"lat" *: *null'         && printf '%s' "$body" | gq -E '"location" *: *\{[^}]*"lon" *: *null'; then :
       else bad="$bad $pid"; fi
     done
     if [ -n "$bad" ]; then fail place_cameras "bad camera profile for:$bad"; else pass place_cameras; fi
@@ -207,16 +211,16 @@ verify_local() {
   if [ "$(systemctl show shinigami -p Restart 2>/dev/null)" = "Restart=always" ]; then pass restart_always; else fail restart_always; fi
 
   listeners="$(ss -ltnH 2>/dev/null || true)"
-  if printf '%s\n' "$listeners" | awk '{print $4}' | grep -qx '127.0.0.1:8000'; then pass bind_loopback; else fail bind_loopback; fi
-  if printf '%s\n' "$listeners" | awk '{print $4}' | grep -qE '^(0\.0\.0\.0|\[::\]|\*):8000$'; then fail bind_not_wildcard; else pass bind_not_wildcard; fi
+  if printf '%s\n' "$listeners" | awk '{print $4}' | gq -x '127.0.0.1:8000'; then pass bind_loopback; else fail bind_loopback; fi
+  if printf '%s\n' "$listeners" | awk '{print $4}' | gq -E '^(0\.0\.0\.0|\[::\]|\*):8000$'; then fail bind_not_wildcard; else pass bind_not_wildcard; fi
 
-  if curl -fsS --max-time 5 "$base/api/health" 2>/dev/null | grep -q '"ok"'; then pass health_local; else fail health_local; fi
+  if curl -fsS --max-time 5 "$base/api/health" 2>/dev/null | gq '"ok"'; then pass health_local; else fail health_local; fi
 
   out="$(tailscale serve status 2>&1 || true)"
-  if printf '%s' "$out" | grep -q 'tailnet only' && printf '%s' "$out" | grep -q '127.0.0.1:8000'; then pass serve_tailnet_only; else fail serve_tailnet_only; fi
+  if printf '%s' "$out" | gq 'tailnet only' && printf '%s' "$out" | gq '127.0.0.1:8000'; then pass serve_tailnet_only; else fail serve_tailnet_only; fi
 
   out="$(tailscale funnel status 2>&1 || true)"
-  if printf '%s' "$out" | grep -q 'Funnel on'; then fail funnel_off; else pass funnel_off; fi
+  if printf '%s' "$out" | gq 'Funnel on'; then fail funnel_off; else pass funnel_off; fi
 
   fqdn="$(tailscale status --json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["Self"]["DNSName"])' 2>/dev/null || true)"
   echo "INFO fqdn=${fqdn:-unknown}"
@@ -249,7 +253,7 @@ verify_local() {
   fi
 
   # journald hygiene: no coordinates logged
-  if journalctl -u shinigami --since "-24h" --no-pager 2>/dev/null | grep -qE 'lat=|lon=|-3[0-9]\.[0-9]{4,}'; then
+  if journalctl -u shinigami --since "-24h" --no-pager 2>/dev/null | gq -E 'lat=|lon=|-3[0-9]\.[0-9]{4,}'; then
     fail journald_no_coords
   else
     pass journald_no_coords
@@ -286,10 +290,10 @@ verify_remote() {
   if in_cgnat "$ip"; then pass tailnet_ip; else fail tailnet_ip "remote_ip not in 100.64.0.0/10"; fi
 
   hdrs="$(curl -sI --max-time 10 "$url/" | tr -d '\r')"
-  if printf '%s' "$hdrs" | grep -qi '^content-security-policy:'; then pass csp_header; else fail csp_header; fi
+  if printf '%s' "$hdrs" | gq -i '^content-security-policy:'; then pass csp_header; else fail csp_header; fi
 
   hdrs="$(curl -sI --max-time 10 "$url/sw.js" | tr -d '\r')"
-  if printf '%s' "$hdrs" | grep -qi '^cache-control:.*no-cache'; then pass sw_no_cache; else fail sw_no_cache; fi
+  if printf '%s' "$hdrs" | gq -i '^cache-control:.*no-cache'; then pass sw_no_cache; else fail sw_no_cache; fi
 
   if [ "$(http_code "$url/manifest.webmanifest")" = "200" ]; then pass manifest; else fail manifest; fi
 
@@ -306,20 +310,20 @@ verify_remote() {
   # later-plan endpoints
   code="$(http_code "$url/api/profile")"
   if [ "$code" = "404" ]; then skip profile_sun "01-04"
-  elif curl -s --max-time 10 "$url/api/profile" | grep -q '"sun"'; then pass profile_sun
+  elif curl -s --max-time 10 "$url/api/profile" | gq '"sun"'; then pass profile_sun
   else fail profile_sun; fi
 
   code="$(http_code "$url/api/stream")"
   if [ "$code" = "404" ]; then skip stream_hello "01-08"
   # capture first: under pipefail, curl's timeout/SIGPIPE exit would mask a grep match
-  elif sse="$(curl -sN --max-time 4 "$url/api/stream" 2>/dev/null || true)"; printf '%s' "$sse" | grep -q '^event: hello'; then pass stream_hello
+  elif sse="$(curl -sN --max-time 4 "$url/api/stream" 2>/dev/null || true)"; printf '%s' "$sse" | gq '^event: hello'; then pass stream_hello
   else fail stream_hello; fi
 
   code="$(http_code "$url/api/places")"
   if [ "$code" = "404" ]; then skip places_no_coords "01-09"
   elif [ "$code" = "200" ]; then
     body="$(curl -s --max-time 10 "$url/api/places")"
-    if printf '%s' "$body" | grep -q '"lat"'; then fail places_no_coords; else pass places_no_coords; fi
+    if printf '%s' "$body" | gq '"lat"'; then fail places_no_coords; else pass places_no_coords; fi
   else fail places_no_coords "HTTP $code"; fi
 
   # type-ahead proxy (Photon); fixed query so the server cache absorbs repeat runs
