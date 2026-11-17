@@ -123,3 +123,11 @@ Device check (David, iPhone, 2026-11-17):
 - [x] Kept as built: zero-padded countdowns, 30 s catch grace (D-08), single red leave-now row (D-09).
 
 Go / No-go: GO (David, 2026-11-17)
+
+Review-fix redeploy (2026-11-18, da267fe): local verify `{"mode":"local","pass":31,"fail":0,"skip":0}`; remote verify `{"mode":"remote","pass":27,"fail":0,"skip":0}` (after fixing a verify.sh false FAIL on `stream_hello`, 46b8cdf). Health: `ptv: ok`, live data 6 s old.
+
+Device re-check after the review fixes (pending, David):
+
+- [ ] Edge pointers (CR-W1, WR-W5): pan away from a stop; an arrow appears at the edge, points the right way, hides while a sheet is open, and tapping it returns to the stop.
+- [ ] Vehicle fade (WR-W4): a vehicle whose position is over about 2 minutes old fades.
+- [ ] Optional: a real-position bus marker (not estimated) has been seen.
