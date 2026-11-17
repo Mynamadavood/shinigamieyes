@@ -193,6 +193,8 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
   list.setState("loading");
   const handle: AppHandle = {
     setLocationParams(p) {
+      // the disruption sheet lists the previous place's alerts: close it on a location change (WR-W10)
+      if (locationIdentity(paramKey(p)) !== locationIdentity(paramKey(params))) disSheet.close();
       params = p;
       void refetch();
       stream?.reopen(p);
@@ -274,6 +276,8 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
     list.setState(deriveListState(rows.length, profile !== null, conn.state()));
     list.update(rows, now);
     readouts.update(rows, profile, now);
+    // an open disruption sheet follows new frames like the corner readout (WR-W10)
+    if (disSheet.isOpen()) disSheet.update(profile?.layers["transit_disruptions"]);
   }
 
   function render(): void {

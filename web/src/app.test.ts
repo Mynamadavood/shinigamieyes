@@ -436,6 +436,25 @@ describe("disruption readout, sheet and PTV attribution (03-15)", () => {
     expect(document.activeElement).toBe(btn);
   });
 
+  it("an open sheet follows new frames and closes on a location change (WR-W10)", async () => {
+    const p = profWith(true);
+    const fetchImpl = vi.fn(async (u: string) => (isProfile(u) ? json(p) : json([]))) as unknown as typeof fetch;
+    const pr = boot(root, { fetchImpl, EventSourceImpl: ES, geolocation, hero: false });
+    await vi.advanceTimersByTimeAsync(IDB_TIMEOUT_MS + 100);
+    const app = await pr;
+    await vi.advanceTimersByTimeAsync(200);
+    root.querySelector<HTMLButtonElement>(".readout-disruptions")!.click();
+    const rows = () => document.querySelectorAll("#disruption-sheet-title ~ .dis-list .dis-row").length;
+    expect(rows()).toBe(2);
+    // a frame clears one disruption: the open sheet shows it on the next tick
+    FakeES.all.at(-1)!.emit("layer", { ...mk("transit_disruptions", [disItem(2, null, true)]), rev: 2 });
+    await vi.advanceTimersByTimeAsync(1100);
+    expect(rows()).toBe(1);
+    // GPS to a saved place: the sheet (previous place's alerts) closes
+    app.setLocationParams(new URLSearchParams({ place: "work" }));
+    expect(disBackdrop().hidden).toBe(true);
+  });
+
   it("tapping a disruption-end row opens the sheet and collapses the drawer", async () => {
     const { Drawer } = await import("./ui/drawer");
     const collapse = vi.spyOn(Drawer.prototype, "collapse");

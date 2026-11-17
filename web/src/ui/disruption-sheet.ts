@@ -9,6 +9,7 @@ export const PTV_LICENCE =
   "Source: Licensed from Public Transport Victoria under a Creative Commons Attribution 4.0 International Licence.";
 
 export const MAX_SHEET_ROWS = 6;
+export const NO_DISRUPTIONS = "No current disruptions on your routes.";
 const MAX_ROUTES = 3;
 const MAX_TITLE = 160;
 
@@ -60,9 +61,13 @@ function trim(s: string): string {
   return s.length > MAX_TITLE ? `${s.slice(0, MAX_TITLE - 1)}…` : s;
 }
 
-/** Service-stopping first, then soonest known end, then most recently updated; max 6. */
+/** Service-stopping first, then soonest known end, then most recently updated; max 6. Ended items are dropped. */
 export function disruptionRows(layer: Layer | undefined, nowMillis: number): DisruptionRowVM[] {
-  const keyed = disruptionItems(layer).map((i) => {
+  const live = disruptionItems(layer).filter((i) => {
+    const toTs = num(i.detail?.["to_ts"]) ?? i.target_ts;
+    return toTs === null || toTs * 1000 > nowMillis;
+  });
+  const keyed = live.map((i) => {
     const d = i.detail as Record<string, unknown>;
     const toTs = num(d["to_ts"]) ?? i.target_ts;
     const upd = num(d["updated_ts"]);
@@ -109,6 +114,8 @@ export class DisruptionSheet {
   private returnFocus: HTMLElement | null = null;
   private stopTicker: (() => void) | null = null;
   private countdowns: Array<{ el: HTMLElement; target: number }> = [];
+  /** the layer the open sheet shows; update() follows new frames while open (WR-W10) */
+  private layer: Layer | undefined = undefined;
 
   constructor(
     host: HTMLElement,
@@ -147,10 +154,18 @@ export class DisruptionSheet {
   open(layer: Layer | undefined, returnFocus?: HTMLElement): void {
     if (!this.backdrop.hidden) return;
     this.returnFocus = returnFocus ?? (document.activeElement as HTMLElement | null);
+    this.layer = layer;
     this.renderRows(disruptionRows(layer, nowMs()));
     this.backdrop.hidden = false;
     this.title.focus();
     this.stopTicker = startTicker((now) => this.tick(now));
+  }
+
+  /** Follow a new disruptions layer while open (a cleared or added disruption shows straight away). */
+  update(layer: Layer | undefined): void {
+    if (this.backdrop.hidden || layer === this.layer) return;
+    this.layer = layer;
+    this.renderRows(disruptionRows(layer, nowMs()));
   }
 
   close(): void {
@@ -159,6 +174,7 @@ export class DisruptionSheet {
     this.stopTicker = null;
     this.backdrop.hidden = true;
     this.countdowns = [];
+    this.layer = undefined;
     this.returnFocus?.focus();
     this.returnFocus = null;
   }
@@ -166,6 +182,13 @@ export class DisruptionSheet {
   private renderRows(rows: DisruptionRowVM[]): void {
     this.countdowns = [];
     const now = nowMs();
+    if (rows.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "dis-empty";
+      empty.textContent = NO_DISRUPTIONS;
+      this.list.replaceChildren(empty);
+      return;
+    }
     this.list.replaceChildren(
       ...rows.map((r) => {
         const row = document.createElement("div");
@@ -209,6 +232,11 @@ export class DisruptionSheet {
   }
 
   private tick(now: number): void {
+    // a disruption whose end has passed leaves the sheet instead of sitting at 00:00 (WR-W10)
+    if (this.countdowns.some((c) => c.target <= now)) {
+      this.renderRows(disruptionRows(this.layer, now));
+      return;
+    }
     for (const c of this.countdowns) {
       const t = fmtCountdown((c.target - now) / 1000);
       if (c.el.textContent !== t) c.el.textContent = t;

@@ -174,4 +174,5 @@
 }
 .dis-meta { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-sm); color: var(--c-dim); }
 .dis-countdown { font-size: var(--fs-countdown); font-weight: 700; color: var(--c-blue); font-variant-numeric: tabular-nums; }
+.dis-empty { margin: 0; padding: var(--s-md); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--c-dim); }
 .dis-foot { margin: 0; padding: var(--s-md); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--c-dim); }

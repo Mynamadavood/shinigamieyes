@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Item, Layer } from "../types";
-import { DisruptionSheet, PTV_LICENCE, disruptionRows } from "./disruption-sheet";
+import { DisruptionSheet, NO_DISRUPTIONS, PTV_LICENCE, disruptionRows } from "./disruption-sheet";
 
 const NOW = 1_700_000_000_000;
 
@@ -108,5 +108,41 @@ describe("DisruptionSheet", () => {
     sheet.close();
     vi.advanceTimersByTime(5000);
     expect(cd.textContent).toBe("01:55");
+  });
+  it("follows a new layer while open and ignores updates while closed (WR-W10)", () => {
+    const { sheet, btn } = setup();
+    sheet.update(L());
+    expect(document.querySelectorAll(".dis-row").length).toBe(0);
+    const first = L();
+    sheet.open(first, btn);
+    expect(document.querySelectorAll(".dis-row").length).toBe(2);
+    // a cleared disruption leaves; the same layer object again does not re-render
+    const row = document.querySelector(".dis-row");
+    sheet.update(first);
+    expect(document.querySelector(".dis-row")).toBe(row);
+    sheet.update(layer([first.items[0]!]));
+    expect(document.querySelectorAll(".dis-row").length).toBe(1);
+    sheet.update(layer([]));
+    expect(document.querySelectorAll(".dis-row").length).toBe(0);
+    expect(document.querySelector(".dis-empty")?.textContent).toBe(NO_DISRUPTIONS);
+    sheet.close();
+  });
+  it("drops a disruption once its end has passed instead of showing 00:00 (WR-W10)", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    expect(disruptionRows(layer([item("old", { to_ts: NOW / 1000 - 1 }, 0, NOW / 1000 - 1)]), NOW)).toHaveLength(0);
+    const { sheet, btn } = setup();
+    sheet.open(
+      layer([
+        item("soon", { route_labels: ["Bus 5"], to_ts: NOW / 1000 + 3 }, 0, NOW / 1000 + 3),
+        item("open", { route_labels: ["Tram 96"] }),
+      ]),
+      btn,
+    );
+    expect(document.querySelectorAll(".dis-row").length).toBe(2);
+    vi.advanceTimersByTime(4000);
+    expect(document.querySelectorAll(".dis-row").length).toBe(1);
+    expect(document.querySelector(".dis-routes")?.textContent).toBe("Tram 96");
+    sheet.close();
   });
 });
