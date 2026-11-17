@@ -44,6 +44,18 @@ def dlat(m):
         ("Something Else", "Odd", "words", 0),
         ("PLANNED WORKS", "SERVICE CANCELLED", "", 3),
         ("Planned Works", "Works", "service suspended in text", 0),
+        # review WR-S5: detours, facility closures and hedged cancellations stay white (D-17)
+        ("Route Diversion", "Route 246: Detour due to road closure", "", 0),
+        ("Planned Works", "Lift closure at Richmond", "", 0),
+        (None, "Lift at Richmond Station closed", None, 0),
+        ("Planned Works", "Car park closed", "", 0),
+        ("Minor Delays", "Some services may be cancelled", "", 0),
+        ("Planned Works", "Road closure on Smith St", "", 0),
+        ("Stop Closure", "Synthetic Rd stop closure", "", 3),
+        ("Planned Works", "Station closed for works", "", 3),
+        ("Planned Works", "Detour: buses replace trams", "", 3),
+        ("Service Change", "No trams between X and Y", "", 3),
+        ("Planned Works", "Trains cancelled tonight", "", 3),
     ],
 )
 def test_classify_table(dtype, title, desc, want):
