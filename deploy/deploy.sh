@@ -60,10 +60,12 @@ if [ "$units_changed" -eq 1 ]; then systemctl daemon-reload; fi
 systemctl enable --now shinigami-data.timer
 systemctl enable --now shinigami-transit.timer
 
-# First transit stop build (D-22): only when the stops file is missing. Blocking.
+# First transit stop build (D-22): only when the stops file is missing. Blocking, but
+# bounded (review WR-S8): the unit has TimeoutStartSec=30min and this wait gives up after
+# 35 min so the new code still starts; the app picks the file up on its next store reload.
 if [ ! -e /var/lib/shinigami/data/transit_stops.json ]; then
   echo "first transit stop build (about 2 min)"
-  if ! systemctl start shinigami-transit.service; then
+  if ! timeout 35m systemctl start shinigami-transit.service; then
     echo "WARN: transit stop build failed, see journalctl -u shinigami-transit" >&2
   fi
 fi

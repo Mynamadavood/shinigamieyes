@@ -13,7 +13,11 @@ ZIP="$DATA/tmp/gtfs.zip"
 mkdir -p "$DATA/tmp" "$DATA/data"
 trap 'rm -f "$ZIP"' EXIT
 
-curl -fL --max-filesize 1073741824 --retry 3 -A "ShinigamiEyes-data/1 (private)" \
+# Bounded download (review WR-S8): a stalled transfer must not hang the unit (or a first
+# deploy) forever, and redirects may only go to https.
+curl -fL --proto '=https' --proto-redir '=https' \
+  --connect-timeout 20 --max-time 1200 --speed-limit 10240 --speed-time 60 \
+  --max-filesize 1073741824 --retry 3 -A "ShinigamiEyes-data/1 (private)" \
   -o "$ZIP" \
   https://data.ptv.vic.gov.au/downloads/gtfs.zip
 

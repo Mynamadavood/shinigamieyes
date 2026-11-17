@@ -5,6 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+# oneshot defaults to no start timeout; curl is capped at 20 min, the build needs a few
+TimeoutStartSec=30min
 User=shinigami
 WorkingDirectory=/opt/shinigami
 ExecStart=/bin/bash /opt/shinigami/deploy/refresh-transit.sh
