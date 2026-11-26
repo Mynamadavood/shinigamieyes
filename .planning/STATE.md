@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_plan
-stopped_at: Phase 3 complete (20/20); old Phase 4 split into 4 and 5 — ready to discuss Phase 4
+status: human_needed
+stopped_at: Phase 4 built (04-01); device UAT pending
 last_updated: 2026-11-26T23:30:00.000Z
 last_activity: 2026-11-26 -- repo review: CI added, notes refreshed, Phase 4 split
 progress:
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-11-26)
 ## Current Position
 
 Phase: 4
-Plan: Not started
-Status: Ready to plan
+Plan: 04-01 (built, PR open)
+Status: Device UAT pending
 Last activity: 2026-11-26
 
 Progress: [..........] 0%
@@ -62,11 +62,11 @@ Progress: [..........] 0%
 
 ### Blockers/Concerns
 
-- Pollen has no clean feed (decide in Phase 4)
+- Pollen scrapes melbournepollen.com.au, whose terms forbid reproduction without permission; Boss to decide keep or drop (04-01-SUMMARY)
 - No backup of /etc/shinigami/.env and places.toml yet (set a Proxmox vzdump schedule for CT 110)
 
 ## Session Continuity
 
 Last session: 2026-11-26
-Stopped at: Phase 3 complete; Phase 4 split
-Resume file: None (next: /gsd-discuss-phase 4)
+Stopped at: Phase 4 built, UAT pending
+Resume file: .planning/phases/04-weather-fire-and-pollen/04-01-SUMMARY.md

@@ -1,0 +1,64 @@
+/* HUD-07 banded chips: colour follows the band, the pulse only fires when a band is crossed upward */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-xs);
+  padding: var(--s-xs) var(--s-md) 0;
+}
+.chips[hidden] { display: none; }
+.chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s-xs);
+  min-height: var(--s-lg);
+  padding: 0 var(--s-sm);
+  background: var(--c-panel);
+  border: var(--bw) solid var(--c-frame);
+  font-size: var(--fs-label);
+  line-height: var(--s-lg);
+  color: var(--c-text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.chip-name { color: var(--c-dim); font-family: var(--f-title); }
+.chip-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+.chip.lvl-1 { border-color: var(--c-blue); }
+.chip.lvl-2 { border-color: var(--c-red); }
+.chip.lvl-2 .chip-value { color: var(--c-red); }
+.chip.lvl-3 { background: var(--c-red-deep); border-color: var(--c-red); }
+.chip.lvl-3 .chip-name, .chip.lvl-3 .chip-value { color: var(--c-on-red); }
+.chip.stale { opacity: var(--o-stale); }
+a.chip:active { background: var(--c-surface); }
+a.chip:focus-visible, .layer-toggle:focus-visible { outline: 2px solid var(--c-blue); outline-offset: -2px; }
+.chip.rise { animation: chip-rise 600ms ease-out 2; }
+@keyframes chip-rise {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 0 2px var(--c-red); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chip.rise { animation: none; }
+}
+
+/* HUD-08 layer toggles, shown only while the drawer is open */
+.layer-toggles {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-xs);
+  padding: 0 var(--s-md) var(--s-sm);
+}
+.drawer:not(.open) .layer-toggles { display: none; }
+.toggles-title { font-family: var(--f-title); font-size: var(--fs-label); color: var(--c-dim); margin-right: var(--s-xs); }
+.layer-toggle {
+  min-height: 44px;
+  padding: 0 var(--s-sm);
+  background: transparent;
+  border: var(--bw) solid var(--c-frame);
+  color: var(--c-dim);
+  font-family: var(--f-mono);
+  font-size: var(--fs-label);
+  text-decoration: line-through;
+  cursor: pointer;
+}
+.layer-toggle[aria-pressed="true"] { border-color: var(--c-blue); color: var(--c-text); text-decoration: none; }

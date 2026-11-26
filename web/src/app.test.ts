@@ -463,6 +463,30 @@ describe("disruption readout, sheet and PTV attribution (03-15)", () => {
     expect(root.textContent).not.toContain("disruptions · your routes");
   });
 
+  it("Phase 4: chips render, credits list the source, and a layer toggle hides and persists", async () => {
+    const uv: any = {
+      id: "uv_now:melbourne", layer: "uv_now", group: "uv_now", name: "UV index now", verb: "now", target_ts: null,
+      kind: "environment", severity: 2, detail: { display: "7 · High", chip: true }, geom: null,
+      fetched_at: Math.floor(Date.now() / 1000), stale_after_s: 1800, computed: false,
+    };
+    const p = profWith(true);
+    p.layers["uv_now"] = { ...mk("uv_now", [uv]), attribution: "UV data courtesy of ARPANSA" };
+    await run(p);
+    const chip = root.querySelector<HTMLElement>(".chips .chip")!;
+    expect(chip.textContent).toBe("UV7 · High");
+    expect(chip.classList.contains("lvl-2")).toBe(true);
+    expect(attrib().textContent).toContain("UV data courtesy of ARPANSA");
+    const toggle = (label: string) =>
+      [...root.querySelectorAll<HTMLButtonElement>(".layer-toggle")].find((b) => b.textContent === label)!;
+    toggle("UV").click();
+    expect(root.querySelector(".chips .chip")).toBeNull();
+    expect(toggle("UV").getAttribute("aria-pressed")).toBe("false");
+    toggle("Transit").click();
+    expect(root.querySelector<HTMLElement>(".readout-disruptions")!.hidden).toBe(true);
+    expect(JSON.parse(localStorage.getItem("shinigami.hiddenLayers")!).sort()).toEqual(["transit", "uv"]);
+    localStorage.removeItem("shinigami.hiddenLayers");
+  });
+
   it("tapping the readout opens the sheet; close returns focus to the readout", async () => {
     await run(profWith(true));
     const btn = root.querySelector<HTMLButtonElement>(".readout-disruptions")!;

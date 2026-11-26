@@ -73,7 +73,11 @@ async def test_cold_cell_pending_and_requests_fetch(client, fake_runtime, monkey
     assert layers["uv_now"]["status"] == "pending"
     assert layers["uv_window"]["status"] == "pending"
     assert ("uv_window", snap_cell(-37.8136, 144.9631)) in fake_runtime.requests
-    assert all(pid == "uv_window" for pid, _ in fake_runtime.requests)
+    assert layers["weather"]["status"] == "pending"
+    assert layers["fire_danger"]["status"] == "pending"
+    assert layers["pollen"]["status"] == "pending"
+    # only the per-cell (on_demand) providers ask for a fetch
+    assert {pid for pid, _ in fake_runtime.requests} == {"uv_window", "weather"}
     durations.sort()
     assert durations[int(len(durations) * 0.95) - 1] <= 0.050
 

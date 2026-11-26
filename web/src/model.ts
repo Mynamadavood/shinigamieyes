@@ -50,6 +50,7 @@ export function selectVisible(profile: Profile | null, nowMs: number): RowVM[] {
     for (const item of layer.items) {
       if (item.geom) continue; // positioned items live on the map (D-14)
       if (item.detail && item.detail.summary === true) continue;
+      if (item.detail && item.detail.chip === true) continue; // shown as a banded chip (HUD-07)
       if (item.target_ts !== null && item.target_ts * 1000 <= nowMs) continue;
       const key = `${item.layer}|${item.group}`;
       const cur = best.get(key);

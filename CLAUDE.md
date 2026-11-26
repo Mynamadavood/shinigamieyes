@@ -34,12 +34,13 @@ A private, Watch Dogs-style profiler of David's surroundings: a full-screen iPho
 - **Scheduler:** our own asyncio runtime (`server/shinigami/runtime.py`): polled providers with backoff and jitter, single-flight cell fetches, rate-guarded nudges, an in-process EventBus feeding SSE.
 - **Cache:** stdlib `sqlite3` (WAL) behind a lock plus an in-memory dict (`store.py`). Sync on purpose.
 - **Spatial:** plain haversine (`geo.py`) over small in-memory stores loaded from JSON at startup (`cameras_store.py`, `transit/store.py`). Layers are cached per 0.1° cell.
-- **Providers** (`server/shinigami/providers/`): sun, ARPANSA UV, UV window (Open-Meteo), CCTV + road cameras (OSM via osmium, weekly), PTV stops / departures / disruptions / vehicles.
+- **Providers** (`server/shinigami/providers/`): sun, ARPANSA UV, UV window (Open-Meteo), weather + rain countdown (Open-Meteo), CFA fire danger (Central RSS), pollen/asthma (melbournepollen.com.au scrape), CCTV + road cameras (OSM via osmium, weekly), PTV stops / departures / disruptions / vehicles.
 - **Transit:** PTV Timetable API v3 only (key is in `/etc/shinigami/.env` on CT 110). GTFS-Realtime is not wired. Static stops come from the public `data.ptv.vic.gov.au/downloads/gtfs.zip`, rebuilt weekly.
 - **Tiles:** self-hosted Protomaps PMTiles (Greater Melbourne extract) served at `/tiles/...` from day one. OpenFreeMap is not used. `deploy/refresh-tiles.sh` is run by hand.
 - **Frontend:** Vite 8 + TypeScript 7, vanilla DOM, maplibre-gl 6.16, vite-plugin-pwa in injectManifest mode with a Workbox SW (`web/src/sw.ts`), idb-keyval, self-hosted JetBrains Mono + Silkscreen via @fontsource. Tests use vitest + happy-dom.
 - **Privacy gates:** saved places live only in server-side `places.toml`. Home never gets exact-location layers, and pins are snapped to the cell centre for everything else (`assemble.py`, `places.py`).
 - **Deploy:** an unprivileged LXC (CT 110) with systemd + a uv venv (`deploy/`) and `tailscale serve`. `deploy.sh` does pull, sync, build, restart and verify. Weekly timers refresh the camera and stop data.
+- **Chips and toggles:** items with `detail.chip: true` render as banded chips (`web/src/ui/chips.ts`), not rows; layer groups hide view-only via `web/src/layers.ts` (localStorage).
 - **CI:** `.github/workflows/ci.yml` runs ruff, pytest, vitest and the web build on every push and PR.
 
 ## Guiding Decisions (opinionated)

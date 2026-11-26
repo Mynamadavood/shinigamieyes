@@ -38,6 +38,11 @@ def band(index: float) -> str:
     return "Extreme"
 
 
+def level(index: float) -> int:
+    """Chip level 0..3: Low 0, Moderate 1, High 2, Very high and above 3."""
+    return 0 if index < 3 else 1 if index < 6 else 2 if index < 8 else 3
+
+
 class ArpansaUvProvider(Provider):
     meta = ProviderMeta(
         id="uv_now",
@@ -78,8 +83,13 @@ class ArpansaUvProvider(Provider):
             verb="now",
             target_ts=None,
             kind="environment",
-            severity=0,
-            detail={"display": f"{idx:g} · {band(idx)}", "index": idx, "station": STATION},
+            severity=level(idx),
+            detail={
+                "display": f"{idx:g} · {band(idx)}",
+                "chip": True,
+                "index": idx,
+                "station": STATION,
+            },
             fetched_at=ts,
             stale_after_s=STALE_AFTER_S,
         )
