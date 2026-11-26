@@ -3,32 +3,32 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_plan
-stopped_at: Phase 3 complete (20/20) — ready to discuss Phase 4
-last_updated: 2026-11-17T13:34:23.612Z
-last_activity: 2026-11-14 -- Phase 03 planning complete
+stopped_at: Phase 3 complete (20/20); old Phase 4 split into 4 and 5 — ready to discuss Phase 4
+last_updated: 2026-11-26T23:30:00.000Z
+last_activity: 2026-11-26 -- repo review: CI added, notes refreshed, Phase 4 split
 progress:
-  total_phases: 7
-  completed_phases: 2
+  total_phases: 8
+  completed_phases: 3
   total_plans: 49
   completed_plans: 49
-  percent: 29
+  percent: 38
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-11-05)
+See: .planning/PROJECT.md (updated 2026-11-26)
 
 **Core value:** An instant, glanceable HUD: cached profile on screen in under a second, every item named with a ticking countdown.
-**Current focus:** Phase 4 — environment, grid/water and ranking
+**Current focus:** Phase 4 — weather, fire and pollen (no new keys needed)
 
 ## Current Position
 
 Phase: 4
 Plan: Not started
 Status: Ready to plan
-Last activity: 2026-11-17
+Last activity: 2026-11-26
 
 Progress: [..........] 0%
 
@@ -52,22 +52,21 @@ Progress: [..........] 0%
 
 ### Decisions
 
-- Roadmap: 7 vertical-slice phases (MVP mode); transit after 3D map so framework and keys are ready; swap Phases 3 and 4 if PTV/GTFS-R keys arrive late
-- Roadmap: PLAT-08 (prewarm) and HUD-09 (glitch) deferred to Phase 7 polish; HUD-06/07/08 land in Phase 4 with environment data
+- Roadmap: 8 vertical-slice phases (old Phase 4 split on 2026-11-26: Phase 4 = weather/fire/pollen/chips/toggles, Phase 5 = air/grid/water/ranking, so the keyless half ships while keys are pending)
+- Roadmap (original): 7 vertical-slice phases (MVP mode); transit after 3D map so framework and keys are ready; swap Phases 3 and 4 if PTV/GTFS-R keys arrive late
+- Roadmap: PLAT-08 (prewarm) and HUD-09 (glitch) deferred to Phase 8 polish; HUD-07/08 land in Phase 4, HUD-06 (ranking) in Phase 5
 
 ### Pending Todos
 
-- Apply for Vic GTFS-Realtime key, PTV Timetable key, OpenElectricity, EPA Victoria, aisstream.io keys now
-- Freeze Tailscale MagicDNS hostname before first PWA install
+- Apply for EPA Victoria and OpenElectricity keys now (block Phase 5); aisstream.io before Phase 6. PTV key done; GTFS-R optional
 
 ### Blockers/Concerns
 
 - Pollen has no clean feed (decide in Phase 4)
-- Fixed road-camera coordinates may be missing/stale (Phase 2)
-- iPhone `*.ts.net` HTTPS, standalone geolocation and MapLibre 3D performance unproven (Phase 1 spike)
+- No backup of /etc/shinigami/.env and places.toml yet (set a Proxmox vzdump schedule for CT 110)
 
 ## Session Continuity
 
-Last session: 2026-11-13T06:22:26.713Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-transit/03-CONTEXT.md
+Last session: 2026-11-26
+Stopped at: Phase 3 complete; Phase 4 split
+Resume file: None (next: /gsd-discuss-phase 4)

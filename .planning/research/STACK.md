@@ -4,6 +4,22 @@
 **Researched:** 2026-11-05
 **Overall confidence:** MEDIUM-HIGH (package versions and endpoint liveness probed directly today; several auth/licence details from search only, flagged)
 
+## As built (updated 2026-11-26, after Phase 3)
+
+**Read this first. Where it disagrees with the research tables below, this wins.** The tables are the 2026-11-05 research; the code took a leaner path.
+
+- **Backend:** FastAPI + Uvicorn (one worker), pydantic-settings, httpx (one shared AsyncClient), sse-starlette for `/api/stream`, astral for sun times, pmtiles (Python) for serving tiles. No APScheduler, aiosqlite, orjson, Shapely or pyproj.
+- **Scheduler:** our own asyncio runtime (`server/shinigami/runtime.py`): polled providers with backoff and jitter, single-flight cell fetches, rate-guarded nudges, an in-process EventBus feeding SSE.
+- **Cache:** stdlib `sqlite3` (WAL) behind a lock plus an in-memory dict (`store.py`). Sync on purpose.
+- **Spatial:** plain haversine (`geo.py`) over small in-memory stores loaded from JSON at startup (`cameras_store.py`, `transit/store.py`). Layers are cached per 0.1° cell.
+- **Providers** (`server/shinigami/providers/`): sun, ARPANSA UV, UV window (Open-Meteo), CCTV + road cameras (OSM via osmium, weekly), PTV stops / departures / disruptions / vehicles.
+- **Transit:** PTV Timetable API v3 only (key is in `/etc/shinigami/.env` on CT 110). GTFS-Realtime is not wired. Static stops come from the public `data.ptv.vic.gov.au/downloads/gtfs.zip`, rebuilt weekly.
+- **Tiles:** self-hosted Protomaps PMTiles (Greater Melbourne extract) served at `/tiles/...` from day one. OpenFreeMap is not used. `deploy/refresh-tiles.sh` is run by hand.
+- **Frontend:** Vite 8 + TypeScript 7, vanilla DOM, maplibre-gl 6.16, vite-plugin-pwa in injectManifest mode with a Workbox SW (`web/src/sw.ts`), idb-keyval, self-hosted JetBrains Mono + Silkscreen via @fontsource. Tests use vitest + happy-dom.
+- **Privacy gates:** saved places live only in server-side `places.toml`. Home never gets exact-location layers, and pins are snapped to the cell centre for everything else (`assemble.py`, `places.py`).
+- **Deploy:** an unprivileged LXC (CT 110) with systemd + a uv venv (`deploy/`) and `tailscale serve`. `deploy.sh` does pull, sync, build, restart and verify. Weekly timers refresh the camera and stop data.
+- **CI:** `.github/workflows/ci.yml` runs ruff, pytest, vitest and the web build on every push and PR.
+
 ## Guiding Decisions (opinionated)
 
 1. **One FastAPI process, SQLite + in-process cache, no Redis/Valkey in v1.** Single user, single box, 32 GB shared. A separate cache server adds an ops surface for zero benefit. Cache = in-process dict (hot, per-layer TTL) backed by SQLite (survives restarts, so "cached profile in <1 s" survives a redeploy). Add Valkey only if a second consumer (SPENCER/LifeOS) needs shared cache.

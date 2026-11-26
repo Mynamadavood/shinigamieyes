@@ -7,12 +7,13 @@ v1 = City mode: a private, Tailscale-only iPhone PWA that profiles Melbourne aro
 ## Phases
 
 - [x] **Phase 1: Foundation and Flat HUD Slice** - Installable Tailscale-only PWA showing a cached-first, ticking list of sun and UV items at your location (completed 2026-11-06)
-- [x] **Phase 2: 3D Map, Hero and Surveillance** - Dark tilted 3D map with floating tags, info cards, hero activation, and CCTV/road-camera layer (completed 2026-11-11)
-- [x] **Phase 3: Transit** - Nearest PTV stops, live departures, approaching vehicles and disruptions (completed 2026-11-17)
-- [ ] **Phase 4: Environment, Grid/Water and Ranking** - Weather/rain, air, fire danger, pollen, grid and water, plus the ranked "next" strip, chips and layer toggles
-- [ ] **Phase 5: Hazards, Sky and Bay** - Emergency incidents with pre-empting banner, planes, ISS/satellite passes and ships
-- [ ] **Phase 6: Context and Coverage** - Heritage/Wikipedia, towers, City of Melbourne CBD data, listen-in link-outs, out-of-coverage handling
-- [ ] **Phase 7: Prewarm, Polish and Hardening** - Shortcut prewarm, glitch effects, Sources screen, soak-tested and backed up
+- [x] **Phase 2: 3D Map, Hero and Surveillance** - Dark tilted 3D map with floating tags, info cards, hero activation, and CCTV/road-camera layer (completed 2026-11-11)
+- [x] **Phase 3: Transit** - Nearest PTV stops, live departures, approaching vehicles and disruptions (completed 2026-11-17)
+- [ ] **Phase 4: Weather, Fire and Pollen** - Weather and rain countdowns, radar, fire danger, pollen/asthma, as colour-banded chips, plus layer toggles (no new keys needed)
+- [ ] **Phase 5: Air, Grid/Water and Ranking** - EPA air quality, grid mix/price/solar, water storage, plus the ranked "next" strip and tag budget (needs EPA + OpenElectricity keys)
+- [ ] **Phase 6: Hazards, Sky and Bay** - Emergency incidents with pre-empting banner, planes, ISS/satellite passes and ships
+- [ ] **Phase 7: Context and Coverage** - Heritage/Wikipedia, towers, City of Melbourne CBD data, listen-in link-outs, out-of-coverage handling
+- [ ] **Phase 8: Prewarm, Polish and Hardening** - Shortcut prewarm, glitch effects, Sources screen, soak-tested and backed up
 
 ## Phase Details
 
@@ -193,27 +194,43 @@ Plans:
 
 **UI hint**: yes
 
-### Phase 4: Environment, Grid/Water and Ranking
+### Phase 4: Weather, Fire and Pollen
 
-**Goal**: David gets a readable picture of conditions (rain, air, fire danger, pollen, grid, water) with the most urgent items surfaced first and layers he can toggle
+**Goal**: David gets a readable picture of the weather, rain, fire danger and pollen as banded chips, and can turn layers on and off
 **Mode:** mvp
 **Depends on**: Phase 3
-**Requirements**: ENV-01, ENV-02, ENV-03, ENV-05, ENV-06, CTX-04, CTX-05, HUD-06, HUD-07, HUD-08
+**Requirements**: ENV-01, ENV-02, ENV-05, ENV-06, HUD-07, HUD-08
+**Split from the old Phase 4 (2026-11-26):** every source here works without a new key (BOM unofficial with Open-Meteo fallback, BOM radar, CFA, pollen best-effort), so it can ship while the EPA and OpenElectricity keys are pending.
 **Success Criteria** (what must be TRUE):
 
   1. David sees current weather and a "rain in N min" or "rain ends in N min" countdown, with a radar overlay (or link-out)
-  2. Air quality, fire danger, pollen/asthma risk, and grid mix, price countdown, solar share and water storage appear, slow-changing ones as colour-banded chips that escalate only on thresholds
-  3. A "next" strip shows the 3-4 most urgent items ranked by urgency, relevance and severity, and map tags stay within budget
-  4. David can toggle layers on and off and the choice persists after relaunch
+  2. Fire danger and pollen/asthma risk appear as colour-banded chips (UV joins them) that escalate only on thresholds
+  3. David can toggle layers on and off and the choice persists after relaunch
 
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 5: Hazards, Sky and Bay
+### Phase 5: Air, Grid/Water and Ranking
+
+**Goal**: David sees air quality, the grid and water storage, and the most urgent items across every layer are surfaced first
+**Mode:** mvp
+**Depends on**: Phase 4
+**Requirements**: ENV-03, CTX-04, CTX-05, HUD-06
+**Split from the old Phase 4 (2026-11-26):** needs the EPA Victoria key and the OpenElectricity key (waitlisted; fallback AEMO NEM summary). Ranking comes last, once there are enough layers to rank.
+**Success Criteria** (what must be TRUE):
+
+  1. Air quality from the nearest EPA monitoring site appears as a banded chip
+  2. Grid mix, spot price with a countdown to the next interval, rooftop solar share and Melbourne Water storage appear
+  3. A "next" strip shows the 3-4 most urgent items ranked by urgency, relevance and severity, and map tags stay within budget
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 6: Hazards, Sky and Bay
 
 **Goal**: David is warned of nearby emergencies and can see what is overhead and in the bay
 **Mode:** mvp
-**Depends on**: Phase 4
+**Depends on**: Phase 5
 **Requirements**: HAZ-01, HAZ-02, HAZ-03, SKY-01, SKY-02, SKY-03
 **Success Criteria** (what must be TRUE):
 
@@ -225,11 +242,11 @@ Plans:
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 6: Context and Coverage
+### Phase 7: Context and Coverage
 
 **Goal**: David can learn what he is looking at (buildings, towers, CBD city data) and open listen-in links, with clear handling outside coverage
 **Mode:** mvp
-**Depends on**: Phase 5
+**Depends on**: Phase 6
 **Requirements**: CTX-01, CTX-02, CTX-03, CTX-06, HUD-12
 **Success Criteria** (what must be TRUE):
 
@@ -242,11 +259,11 @@ Plans:
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 7: Prewarm, Polish and Hardening
+### Phase 8: Prewarm, Polish and Hardening
 
 **Goal**: The app is ready before David opens it, feels like the Shinigami eyes, and is trustworthy about its sources
 **Mode:** mvp
-**Depends on**: Phase 6
+**Depends on**: Phase 7
 **Requirements**: PLAT-08, HUD-09, HUD-11
 **Success Criteria** (what must be TRUE):
 
@@ -265,7 +282,8 @@ Plans:
 | 1. Foundation and Flat HUD Slice | 11/11 | Complete    | 2026-11-06 |
 | 2. 3D Map, Hero and Surveillance | 18/18 | Complete    | 2026-11-11 |
 | 3. Transit | 20/20 | Complete    | 2026-11-17 |
-| 4. Environment, Grid/Water and Ranking | 0/0 | Not started | - |
-| 5. Hazards, Sky and Bay | 0/0 | Not started | - |
-| 6. Context and Coverage | 0/0 | Not started | - |
-| 7. Prewarm, Polish and Hardening | 0/0 | Not started | - |
+| 4. Weather, Fire and Pollen | 0/0 | Not started | - |
+| 5. Air, Grid/Water and Ranking | 0/0 | Not started | - |
+| 6. Hazards, Sky and Bay | 0/0 | Not started | - |
+| 7. Context and Coverage | 0/0 | Not started | - |
+| 8. Prewarm, Polish and Hardening | 0/0 | Not started | - |
