@@ -62,6 +62,14 @@ describe("selectVisible", () => {
     expect(rows[1].isFirst).toBe(false);
   });
 
+  it("chip items stay out of the rows (HUD-07)", () => {
+    const p = prof([
+      item({ id: "c", group: "c", detail: { display: "High", chip: true } }),
+      item({ id: "t", group: "t", target_ts: NOW / 1000 + 5 }),
+    ]);
+    expect(selectVisible(p, NOW).map((r) => r.id)).toEqual(["t"]);
+  });
+
   it("urgent under 15 min, only soonest gets red countdown", () => {
     const p = prof([
       item({ id: "u2", group: "u2", target_ts: NOW / 1000 + 600 }),

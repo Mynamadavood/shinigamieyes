@@ -7,11 +7,13 @@ export interface ShellSlots {
   titleText: HTMLElement;
   bannerSlot: HTMLElement;
   locationSlot: HTMLElement;
+  chipsSlot: HTMLElement;
   readoutsLeft: HTMLElement;
   readoutsRight: HTMLElement;
   controls: HTMLElement;
   drawer: HTMLElement;
   listHost: HTMLElement;
+  togglesHost: HTMLElement;
   footer: HTMLElement;
   attribution: HTMLElement;
 }
@@ -34,13 +36,15 @@ export function mountShell(root: HTMLElement): ShellSlots {
 
   const bannerSlot = el("div", "banner-slot");
   const locationSlot = el("div", "location-strip");
+  const chipsSlot = el("div", "chips");
+  chipsSlot.hidden = true;
   const readoutsLeft = el("div", "readouts-col readouts-left");
   const readoutsRight = el("div", "readouts-col readouts-right");
   const readouts = el("div", "readouts");
   readouts.append(readoutsLeft, readoutsRight);
 
   const hud = el("div", "hud");
-  hud.append(titleBar, bannerSlot, locationSlot, readouts);
+  hud.append(titleBar, bannerSlot, locationSlot, chipsSlot, readouts);
 
   const controls = el("div", "map-controls");
 
@@ -50,16 +54,17 @@ export function mountShell(root: HTMLElement): ShellSlots {
   const handle = el("button", "drawer-handle");
   handle.setAttribute("type", "button");
   const listHost = el("div", "next-list");
+  const togglesHost = el("div", "layer-toggles");
   const footer = el("footer", "footer");
   const attribution = el("p", "footer-attrib");
   attribution.hidden = true;
   const body = el("div", "drawer-body");
-  body.append(listHost, footer, attribution);
+  body.append(listHost, togglesHost, footer, attribution);
   drawer.append(handle, body);
 
   root.replaceChildren(mapHost, hud, controls, drawer);
   return {
-    mapHost, hud, titleBar, titleText, bannerSlot, locationSlot,
-    readoutsLeft, readoutsRight, controls, drawer, listHost, footer, attribution,
+    mapHost, hud, titleBar, titleText, bannerSlot, locationSlot, chipsSlot,
+    readoutsLeft, readoutsRight, controls, drawer, listHost, togglesHost, footer, attribution,
   };
 }

@@ -16,6 +16,8 @@ from shinigami.places import load_places
 from shinigami.providers.arpansa import ArpansaUvProvider
 from shinigami.providers.base import ProviderContext
 from shinigami.providers.cameras import CctvCameraProvider, RoadCameraProvider
+from shinigami.providers.fire import FireDangerProvider
+from shinigami.providers.pollen import PollenProvider
 from shinigami.providers.sun import SunProvider
 from shinigami.providers.transit import (
     TransitDeparturesProvider,
@@ -24,6 +26,7 @@ from shinigami.providers.transit import (
     TransitVehiclesProvider,
 )
 from shinigami.providers.uv_window import UvWindowProvider
+from shinigami.providers.weather import WeatherProvider
 from shinigami.runtime import EventBus, Runtime
 from shinigami.settings import Settings, get_settings
 from shinigami.store import Store
@@ -58,6 +61,9 @@ def create_app(settings: Settings | None = None, start_runtime: bool = True) -> 
         SunProvider(),
         ArpansaUvProvider(),
         UvWindowProvider(),
+        WeatherProvider(),
+        FireDangerProvider(),
+        PollenProvider(),
         CctvCameraProvider(cameras),
         RoadCameraProvider(cameras),
         TransitStopsProvider(transit),

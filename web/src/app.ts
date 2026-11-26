@@ -21,6 +21,8 @@ import type { ListState } from "./ui/next-list";
 import { OffgridBanner } from "./ui/offgrid-banner";
 import { DisruptionSheet, PTV_LICENCE } from "./ui/disruption-sheet";
 import { Readouts } from "./ui/readouts";
+import { Chips, LayerToggles, chipsFor } from "./ui/chips";
+import { hideLayers, loadHidden, saveHidden } from "./layers";
 import { mountHero, shouldPlayHero } from "./ui/hero";
 import type { HeroHandle } from "./ui/hero";
 import { mountShell } from "./ui/shell";
@@ -161,6 +163,19 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
   const readouts = new Readouts(slots.readoutsLeft, slots.readoutsRight, {
     onDisruptionsTap: () => openDisruptions(),
   });
+  const chips = new Chips(slots.chipsSlot);
+  // HUD-08: hidden layer groups, a per-device convenience read synchronously so paint never waits
+  const hidden = loadHidden();
+  const toggles = new LayerToggles(slots.togglesHost, hidden, (id) => {
+    if (hidden.has(id)) hidden.delete(id);
+    else hidden.add(id);
+    saveHidden(hidden);
+    toggles.set(hidden);
+    syncMap();
+    render();
+  });
+  /** What the screen shows: the profile minus hidden groups. Storage and merges keep the full one. */
+  const shown = (): Profile | null => hideLayers(profile, hidden);
   const conn = createConnectivity();
   const banner = new OffgridBanner(slots.bannerSlot, conn, wall);
   let profile: Profile | null = null;
@@ -238,7 +253,7 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
       mapViewKey = key;
       mapHandle.setView(view);
     }
-    mapHandle.setProfile(profile);
+    mapHandle.setProfile(shown());
   }
 
   async function startMap(): Promise<void> {
@@ -269,14 +284,27 @@ export async function boot(root: HTMLElement, deps: BootDeps = {}): Promise<AppH
     slots.footer.textContent = `server ${pad2(d.getHours())}:${pad2(d.getMinutes())} · v0.1.0`;
   }
 
-  slots.attribution.textContent = PTV_LICENCE;
+  /** Credits for what is on screen: the PTV licence with transit, plus each chip source (CC BY). */
+  function attributionText(view: Profile | null): string {
+    if (!view) return "";
+    const parts = view.layers["transit_stops"] ? [PTV_LICENCE] : [];
+    for (const id of ["weather", "uv_now", "fire_danger", "pollen"]) {
+      const l = view.layers[id];
+      if (l && l.items.length && l.attribution && !parts.includes(l.attribution)) parts.push(l.attribution);
+    }
+    return parts.join(" · ");
+  }
 
   function renderRows(now: number): void {
-    slots.attribution.hidden = !profile?.layers["transit_stops"];
-    const rows = selectVisible(profile, now);
+    const view = shown();
+    const credit = attributionText(view);
+    if (slots.attribution.textContent !== credit) slots.attribution.textContent = credit;
+    slots.attribution.hidden = credit === "";
+    const rows = selectVisible(view, now);
     list.setState(deriveListState(rows.length, profile !== null, conn.state()));
     list.update(rows, now);
-    readouts.update(rows, profile, now);
+    readouts.update(rows, view, now);
+    chips.update(chipsFor(view, now));
     // an open disruption sheet follows new frames like the corner readout (WR-W10)
     if (disSheet.isOpen()) disSheet.update(profile?.layers["transit_disruptions"]);
   }

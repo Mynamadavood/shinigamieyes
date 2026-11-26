@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Shape recorded from the live CFA Central feed on 2026-11-27; Saturday/Sunday values edited to cover HIGH and Total Fire Ban -->
+<rss version="2.0"><channel>
+<title>Country Fire Authority - Total Fire Ban &amp; Fire Danger Ratings - Central Forecast</title>
+<item>
+<title>Friday, 27 November 2026</title>
+<link>https://www.cfa.vic.gov.au/x</link>
+<description>&lt;p&gt;Today, Fri, 27 Nov 2026 is not currently a day of Total Fire Ban.&lt;/p&gt;&lt;p&gt;Fire Danger Ratings&lt;br/&gt;Bureau of Meteorology forecast issued at: Friday, 27 November 2026 05:30 AM&lt;/p&gt;&lt;p&gt;Central: NO RATING&lt;/p&gt;&lt;p&gt;&lt;img src="https://www.cfa.vic.gov.au/cfa/images/fdr/central/norating.gif" alt="" border="0" /&gt;&lt;/p&gt;&lt;p&gt;&lt;img src="https://www.cfa.vic.gov.au/cfa/images/tfb_icon_big.png" alt="" width="22" height="22" /&gt; Displays when Total Fire Ban in force&lt;br /&gt;&lt;/p&gt;</description>
+</item>
+<item>
+<title>Saturday, 28 November 2026</title>
+<link>https://www.cfa.vic.gov.au/x</link>
+<description>&lt;p&gt;Tomorrow, Sat, 28 Nov 2026 is not currently a day of Total Fire Ban.&lt;/p&gt;&lt;p&gt;Fire Danger Ratings&lt;br/&gt;Bureau of Meteorology forecast issued at: Friday, 27 November 2026 05:30 AM&lt;/p&gt;&lt;p&gt;Central: HIGH&lt;/p&gt;&lt;p&gt;&lt;img src="https://www.cfa.vic.gov.au/cfa/images/fdr/central/high.gif" alt="" border="0" /&gt;&lt;/p&gt;&lt;p&gt;&lt;img src="https://www.cfa.vic.gov.au/cfa/images/tfb_icon_big.png" alt="" width="22" height="22" /&gt; Displays when Total Fire Ban in force&lt;br /&gt;&lt;/p&gt;</description>
+</item>
+<item>
+<title>Sunday, 29 November 2026</title>
+<link>https://www.cfa.vic.gov.au/x</link>
+<description>&lt;p&gt;Sun, 29 Nov 2026 is a day of Total Fire Ban.&lt;/p&gt;&lt;p&gt;Fire Danger Ratings&lt;br/&gt;Bureau of Meteorology forecast issued at: Friday, 27 November 2026 05:30 AM&lt;/p&gt;&lt;p&gt;Central: EXTREME&lt;/p&gt;&lt;p&gt;&lt;img src="https://www.cfa.vic.gov.au/cfa/images/fdr/central/extreme.gif" alt="" border="0" /&gt;&lt;/p&gt;&lt;p&gt;&lt;img src="https://www.cfa.vic.gov.au/cfa/images/tfb_icon_big.png" alt="" width="22" height="22" /&gt; Displays when Total Fire Ban in force&lt;br /&gt;&lt;/p&gt;</description>
+</item>
+</channel></rss>
