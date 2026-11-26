@@ -6,13 +6,13 @@ Drafted 2026-11-05 from the project research. Portal pages change. Where a step 
 
 | # | Key | Blocks | Lead time | Status |
 |---|-----|--------|-----------|--------|
-| 1 | Vic GTFS-Realtime | Phase 3 (live transit) | Usually instant (verify) | ☐ |
-| 2 | PTV Timetable API v3 | Phase 3 (disruptions, departures) | Days to weeks (manual email) | ☐ |
-| 3 | EPA Victoria | Phase 4 (air quality) | Usually instant (verify) | ☐ |
-| 4 | OpenElectricity | Phase 4 (grid) | Waitlisted | ☐ |
-| 5 | aisstream.io | Phase 5 (ships) | Instant | ☐ |
+| 1 | Vic GTFS-Realtime | Optional (Phase 3 shipped on PTV alone) | Usually instant (verify) | skipped |
+| 2 | PTV Timetable API v3 | Phase 3 (disruptions, departures) | Days to weeks (manual email) | ☑ live on CT 110 |
+| 3 | EPA Victoria | Phase 5 (air quality) | Usually instant (verify) | ☐ apply now |
+| 4 | OpenElectricity | Phase 5 (grid) | Waitlisted | ☐ apply now |
+| 5 | aisstream.io | Phase 6 (ships) | Instant | ☐ |
 | 6 | VicEmergency official feed | Nothing (public feeds work) | Unknown | ☐ |
-| — | Tailscale setup | Phase 1 | 10 min | ☐ |
+| — | Tailscale setup | Phase 1 | 10 min | ☑ |
 
 ---
 
@@ -74,7 +74,7 @@ Limit: about 5 requests per second, which is plenty.
 3. Once you're approved, create an **API key** in the platform dashboard.
 4. Add to `.env`: `OPENELECTRICITY_KEY=...`
 
-If it's still waitlisted by Phase 4, the fallback is AEMO's public NEM summary data, which needs no key **(verify)**.
+If it's still waitlisted by Phase 5, the fallback is AEMO's public NEM summary data, which needs no key **(verify)**.
 
 ## 5. aisstream.io (ships in Port Phillip)
 

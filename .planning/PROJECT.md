@@ -19,6 +19,10 @@ A private, Watch Dogs-style profiler of David's surroundings: a full-screen iPho
 - [x] Location-driven profile endpoint: GPS, saved-place pins (coordinates server-side only) or address search; cached first, live refresh over SSE — Validated in Phase 1 (sun + UV layers)
 - [x] Installable full-screen iOS PWA (home-screen app, offline shell, last profile cached on device, OFF-GRID banner) — Validated in Phase 1 on David's iPhone
 - [x] Every item rendered with a name and a live countdown (flat list; map HUD comes in Phase 2) — Validated in Phase 1
+- [x] Hero "activation" screen: red Shinigami eyes on black, pixel-font title bar — Validated in Phase 2
+- [x] NetHack-style main view over a dark, tilted 3D MapLibre map with floating tags, red volumes and info cards (self-hosted PMTiles) — Validated in Phase 2
+- [x] Surveillance: CCTV within ~150 m (OSM) + fixed speed / red-light cameras; never shown at Home — Validated in Phase 2
+- [x] PTV: nearest stops, live departures, approaching vehicles, disruptions (PTV Timetable API v3; GTFS-R not used) — Validated in Phase 3
 
 ### Active
 
@@ -27,13 +31,9 @@ A private, Watch Dogs-style profiler of David's surroundings: a full-screen iPho
 **Platform & backend**
 
 **HUD / look**
-- [ ] Hero "activation" screen: anime Shinigami eyes in blood red on pure black, pixel-font title bar (ref: `.planning/references/hero-eyes.png`)
-- [ ] NetHack-style main view over a dark, tilted 3D map (MapLibre): desaturated blue world, thin frame, floating icon+label tags, red highlighted volumes, pop-up info cards on places/things (ref: `.planning/references/nethack-view.png`)
-- [ ] Glitchy HUD feel; every item rendered with a name and a live countdown
+- [ ] Glitchy HUD feel (glitch effects land in the polish phase)
 
 **City mode data layers (Melbourne-wide)**
-- [ ] PTV: nearest stops, real-time departures, disruptions, approaching vehicles (GTFS-realtime first; PTV Timetable API once key arrives)
-- [ ] Surveillance: known CCTV within ~150 m (OSM via Overpass) + fixed speed / red-light cameras (Victorian road safety camera list)
 - [ ] Environment: air quality (EPA Vic), UV (ARPANSA), pollen + thunderstorm asthma (Melbourne Pollen), BOM weather + rain radar, fire danger (CFA)
 - [ ] City of Melbourne: pedestrian counts, parking bay sensors, street trees, development activity (CBD coverage only — degrade gracefully elsewhere)
 - [ ] Buildings: heritage (Victorian Heritage Database) + Wikipedia geosearch for what's in front of you
@@ -67,7 +67,7 @@ A private, Watch Dogs-style profiler of David's surroundings: a full-screen iPho
 - **LifeOS:** existing life dashboard, its own container on Proxmox. Intended relationship: **both directions** — Shinigami reads stats (gym, sleep, streaks) for the self-profile card and writes events back (gym arrival, logbook drives). Internals unknown — needs investigation before milestone 2.
 - **Visual references:** `.planning/references/hero-eyes.png` (eyes, recolour pink→red), `.planning/references/nethack-view.png` (Watch Dogs 2 NetHack).
 - **Hardware on order (for later milestones):** 2× RTL-SDR Blog V4, 1090 MHz antenna + LNA, discone, QFH parts, powered USB hub, per-room ESP32 sensor kits, small ESP32 display.
-- **Open to-dos:** apply for PTV API key (not yet applied); register interest in VicEmergency data feed; check RadioReference for CFA district mode; Liftoff export; Apple Watch decision; VicRoads logbook rules.
+- **Open to-dos:** apply for EPA Victoria and OpenElectricity keys (PTV key done); register interest in VicEmergency data feed; check RadioReference for CFA district mode; Liftoff export; Apple Watch decision; VicRoads logbook rules.
 
 ## Constraints
 
@@ -77,8 +77,8 @@ A private, Watch Dogs-style profiler of David's surroundings: a full-screen iPho
 - **Performance**: Cached data on screen in < 1 s, live data fills in after — "never the slow path"
 - **Tech stack**: Python + FastAPI backend; iOS PWA frontend with MapLibre 3D map — chosen for data/radio tooling fit
 - **Platform**: iOS Safari PWA limits (no background location) — use iOS Shortcuts automations as triggers
-- **Dependencies**: API keys not yet applied for — Vic GTFS-Realtime (KeyID), PTV Timetable v3, EPA Victoria, aisstream.io, OpenElectricity (waitlisted); build adapters against recorded fixtures until keys arrive. VicEmergency public feeds work today but have no SLA
-- **Tiles**: self-hosted Protomaps PMTiles (Melbourne extract) in production so location never leaks to a tile CDN; OpenFreeMap only for early dev
+- **Dependencies**: PTV Timetable v3 key is live (Phase 3). Still to apply for: EPA Victoria, OpenElectricity (waitlisted), aisstream.io; GTFS-Realtime optional. Build adapters against recorded fixtures until keys arrive. VicEmergency public feeds work today but have no SLA
+- **Tiles**: self-hosted Protomaps PMTiles (Greater Melbourne extract) so location never leaks to a tile CDN (in use since Phase 2)
 - **Timeline**: Solo, summer holidays 2026–27; each phase must be usable on its own
 - **Resources**: Proxmox 32 GB RAM shared with SPENCER, LifeOS and other VMs
 
@@ -89,10 +89,12 @@ A private, Watch Dogs-style profiler of David's surroundings: a full-screen iPho
 | v1 milestone = City mode only | Needs no hardware; hardware arrives after exams | — Pending |
 | Python + FastAPI backend | Best fit for data/GTFS libs and later radio/whisper.cpp work | ✓ Good (Phase 1; custom asyncio runtime + stdlib sqlite instead of APScheduler/aiosqlite) |
 | iOS PWA, not native app | Fast to build solo, home-screen full-screen, Tailscale-reachable | ✓ Good (Phase 1: installs, updates in place, GPS prompts once) |
-| 3D dark map (MapLibre) as HUD canvas now, AR camera later | Reliable indoors and on iOS; AR camera + compass is harder | — Pending |
-| Hero = red Shinigami eyes; main view = Watch Dogs NetHack style | David's visual references | — Pending |
+| 3D dark map (MapLibre) as HUD canvas now, AR camera later | Reliable indoors and on iOS; AR camera + compass is harder | ✓ Good (Phase 2) |
+| Hero = red Shinigami eyes; main view = Watch Dogs NetHack style | David's visual references | ✓ Good (Phase 2) |
 | LifeOS integration both directions, deferred to milestone 2 | LifeOS internals unknown | — Pending |
-| Profiles places/infrastructure/self, never other people | Legal + ethical hard rule | — Pending |
+| Profiles places/infrastructure/self, never other people | Legal + ethical hard rule | ✓ Holding (Phases 1–3) |
+| Transit via PTV Timetable API v3 only | Key arrived; one source covers departures, disruptions and positions | ✓ Good (Phase 3) |
+| Split old Phase 4 into Phase 4 (weather, fire, pollen, chips, toggles; no keys) and Phase 5 (air, grid, water, ranking; keyed) | Biggest phase, and half of it waits on EPA/OpenElectricity keys | — Pending (2026-11-26) |
 | Address type-ahead via Photon, full search via Nominatim, both server-side | Nominatim forbids autocomplete; phone never contacts geocoders | ✓ Good (Phase 1) |
 | Pinned-place layers computed for a 0.1° cell, never the exact point | Home coordinates must not be recoverable from client data | ✓ Good (Phase 1 review fix) |
 
@@ -114,4 +116,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-11-06 after Phase 1 completion*
+*Last updated: 2026-11-26 after Phase 3 completion and Phase 4 split*

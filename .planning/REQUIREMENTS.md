@@ -149,28 +149,28 @@ Set during roadmap creation (2026-11-05).
 | TRAN-04 | Phase 3 | Complete |
 | ENV-01 | Phase 4 | Pending |
 | ENV-02 | Phase 4 | Pending |
-| ENV-03 | Phase 4 | Pending |
+| ENV-03 | Phase 5 | Pending |
 | ENV-05 | Phase 4 | Pending |
 | ENV-06 | Phase 4 | Pending |
-| CTX-04 | Phase 4 | Pending |
-| CTX-05 | Phase 4 | Pending |
-| HUD-06 | Phase 4 | Pending |
+| CTX-04 | Phase 5 | Pending |
+| CTX-05 | Phase 5 | Pending |
+| HUD-06 | Phase 5 | Pending |
 | HUD-07 | Phase 4 | Pending |
 | HUD-08 | Phase 4 | Pending |
-| HAZ-01 | Phase 5 | Pending |
-| HAZ-02 | Phase 5 | Pending |
-| HAZ-03 | Phase 5 | Pending |
-| SKY-01 | Phase 5 | Pending |
-| SKY-02 | Phase 5 | Pending |
-| SKY-03 | Phase 5 | Pending |
-| CTX-01 | Phase 6 | Pending |
-| CTX-02 | Phase 6 | Pending |
-| CTX-03 | Phase 6 | Pending |
-| CTX-06 | Phase 6 | Pending |
-| HUD-12 | Phase 6 | Pending |
-| PLAT-08 | Phase 7 | Pending |
-| HUD-09 | Phase 7 | Pending |
-| HUD-11 | Phase 7 | Pending |
+| HAZ-01 | Phase 6 | Pending |
+| HAZ-02 | Phase 6 | Pending |
+| HAZ-03 | Phase 6 | Pending |
+| SKY-01 | Phase 6 | Pending |
+| SKY-02 | Phase 6 | Pending |
+| SKY-03 | Phase 6 | Pending |
+| CTX-01 | Phase 7 | Pending |
+| CTX-02 | Phase 7 | Pending |
+| CTX-03 | Phase 7 | Pending |
+| CTX-06 | Phase 7 | Pending |
+| HUD-12 | Phase 7 | Pending |
+| PLAT-08 | Phase 8 | Pending |
+| HUD-09 | Phase 8 | Pending |
+| HUD-11 | Phase 8 | Pending |
 
 **Coverage:**
 - v1 requirements: 45 total
@@ -179,4 +179,4 @@ Set during roadmap creation (2026-11-05).
 
 ---
 *Requirements defined: 2026-11-05*
-*Last updated: 2026-11-05 after initial definition*
+*Last updated: 2026-11-26: Phase 4 split into 4 and 5; later phases renumbered*
